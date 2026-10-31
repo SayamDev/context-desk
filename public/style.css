@@ -182,3 +182,11 @@ body[data-workspace="jobs"] :is(.desk,.batch-panel,.editor,.story-cut,.cut-secti
 @media(max-width:600px){.language-quick{grid-template-columns:1fr}.moment-map-heading{align-items:start;flex-direction:column}.caption-line{grid-template-columns:48px minmax(0,1fr)}.caption-flag{grid-column:2}.memory-create{flex-direction:column}.memory-panel button{font-size:14px}}
 .moment-map-track .unchecked {background:repeating-linear-gradient(135deg,#63576f,#63576f 4px,#80718d 4px,#80718d 8px)}
 .editor-history {display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:18px}.editor-history button {min-height:42px;padding:10px 15px;background:white;border:1px solid #b8a8cc;border-radius:8px;font-size:14px;font-weight:650}.editor-history span {font-size:13px;color:#514064}.export-preview {margin-top:16px}.export-preview summary{font-size:14px;font-weight:700;cursor:pointer}.export-preview video{display:block;max-width:100%;max-height:400px;margin-top:12px;background:#151218}
+/* Functional text stays readable on the lilac and white surfaces. */
+:where(.source-quality,.monitor-hint,.source-summary,.pagehead p,.export-hint,.back-clips,.project-state) {color:#514064}
+footer{color:#5d4d6e;font-size:11px;line-height:1.6}
+:where(button,input,textarea,select){font-size:max(12px,1em)}
+:where(button,a,input,textarea,select,summary):focus-visible{outline:3px solid #7044b7;outline-offset:3px}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+.library-row-actions{display:flex;gap:8px;flex-wrap:wrap}.library-row-actions button{min-height:40px;font-size:13px;padding:10px 12px;background:transparent;border:1px solid #b7a9c9;border-radius:8px;color:#3b2851}
+@media(max-width:600px){.workspace-nav{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:3px;overflow:visible}.workspace-nav button{grid-column:span 2;padding:12px 5px;font-size:12px;white-space:normal;justify-content:center;min-height:44px}.workspace-nav button:nth-child(-n+2){grid-column:span 3}.library-row-actions{grid-column:2/-1}}

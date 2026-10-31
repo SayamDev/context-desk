@@ -75,8 +75,8 @@ Files: lib/exports.js, public/app.js, tests/exports.test.js, QA.md.
 
 ## Task 6 — Evaluation, performance and submission
 
-- [ ] Add speech/reference evaluation tooling without fabricated dialect scores.
-- [ ] Measure restore, first result, export latency and request counts on fixed fixtures.
-- [ ] Perform responsive/accessibility checks; retain original artwork and useful familiar controls.
-- [ ] Verify official competition requirements and prepare permissioned source-backed demo material.
-- [ ] Update README, STATUS, QA, feature matrix and outstanding external validation; report actual evidence.
+- [x] Add speech/reference evaluation tooling without fabricated dialect scores.
+- [x] Measure local project fetch and small-fixture render latency, and expose actual request counts. First-result and long-form benchmarks remain explicit external gates.
+- [x] Perform responsive/accessibility checks; retain original artwork and useful familiar controls.
+- [x] Recheck public event pages and prepare a permissioned demo route. Final accepted-participant rules/form remain pending at the user's request; reminder scheduled.
+- [x] Update README, STATUS, QA, feature matrix and outstanding external validation; report actual evidence.

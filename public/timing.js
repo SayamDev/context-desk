@@ -14,7 +14,7 @@ export function speechCues(data,duration){
     if(!words.length||!Number.isFinite(start)||!Number.isFinite(end)||end-start<.1)continue;
     for(let i=0;i<words.length;i+=6)cues.push({start:start+(end-start)*i/words.length,end:start+(end-start)*Math.min(words.length,i+6)/words.length,text:words.slice(i,i+6).join(' ')});
   }
-  let last=0;return cues.map(c=>{c.start=Math.max(c.start,last);last=c.end;return c}).filter(c=>c.end-c.start>=.1);
+  let last=0;return cues.map(c=>{c.start=Math.max(c.start,last);last=c.end;return c}).filter(c=>c.end-c.start>=.1).map(c=>{const words=c.text.normalize('NFKC').replace(/[\p{P}\p{S}]/gu,' ').toLocaleLowerCase().split(/\s+/).filter(Boolean);return words.some((w,i)=>w.length>=3&&w===words[i-1])?{...c,uncertain:true,reviewReason:'Repeated word — listen against the source before approving.'}:c});
 }
 export function srtDocument(cues){
   const time=s=>{const ms=Math.max(0,Math.round(s*1000));return [Math.floor(ms/3600000),Math.floor(ms%3600000/60000),Math.floor(ms%60000/1000)].map(n=>String(n).padStart(2,'0')).join(':')+','+String(ms%1000).padStart(3,'0')};
