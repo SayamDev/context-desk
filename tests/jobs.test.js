@@ -1,0 +1,27 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs/promises';import os from 'node:os';import path from 'node:path';
+import {openStore} from '../lib/store.js';import {createSubtitleService} from '../lib/subtitles.js';import {createDiscoveryService,discoverySections,spreadSections} from '../lib/discovery.js';import {createJobQueue} from '../lib/jobs.js';
+const settle=async(service,id)=>{for(let i=0;i<200;i++){const j=service.get(id);if(!['queued','running'].includes(j.status))return j;await new Promise(r=>setTimeout(r,2))}throw Error('Job did not settle')};
+test('three recordings queue once, waiting order can change and cancellation keeps accurate counts',async()=>{
+  let release;const barrier=new Promise(r=>release=r),started=[];
+  const queue=createJobQueue({kind:'test',execute:async j=>{started.push(j.name);if(j.name==='one')await barrier}});
+  const one=queue.add({name:'one'},{idempotencyKey:'one'});await new Promise(r=>setImmediate(r));const two=queue.add({name:'two'}),three=queue.add({name:'three'});
+  assert.equal(queue.add({name:'duplicate'},{idempotencyKey:'one'}).id,one.id);assert.deepEqual(queue.counts(),{waiting:2,running:1,completed:0,failed:0,paused:0,cancelled:0});
+  queue.command(three.id,'first');assert.equal(queue.get(three.id).queuePosition,1);queue.command(two.id,'cancel');release();await settle(queue,three.id);assert.deepEqual(started,['one','three']);assert.equal(queue.counts().cancelled,1);assert.equal(queue.counts().completed,2);
+});
+test('subtitle options, completed sections and paid speech cache survive SQLite restart',async()=>{
+  const root=await fs.mkdtemp(path.join(os.tmpdir(),'subtitle-restart-'));let store=openStore(root),speech=0,fail=true;
+  const deps={claimSource:()=>({file:'fixture',duration:90,title:'Arabic recording',release(){}}),extract:async()=>({data:'data:audio/wav;base64,AAAA'}),transcribe:async()=>{speech++;return {turns:[{startMs:0,endMs:1000,text:'مرحبا'}]}},translate:async lines=>{if(fail&&speech===2)throw Error('Service unavailable');return lines.map(c=>({...c,text:'Hello'}))}};
+  let service=createSubtitleService({...deps,store});const job=await service.start({sourceId:'source',language:'English',speechProvider:'meta',translationProvider:'meta',speechLanguage:'Arabic',dialectNote:'Egyptian',keywords:['Amina']});assert.equal((await settle(service,job.id)).sectionsDone,1);assert.equal(speech,2);store.close();
+  store=openStore(root);service=createSubtitleService({...deps,store});assert.equal(service.track(job.id,true)[0].text,'مرحبا');assert.equal(service.get(job.id).sectionsRemaining,1);assert.equal(store.getRecord('subtitle_job',job.id).dialectNote,'Egyptian');fail=false;await service.command(job.id,'resume');assert.equal((await settle(service,job.id)).status,'complete');assert.equal(speech,2);assert.equal(service.get(job.id).translationRequests,3);store.close();await fs.rm(root,{recursive:true,force:true});
+});
+test('restart marks unknown provider requests interrupted and never silently runs them',async()=>{
+  const root=await fs.mkdtemp(path.join(os.tmpdir(),'job-interrupted-')),store=openStore(root);store.putRecord('test','x',{id:'x',kind:'test',status:'running',inFlight:{operation:'speech'},order:1,createdAt:1});let calls=0;
+  const queue=createJobQueue({store,kind:'test',execute:async()=>{calls++}});await new Promise(r=>setImmediate(r));assert.equal(calls,0);assert.equal(queue.get('x').status,'interrupted');assert.match(queue.get('x').error,/charge/);queue.command('x','resume');assert.equal((await settle(queue,'x')).status,'complete');assert.equal(calls,1);store.close();await fs.rm(root,{recursive:true,force:true});
+});
+test('discovery sampling has a bounded full-source spread and produces recoverable worker moments',async()=>{
+  assert.ok(discoverySections(21600,80).length<=80);assert.deepEqual(spreadSections(8,3),[0,4,7]);
+  const root=await fs.mkdtemp(path.join(os.tmpdir(),'discovery-'));let store=openStore(root);const p=store.createProject({sourceId:'source'});let calls=0,fail=true;
+  const deps={claimSource:()=>({file:'fixture',duration:90,title:'Episode',size:20,release(){}}),frame:async()=>Buffer.from('JPEG fixture'),extract:async()=>({data:'data:audio/wav;base64,AAAA'}),transcribe:async()=>({transcript:'A real question?',turns:[{startMs:0,endMs:1000,text:'A real question?'}]}),analyse:async()=>{if(++calls===2&&fail)throw Error('Provider timeout');return {worthClipping:true,hook:'What happens next?',evidence:'Transcript: A real question?'}},translate:async c=>c};
+  let service=createDiscoveryService({...deps,store});const j=service.start({sourceId:'source',projectId:p.id,budget:3});assert.equal((await settle(service,j.id)).checksDone,1);const first=store.getProject(p.id).state.moments[0];assert.equal(first.start,0);assert.equal(first.end,45);assert.match(first.frames[0],/^\/api\/assets\//);store.close();
+  store=openStore(root);service=createDiscoveryService({...deps,store});fail=false;service.command(j.id,'resume');assert.equal((await settle(service,j.id)).status,'complete');assert.equal(store.getProject(p.id).state.moments.length,2);assert.equal(service.get(j.id).speechRequests,2);assert.equal(calls,3);store.close();await fs.rm(root,{recursive:true,force:true});
+});

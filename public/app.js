@@ -1,3 +1,4 @@
+import {createJobsView} from './jobs.js';
 import {createProjectSession,settingIds,savedMomentKeys,requestJson} from './projects.js';
 import {createTranslationCache,translationKey} from './translation-cache.js';
 import {syncedCues,shouldRestart,speechCues,srtDocument} from './timing.js';
@@ -49,7 +50,7 @@ async function loadVideoFile(file,{sourceLink='',auto=true}={}){
   if(!projectSession?.restoring){try{await projectSession?.beforeSourceChange()}catch(error){message(error.message);return}}
   cleanupSource();if(!projectSession?.restoring){state.moments=[];state.cut=[];state.selected=null;state.batchExports=[];}const loadToken=state.sourceLoadToken;setActivity('source','Opening your video','Preparing the picture and original audio…');
   state.sourceUrl=URL.createObjectURL(file);sourceUrls.add(state.sourceUrl);program.controls=true;program.muted=true;program.src=state.sourceUrl;state.source=file;state.sourceType='file';state.sourceName=file.name;state.sourcePageUrl=sourceLink;state.batchId=crypto.randomUUID();state.batchCancel=false;$('batchPanel').hidden=false;$('batchResults').innerHTML='';setSourceLabel(file.name);$('emptySource').hidden=true;updateButtons();
-  try{await mediaReady(program);if(loadToken!==state.sourceLoadToken)return;if(program.duration>21600||file.size>20*1024*1024*1024)throw Error('Choose a recording up to 6 hours and 20 GB.');{ setActivity('source','Preparing your long recording','Copying the file into the local processing cache. The original stays on this computer.');state.sourceUploadAbort=new AbortController();const staged=await fetch('/api/import/upload',{method:'POST',signal:state.sourceUploadAbort.signal,headers:{'Content-Type':file.type||'video/mp4','X-Video-Duration':String(program.duration),'X-Video-Name':encodeURIComponent(file.name)},body:file});const job=await staged.json();if(loadToken!==state.sourceLoadToken)return;if(!staged.ok)throw Error(job.error||'The long recording could not be prepared.');state.source={importId:job.id,size:file.size,type:file.type,name:file.name};const previousUrl=state.sourceUrl;state.sourceUrl=job.mediaUrl;program.src=job.mediaUrl;await mediaReady(program);URL.revokeObjectURL(previousUrl);sourceUrls.delete(previousUrl);if(await projectSession.adopt(job.projectId||job.id))return;}$('batchButton').disabled=false;batchProgress(`${formatTime(program.duration)} ready · preparing your clip drop`);updateSourceQuality();await connectionReady;if(loadToken!==state.sourceLoadToken)return;renderQueue();showWorkspace('clips');if(auto&&$('autoGenerate').checked&&state.meta){finishActivity('source');$('batchButton').onclick();}else batchProgress(state.meta?'Video ready. Choose Find clips to begin.':'Video ready. Add a Meta API key to enable automatic clip selection.');}
+  try{await mediaReady(program);if(loadToken!==state.sourceLoadToken)return;if(program.duration>21600||file.size>20*1024*1024*1024)throw Error('Choose a recording up to 6 hours and 20 GB.');{ setActivity('source','Preparing your long recording','Copying the file into the local processing cache. The original stays on this computer.');state.sourceUploadAbort=new AbortController();const staged=await fetch('/api/import/upload',{method:'POST',signal:state.sourceUploadAbort.signal,headers:{'Content-Type':file.type||'video/mp4','X-Video-Duration':String(program.duration),'X-Video-Name':encodeURIComponent(file.name)},body:file});const job=await staged.json();if(loadToken!==state.sourceLoadToken)return;if(!staged.ok)throw Error(job.error||'The long recording could not be prepared.');state.source={importId:job.id,size:file.size,type:file.type,name:file.name};const previousUrl=state.sourceUrl;state.sourceUrl=job.mediaUrl;program.src=job.mediaUrl;await mediaReady(program);URL.revokeObjectURL(previousUrl);sourceUrls.delete(previousUrl);if(await projectSession.adopt(job.projectId||job.id))return;}$('batchButton').disabled=false;batchProgress(`${formatTime(program.duration)} ready · preparing your clip drop`);updateSourceQuality();await connectionReady;if(loadToken!==state.sourceLoadToken)return;renderQueue();showWorkspace('clips');if(auto&&$('autoGenerate').checked&&state.meta){finishActivity('source');await $('batchButton').onclick();}else batchProgress(state.meta?'Video ready. Choose Find clips to begin.':'Video ready. Add a Meta API key to enable automatic clip selection.');}
   catch(error){if(loadToken!==state.sourceLoadToken)return;showWorkspace('source');$('linkStatus').hidden=false;$('linkStatus').textContent=error.message||'This file could not be opened. Try an MP4 or WebM.';}
   finally{if(loadToken===state.sourceLoadToken)finishActivity('source')}
 }
@@ -57,9 +58,9 @@ async function loadImportedVideo(job,sourceLink,{auto=true}={}){
   if(!projectSession?.restoring){try{await projectSession?.beforeSourceChange()}catch(error){message(error.message);return}}
   cleanupSource();if(!projectSession?.restoring){state.moments=[];state.cut=[];state.selected=null;state.batchExports=[];}const loadToken=state.sourceLoadToken;setActivity('source','Opening your recording','Streaming the video from this computer. Preparing a bounded clip scan…');
   state.sourceUrl=job.mediaUrl;state.source={importId:job.id,size:job.size,type:job.mime,name:job.title};state.sourceType='file';state.sourceName=job.title;state.sourcePageUrl=sourceLink;state.batchId=crypto.randomUUID();state.batchCancel=false;program.controls=true;program.muted=true;program.src=job.mediaUrl;$('emptySource').hidden=true;$('batchPanel').hidden=false;$('batchResults').innerHTML='';setSourceLabel(job.title);updateButtons();
-  try{await mediaReady(program);if(loadToken!==state.sourceLoadToken)return;if(!projectSession?.restoring&&await projectSession.adopt(job.projectId||job.id))return;$('batchButton').disabled=false;updateSourceQuality();await connectionReady;if(loadToken!==state.sourceLoadToken)return;renderQueue();showWorkspace('clips');finishActivity('source');if(auto&&$('autoGenerate').checked&&state.meta)$('batchButton').onclick();else batchProgress('Recording ready. Choose Find clips to begin.');}finally{if(loadToken===state.sourceLoadToken)finishActivity('source')}
+  try{await mediaReady(program);if(loadToken!==state.sourceLoadToken)return;if(!projectSession?.restoring&&await projectSession.adopt(job.projectId||job.id))return;$('batchButton').disabled=false;updateSourceQuality();await connectionReady;if(loadToken!==state.sourceLoadToken)return;renderQueue();showWorkspace('clips');finishActivity('source');if(auto&&$('autoGenerate').checked&&state.meta)await $('batchButton').onclick();else batchProgress('Recording ready. Choose Find clips to begin.');}finally{if(loadToken===state.sourceLoadToken)finishActivity('source')}
 }
-$('fileInput').onchange=async event=>{const file=event.target.files?.[0];if(file){if(importId)await $('cancelImport').onclick();await loadVideoFile(file)}};
+$('fileInput').onchange=async event=>{const files=[...(event.target.files||[])];if(importId)await $('cancelImport').onclick();for(const file of files)await loadVideoFile(file);};
 function linkStatus(text){$('linkStatus').hidden=false;$('linkStatus').textContent=text}
 $('linkForm').onsubmit=async event=>{
   event.preventDefault();if(importId)return;importCancelled=false;$('captureFallback').hidden=true;$('openStream').disabled=true;$('cancelImport').hidden=false;setActivity('import','Loading your video','Checking the link and preparing the recording…');linkStatus('Checking your video link…');
@@ -342,49 +343,16 @@ function createBatchMoment(window,audio){
 }
 $('clipTarget').onchange=()=>{$('batchButton').textContent=`FIND ${$('clipTarget').value} CLIPS ACROSS VIDEO →`;renderBatchResults()};
 $('batchButton').onclick=async()=>{
-  if(state.batchRunning){state.batchCancel=true;batchProgress('Stopping after the current check. Existing candidates stay ready to edit.');return;}
-  if(state.sourceType!=='file'||!state.source||!Number.isFinite(program.duration)||program.duration<2)return;
-  if(!state.meta){batchProgress('Add a Meta API key to generate story candidates. The file stays local until you start this scan.');return;}
-  const batchId=state.batchId,file=state.source,target=Number($('clipTarget').value),remaining=aiLimit()?Math.max(0,aiLimit()-state.aiCalls):24,count=Math.min(remaining,target*3,24);
-  if(!count){batchProgress('The visible AI window limit is reached. Raise it in Scan settings or review the existing queue.');return;}
-  showWorkspace('clips');state.batchRunning=true;state.batchCancel=false;setActivity('batch','Reading your video','Preparing picture and audio. Larger recordings can take a little longer.');$('batchButton').textContent='STOP AFTER CURRENT CHECK';
-  let audio=null,sampler;
-  try{
-    if(state.scanning)stopScan('Playback scan paused while the batch examines the full file.');
-    program.pause();
-    if(!file.importId&&file.size<=300_000_000&&program.duration<=1800){
-      try{const context=new AudioContext();audio=await context.decodeAudioData(await file.arrayBuffer());await context.close();}
-      catch{audio=null}
-    }
-    batchProgress(file.importId?'Sampling across the recording. Speech will be extracted only for shortlisted sections.':audio?'Sampling picture and speech energy across the video…':'Sampling picture across the video. Audio pre-scan is unavailable for this file; speech-based selection will be limited.');
-    sampler=document.createElement('video');sampler.src=state.sourceUrl;sampler.muted=true;sampler.preload='auto';sampler.playsInline=true;await mediaReady(sampler);
-    const duration=program.duration,step=Math.max(22,duration/Number($('scanDepth').value||80)),windows=[],canvas=document.createElement('canvas');
-    for(let start=0,index=0;start<duration-2;start+=step,index++){
-      if(state.batchCancel||state.batchId!==batchId)break;
-      const end=Math.min(duration,start+24),length=end-start;
-      if(length<3)continue;
-      const times=[start+Math.min(.7,length*.1),start+length*.5,Math.max(start+.1,end-.7)];
-      const samples=[];for(const time of times)samples.push(await seekFrame(sampler,Math.min(duration-.05,time),canvas));
-      const motion=(frameChange(samples[0].pixels,samples[1].pixels)+frameChange(samples[1].pixels,samples[2].pixels))/2;
-      const signal=motion*.6+batchSignal(audio,start,end)*.4;
-      windows.push({start,end,frames:samples.map(sample=>sample.image),signal});
-      batchProgress(`Sampling the recording · ${Math.min(100,Math.round(end/duration*100))}% · ${windows.length} possible windows`);
-    }
-    if(state.batchCancel||state.batchId!==batchId)return;
-    const unseen=windows.filter(window=>!batchMoments().some(moment=>Math.max(0,Math.min(moment.end,window.end)-Math.max(moment.start,window.start))/(window.end-window.start)>.75));
-    const shortlisted=chooseBatchWindows(unseen,Math.min(count,unseen.length));if(!shortlisted.length){batchProgress('These sampled sections have already been checked. Choose a deeper discovery pass to explore more.');return;}
-    for(let index=0;index<shortlisted.length;index++){
-      if(state.batchCancel||state.batchId!==batchId)break;
-      const window=shortlisted[index];let audioSlice;if(file.importId){batchProgress(`Preparing speech ${index+1} of ${shortlisted.length} · ${formatTime(window.start)}–${formatTime(window.end)}`);const response=await fetch('/api/import/'+file.importId+'/audio',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({start:window.start,end:window.end})});audioSlice=await response.json();if(!response.ok)throw Error(audioSlice.error||'This speech section could not be prepared.');}else audioSlice=await batchAudioData(audio,window.start,window.end);if(state.batchId!==batchId||state.batchCancel)break;const item=createBatchMoment(window,audioSlice);
-      state.moments.unshift(item);state.windowCount++;renderQueue();renderBatchResults();
-      state.aiCalls++;updateBudgetUi();batchProgress(`Muse Spark checking ${index+1} of ${shortlisted.length} shortlisted windows · ${batchMoments().filter(moment=>moment.status==='suggested').length} supported moments so far`);
-      try{await analyzeItem(item,item.audioData)}catch(error){item.status='error';item.error=error.message||'Analysis failed';}
-      renderQueue();if(state.selected===item.id)renderEditor();renderBatchResults();
-    }
-    if(state.batchId===batchId)batchProgress(state.batchCancel?'Batch stopped. Reviewed windows remain in the queue.':`${batchMoments().filter(moment=>moment.status==='suggested').length} supported moments from ${batchMoments().length} checked windows · Open each clip to edit and export.`);
-  }catch(error){if(state.batchId===batchId)batchProgress(error.message||'Batch scan failed. Try a shorter MP4 or Scan as it plays.');}
-  finally{if(state.batchId===batchId)finishActivity('batch');if(sampler){sampler.pause();sampler.removeAttribute('src');sampler.load()}if(state.batchId===batchId){state.batchRunning=false;state.batchCancel=false;$('batchButton').textContent=`FIND ${$('clipTarget').value} CLIPS ACROSS VIDEO →`;renderBatchResults();}}
+  if(state.sourceType!=='file'||!state.source?.importId)return;
+  const current=jobsView.jobs.find(j=>j.kind==='discovery'&&j.projectId===projectSession.current?.id&&['queued','running'].includes(j.status));
+  if(current){showWorkspace('jobs');return}
+  const remaining=aiLimit()?Math.max(0,aiLimit()-state.aiCalls):100;
+  if(!remaining){batchProgress('Your AI window limit is reached. Raise it in Scan settings or review existing clips.');return}
+  const button=$('batchButton');button.disabled=true;setActivity('queue','Saving your discovery job','Your source and language choices are being saved before processing.');
+  try{await projectSession.flush();const j=await requestJson('/api/discovery',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sourceId:state.source.importId,projectId:projectSession.current.id,depth:Number($('scanDepth').value),budget:Math.min(remaining,Number($('clipTarget').value)*3,100),speechProvider:$('speechProvider').value,translationProvider:$('translationProvider').value,speechLanguage:$('speechLanguage').value,keywords:$('speechKeywords').value,dialectNote:$('sourceDialect').value,context:$('showContext').value,storyLens:$('storyLens').value,language:$('liveCaptionLanguage').value})});state.batchId=j.id;projectSession.changed();await jobsView.refresh();batchProgress('Discovery queued. Open Jobs for progress; clips appear here as each check finishes.');}
+  catch(error){batchProgress(error.message)}finally{button.disabled=false;finishActivity('queue')}
 };
+
 async function processWindow(blob,frames,start,end,manual,sourceName,sourceType,crop,sourcePixels,captureArea){
   const id=crypto.randomUUID(),url=URL.createObjectURL(blob);
   const shouldAnalyze=state.meta&&!state.captureStalled&&(manual||!aiLimit()||state.aiCalls<aiLimit());
@@ -872,14 +840,14 @@ let wholeJobs=[],wholeJob=null,wholePoll=null,wholeTrackUrl=null,wholePreparing=
 function renderWholeSubtitles(){
   if(!$('wholeSubtitles'))return;$('wholeSubtitles').hidden=state.sourceType!=='file'&&!wholeJob;
   const duration=Number.isFinite(program.duration)?program.duration:0,sections=Math.ceil(duration/45);
-  $('wholeCost').textContent=duration?`${formatTime(duration)} recording · up to ${sections} speech sections and ${$('wholeLanguage').value==='Original'?0:sections+' or more'} translation requests. This is separate from the clip-analysis budget. Only audio is used for this job; no visual-model pass.`:'Load the full recording to generate subtitles. Previous job downloads remain available while this server runs.';
+  $('wholeCost').textContent=duration?`${formatTime(duration)} recording · up to ${sections} speech sections and ${$('wholeLanguage').value==='Original'?0:sections+' or more'} translation requests. This is separate from the clip-analysis budget. Only audio is used for this job; no visual-model pass.`:'Load the full recording to generate subtitles. Previous jobs and downloads are saved on this computer.';
   $('startWholeSubtitles').disabled=wholePreparing||state.sourceType!=='file'||wholeJob?.status==='running';$('startWholeSubtitles').textContent=wholePreparing?'PREPARING LOCAL RECORDING…':'GENERATE FULL SUBTITLES';
   $('wholeJobStatus').hidden=!wholeJob&&!$('wholeError').textContent;$('wholeJobSelect').hidden=!wholeJobs.length;$('wholeJobLabel').hidden=!wholeJobs.length;
   $('wholeJobSelect').innerHTML=wholeJobs.map(job=>`<option value="${job.id}" ${wholeJob?.id===job.id?'selected':''}>${escapeHtml(job.sourceName)} · ${escapeHtml(job.language)} · ${job.status}</option>`).join('');
   if(!wholeJob)return;const j=wholeJob,hasLines=j.cueCount>0,currentSource=state.source?.importId===j.sourceId;
   $('wholePhase').textContent=j.sourceName+' / '+j.language+' · '+j.phase;$('wholeProgress').value=j.duration?j.completedSeconds/j.duration*100:0;
   $('wholeProgressText').textContent=`${formatTime(j.completedSeconds)} / ${formatTime(j.duration)} finished · ${j.sectionsDone}/${j.sectionsTotal} sections · ${j.cueCount} subtitle lines · ${j.speechRequests} speech / ${j.translationRequests} translation requests`;
-  $('wholeError').hidden=!j.error;$('wholeError').textContent=j.error;$('pauseWholeSubtitles').hidden=j.status!=='running';$('resumeWholeSubtitles').hidden=!['paused','error'].includes(j.status);$('resumeWholeSubtitles').textContent=j.status==='error'?'RETRY UNFINISHED SECTION':'RESUME';
+  $('wholeError').hidden=!j.error;$('wholeError').textContent=j.error;$('pauseWholeSubtitles').hidden=j.status!=='running';$('resumeWholeSubtitles').hidden=!['paused','error','interrupted','cancelled'].includes(j.status);$('resumeWholeSubtitles').textContent=j.status==='error'?'RETRY UNFINISHED SECTION':'RESUME';
   for(const [id,original]of [['wholeSrt',false],['wholeOriginalSrt',true]]){$(id).hidden=!hasLines;$(id).href='/api/subtitles/'+j.id+'/srt'+(original?'?original=1':'')}
   $('restoreWholeSource').hidden=currentSource;
   $('useWholeCaptions').hidden=!hasLines||!currentSource||!batchMoments().length;$('previewWholeSubtitles').hidden=!hasLines||!currentSource;
@@ -899,7 +867,7 @@ async function cacheWholeSource(){
 $('wholeLanguage').onchange=renderWholeSubtitles;
 $('startWholeSubtitles').onclick=async()=>{
   if(wholePreparing)return;wholePreparing=true;$('wholeError').textContent='';renderWholeSubtitles();$('wholeError').hidden=true;
-  try{const sourceId=await cacheWholeSource(),response=await fetch('/api/subtitles',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sourceId,language:$('wholeLanguage').value,speechProvider:$('speechProvider').value,translationProvider:$('translationProvider').value,speechLanguage:$('speechLanguage').value,keywords:$('speechKeywords').value.split(',').map(x=>x.trim()).filter(Boolean),dialectNote:$('sourceDialect').value})});const job=await response.json();if(!response.ok)throw Error(job.error);wholeJob=job;wholeJobs=wholeJobs.filter(j=>j.id!==job.id);wholeJobs.push(job);wholeJobs=wholeJobs.slice(-6);void pollWholeJob()}
+  try{const sourceId=await cacheWholeSource(),response=await fetch('/api/subtitles',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sourceId,language:$('wholeLanguage').value,speechProvider:$('speechProvider').value,translationProvider:$('translationProvider').value,speechLanguage:$('speechLanguage').value,keywords:$('speechKeywords').value.split(',').map(x=>x.trim()).filter(Boolean),dialectNote:$('sourceDialect').value})});const job=await response.json();if(!response.ok)throw Error(job.error);wholeJob=job;wholeJobs=wholeJobs.filter(j=>j.id!==job.id);wholeJobs.push(job);void pollWholeJob()}
   catch(error){$('wholeJobStatus').hidden=false;$('wholeError').hidden=false;$('wholeError').textContent=error.message||'Could not start subtitles.'}
   finally{wholePreparing=false;renderWholeSubtitles()}
 };
@@ -945,10 +913,24 @@ $('newRecording').onclick=()=>showWorkspace('source');
 for(const id of ['librarySort','libraryDirection','showProjectTrash'])$(id).onchange=()=>{void renderLibrary();void saveLibraryPreferences()};
 $('librarySearch').oninput=()=>{clearTimeout(libraryTimer);libraryTimer=setTimeout(()=>{void renderLibrary();void saveLibraryPreferences()},200)};
 async function saveLibraryPreferences(){const prefs=await requestJson('/api/preferences');await requestJson('/api/preferences',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({...prefs,sort:$('librarySort').value,direction:$('libraryDirection').value,search:$('librarySearch').value})})}
-$('libraryRows').onclick=async event=>{const open=event.target.closest('[data-project-open]'),trash=event.target.closest('[data-project-trash]');try{if(open){setActivity('project-open','Opening saved project','Restoring your recording, clips and edits…');await projectSession.open(open.dataset.projectOpen)}else if(trash){const p=libraryProjects.find(p=>p.id===trash.dataset.projectTrash);await requestJson('/api/projects/'+p.id,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'trash',trashed:!p.trashed})});await renderLibrary()}}catch(error){$('libraryStatus').textContent=error.message}finally{finishActivity('project-open')}};
+$('libraryRows').onclick=async event=>{const open=event.target.closest('[data-project-open]'),trash=event.target.closest('[data-project-trash]');try{if(open){setActivity('project-open','Opening saved project','Restoring your recording, clips and edits…');await projectSession.open(open.dataset.projectOpen);showWorkspace('clips')}else if(trash){const p=libraryProjects.find(p=>p.id===trash.dataset.projectTrash);await requestJson('/api/projects/'+p.id,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'trash',trashed:!p.trashed})});await renderLibrary()}}catch(error){$('libraryStatus').textContent=error.message}finally{finishActivity('project-open')}};
 projectSession=createProjectSession({capture:projectSnapshot,restore:restoreProject,onStatus:(text,kind)=>{$('saveStatus').textContent=text;$('saveStatus').dataset.state=kind;$('retryProjectSave').hidden=kind!=='error'},onProject:p=>{$('projectBar').hidden=!p;if(p)$('projectTitle').value=p.title},onSaved:p=>{for(const saved of p.state.moments||[]){const m=state.moments.find(m=>m.id===saved.id);if(m)m.frames=saved.frames}}});
 $('retryProjectSave').onclick=()=>void projectSession.retry().catch(()=>{});
 for(const type of ['input','change'])document.addEventListener(type,event=>{if(event.target.closest('#libraryPanel')||event.target.closest('#wholeSubtitles'))return;projectSession.changed()});
+
+const jobsView=createJobsView({panel:$('jobRows'),counts:$('jobCounts'),status:$('jobsStatus'),onOpen:async id=>{await projectSession.open(id);showWorkspace('clips')},onJobs:async jobs=>{
+  $('navJobCount').textContent=jobs.filter(j=>['queued','running'].includes(j.status)).length;
+  const active=jobs.filter(j=>j.kind==='discovery'&&j.projectId===projectSession?.current?.id),running=active.find(j=>['queued','running'].includes(j.status));
+  state.batchRunning=Boolean(running);if(!running)finishActivity('batch');$('batchButton').textContent=running?'VIEW PROCESSING JOB →':`FIND ${$('clipTarget').value} CLIPS ACROSS VIDEO →`;
+  if(!active.length||projectSession?.restoring)return;
+  const p=await requestJson('/api/projects/'+projectSession.current.id);if(p.id!==projectSession.current?.id)return;
+  const known=new Set(state.moments.map(m=>m.id)),fresh=p.state.moments.filter(m=>!known.has(m.id));if(fresh.length){state.moments.push(...fresh);state.moments.sort((a,b)=>b.start-a.start);state.windowCount=state.moments.length;renderQueue();renderBatchResults();projectSession.changed()}
+  const used=active.reduce((n,j)=>n+j.storyRequests,0);state.aiCalls=Math.max(state.aiCalls,used);updateBudgetUi();
+  const last=active.at(-1);if(last)batchProgress(`${last.phase} · ${last.checksDone}/${last.checksTotal} story checks · ${last.suggested} supported moments. ${last.error||''}`);
+}});
+$('refreshJobs').onclick=()=>jobsView.refresh();
+void jobsView.refresh();
+
 async function restoreWorkspace(){try{const prefs=await requestJson('/api/preferences');$('librarySort').value=prefs.sort||'updated';$('libraryDirection').value=prefs.direction||'desc';$('librarySearch').value=prefs.search||'';await projectSession.startup();await loadWholeJobs()}catch(error){message('Saved workspace could not be opened: '+error.message)}}
 void restoreWorkspace();
 const connectionReady=status();updateButtons();updateBudgetUi();updateSpeechSummary();renderCut();setPreviewSize();drawPreview();

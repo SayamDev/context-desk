@@ -49,11 +49,11 @@ Interfaces: /api/projects, /api/projects/:id, /api/assets; revision-checked auto
 
 Files: lib/subtitles.js, lib/discovery.js, lib/media-worker.js, server.js, public/app.js, tests/jobs.test.js.
 Interfaces: durable jobs with idempotency keys, safe pause/retry/cancel and actual section/usage counters.
-- [ ] Test restart recovery, speech cache reuse, queue ordering and cancellation.
-- [ ] Restore subtitle records and parameters; move recording discovery into a bounded backend worker.
-- [ ] Reconcile newly generated moments with active edits, publish partial results and expose coherent Jobs counts.
-- [ ] Test three queued recordings and interruption; no automatic repeat of uncertain provider calls.
-- [ ] Commit the tested slice.
+- [x] Test restart recovery, speech cache reuse, queue ordering and cancellation.
+- [x] Restore subtitle records and parameters; move recording discovery into a bounded backend worker.
+- [x] Reconcile newly generated moments with active edits, publish partial results and expose coherent Jobs counts.
+- [x] Test three queued recordings and interruption; no automatic repeat of uncertain provider calls.
+- [x] Commit the tested slice.
 
 ## Task 4 — Language, glossary, memory and Moment Map
 

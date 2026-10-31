@@ -1,7 +1,10 @@
 import http from 'node:http';
 import {handleImport,claimImportSource,extractAudio} from './lib/imports.js';
 import {createProjectApi} from './lib/projects.js';
+import {studioStore} from './lib/store.js';
 import {createSubtitleService} from './lib/subtitles.js';
+import {createDiscoveryService} from './lib/discovery.js';
+import {captureFrame} from './lib/media-worker.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -11,18 +14,30 @@ try { for (const line of (await fs.readFile(path.join(root,'.env'),'utf8')).spli
 const port = Number(process.env.PORT || 3001);
 const voiceStudioUrl = 'http://127.0.0.1:3900';
 const languageCodes = {Arabic:'ar',Bengali:'bn',Dutch:'nl',English:'en',French:'fr',German:'de',Hebrew:'he',Hindi:'hi',Indonesian:'id',Italian:'it',Japanese:'ja',Kannada:'kn',Korean:'ko',Malay:'ms','Mandarin Chinese':'zh',Marathi:'mr',Polish:'pl',Portuguese:'pt',Spanish:'es',Tagalog:'tl',Tamil:'ta',Telugu:'te',Thai:'th',Turkish:'tr',Vietnamese:'vi',Urdu:'ur'};
-const staticFiles = {'/':'index.html','/app.js':'app.js','/timing.js':'timing.js','/translation-cache.js':'translation-cache.js','/projects.js':'projects.js','/style.css':'style.css','/assets/context-desk-studio.webp':'assets/context-desk-studio.webp'};
+const staticFiles = {'/':'index.html','/app.js':'app.js','/timing.js':'timing.js','/translation-cache.js':'translation-cache.js','/projects.js':'projects.js','/jobs.js':'jobs.js','/style.css':'style.css','/assets/context-desk-studio.webp':'assets/context-desk-studio.webp'};
 const mime = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.webp':'image/webp'};
-const subtitleService=createSubtitleService({claimSource:claimImportSource,extract:extractAudio,checkpointDir:path.join(root,'.runtime/subtitle-jobs'),
+const subtitleService=createSubtitleService({claimSource:claimImportSource,extract:extractAudio,store:studioStore(),
   validate:body=>{if(!process.env.MODEL_API_KEY&&(body.speechProvider!=='voicestudio'||(body.language!=='Original'&&body.translationProvider!=='voicestudio')))throw Error('Configure Meta, or choose VoiceStudio for both speech and translation.');},
   transcribe:(bytes,j)=>j.speechProvider==='voicestudio'?transcribeVoiceStudio(bytes,j.speechLanguage,j.keywords):transcribe(bytes,j.speechLanguage,j.keywords),
   translate:(cues,j)=>j.translationProvider==='voicestudio'?translateVoiceStudio(cues,j.language,j.speechLanguage,j.dialectNote):translate(cues,j.language,j.dialectNote)});
 
+const discoveryService=createDiscoveryService({store:studioStore(),claimSource:claimImportSource,frame:captureFrame,extract:extractAudio,
+  validate:()=>{if(!process.env.MODEL_API_KEY)throw Error('Configure Meta before starting story discovery.');},
+  transcribe:(bytes,o)=>o.speechProvider==='voicestudio'?transcribeVoiceStudio(bytes,o.speechLanguage,o.keywords):transcribe(bytes,o.speechLanguage,o.keywords),analyse,
+  translate:(cues,o)=>o.translationProvider==='voicestudio'?translateVoiceStudio(cues,o.language,o.speechLanguage,o.dialectNote):translate(cues,o.language,o.dialectNote)});
 const projectApi=createProjectApi();
 const server = http.createServer(async (req,res) => {
   if(await handleImport(req,res,json))return;
   if(await projectApi(req,res,json))return;
   if(await subtitleService.handle(req,res,json))return;
+  const route=new URL(req.url,'http://localhost').pathname;
+  if(route==='/api/jobs'&&req.method==='GET'){const jobs=[...discoveryService.list(),...subtitleService.list()].sort((a,b)=>a.createdAt-b.createdAt);return json(res,200,{jobs,counts:jobs.reduce((counts,j)=>{const key={queued:'waiting',running:'running',complete:'completed',error:'failed',interrupted:'paused',paused:'paused',cancelled:'cancelled'}[j.status];counts[key]++;return counts},{waiting:0,running:0,completed:0,failed:0,paused:0,cancelled:0})})}
+  if(route==='/api/discovery'||route.startsWith('/api/discovery/')){
+    try{if(req.method==='POST'&&req.headers.origin&&req.headers.origin!==`http://${req.headers.host}`)throw Error('Open processing actions from the local app.');
+      if(req.method==='GET'){return json(res,200,route==='/api/discovery'?{jobs:discoveryService.list()}:discoveryService.get(route.split('/').at(-1)))}
+      if(req.method!=='POST')return json(res,405,{error:'Method not allowed'});let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>10000)throw Error('Job request is too large.')}const body=JSON.parse(raw||'{}');return json(res,202,route==='/api/discovery'?discoveryService.start(body):discoveryService.command(route.split('/').at(-1),body.action));
+    }catch(error){return json(res,400,{error:error.message})}
+  }
   if(req.url === '/api/status' && req.method === 'GET') {
     let voiceStudioAvailable=false;
     try {const response=await fetch(`${voiceStudioUrl}/health`,{signal:AbortSignal.timeout(1200)});voiceStudioAvailable=response.ok;} catch {}
