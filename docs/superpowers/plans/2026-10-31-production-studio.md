@@ -58,11 +58,11 @@ Interfaces: durable jobs with idempotency keys, safe pause/retry/cancel and actu
 ## Task 4 — Language, glossary, memory and Moment Map
 
 Files: public/library.js, public/languages.js, lib/projects.js, server.js, tests/languages.test.js.
-- [ ] Add source/dialect/output choices before import, supported bias construction and persistent glossary.
-- [ ] Implement editable Story Memory with human/AI provenance and export/delete.
-- [ ] Add translation modes, original/translated comparison, review flags and source coverage map.
-- [ ] Verify source-time jumps, ascending/descending clip order and preferences after restart.
-- [ ] Commit the tested slice.
+- [x] Add source/dialect/output choices before import, supported bias construction and persistent glossary.
+- [x] Implement editable Story Memory with human/AI provenance and export/delete.
+- [x] Add translation modes, original/translated comparison, review flags and source coverage map.
+- [x] Verify source-time jumps, ascending/descending clip order and preferences after restart.
+- [x] Commit the tested slice.
 
 ## Task 5 — Editing, deterministic export and live reliability
 

@@ -1,2 +1,2 @@
-export function translationKey(cues,language,dialect,provider,sourceLanguage){return JSON.stringify([language,dialect,provider,sourceLanguage,cues.map(({start,end,text})=>({start,end,text}))])}
+export function translationKey(cues,language,dialect,provider,sourceLanguage,mode='faithful',glossary=''){return JSON.stringify([language,dialect,provider,sourceLanguage,mode,glossary,cues.map(({start,end,text})=>({start,end,text}))])}
 export function createTranslationCache(){const records=new WeakMap();return {get(item,key,request){let cache=records.get(item);if(!cache){cache=new Map();records.set(item,cache)}if(cache.has(key))return cache.get(key);const pending=Promise.resolve().then(request).catch(error=>{cache.delete(key);throw error});cache.set(key,pending);return pending}}}
