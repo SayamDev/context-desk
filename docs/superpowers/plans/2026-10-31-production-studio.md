@@ -33,17 +33,17 @@ Interfaces: openStore(root), projects CRUD/revisions, source records, stable ass
 - [x] Write failing close/reopen, stale revision, path validation and media retention tests.
 - [x] Implement transactional store and stable import directories; migrate readable legacy checkpoint/media metadata when safe.
 - [x] Verify source byte ranges before/after process restart and retain current import validation tests.
-- [ ] Commit the tested slice.
+- [x] Commit the tested slice.
 
 ## Task 2 — Project library and autosaved editor
 
 Files: lib/projects.js, server.js, public/projects.js, public/app.js, public/index.html, public/style.css.
 Interfaces: /api/projects, /api/projects/:id, /api/assets; revision-checked autosave with managed media references.
-- [ ] Test project creation/update/reopen, sorting and stale writes.
-- [ ] Integrate source staging, saved clips/cuts/settings/exports and live-window assets.
-- [ ] Add Library, real sorting/search, confirmed save status and source recovery.
-- [ ] Browser test edit + subtitle change + refresh + process restart; inspect actual recovered video.
-- [ ] Commit the tested slice.
+- [x] Test project creation/update/reopen, sorting and stale writes.
+- [x] Integrate source staging, saved clips/cuts/settings/exports and live-window assets.
+- [x] Add Library, real sorting/search, confirmed save status and source recovery.
+- [x] Browser test edit + subtitle change + refresh + process restart; inspect actual recovered video.
+- [x] Commit the tested slice.
 
 ## Task 3 — Durable subtitle and discovery jobs
 

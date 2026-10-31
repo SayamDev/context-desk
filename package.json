@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node server.js",
     "start": "node server.js",
-    "check": "node --check server.js && node --check lib/imports.js && node --check lib/subtitles.js && node --check public/app.js && node --check public/timing.js",
+    "check": "node --check server.js && node --check lib/store.js && node --check lib/projects.js && node --check public/projects.js && node --check lib/imports.js && node --check lib/subtitles.js && node --check public/app.js && node --check public/timing.js",
     "test": "node scripts/test.js",
     "test:imports": "node scripts/test.js imports",
     "setup:imports": "sh scripts/setup-import.sh"

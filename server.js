@@ -1,5 +1,6 @@
 import http from 'node:http';
 import {handleImport,claimImportSource,extractAudio} from './lib/imports.js';
+import {createProjectApi} from './lib/projects.js';
 import {createSubtitleService} from './lib/subtitles.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -10,15 +11,17 @@ try { for (const line of (await fs.readFile(path.join(root,'.env'),'utf8')).spli
 const port = Number(process.env.PORT || 3001);
 const voiceStudioUrl = 'http://127.0.0.1:3900';
 const languageCodes = {Arabic:'ar',Bengali:'bn',Dutch:'nl',English:'en',French:'fr',German:'de',Hebrew:'he',Hindi:'hi',Indonesian:'id',Italian:'it',Japanese:'ja',Kannada:'kn',Korean:'ko',Malay:'ms','Mandarin Chinese':'zh',Marathi:'mr',Polish:'pl',Portuguese:'pt',Spanish:'es',Tagalog:'tl',Tamil:'ta',Telugu:'te',Thai:'th',Turkish:'tr',Vietnamese:'vi',Urdu:'ur'};
-const staticFiles = {'/':'index.html','/app.js':'app.js','/timing.js':'timing.js','/translation-cache.js':'translation-cache.js','/style.css':'style.css','/assets/context-desk-studio.webp':'assets/context-desk-studio.webp'};
+const staticFiles = {'/':'index.html','/app.js':'app.js','/timing.js':'timing.js','/translation-cache.js':'translation-cache.js','/projects.js':'projects.js','/style.css':'style.css','/assets/context-desk-studio.webp':'assets/context-desk-studio.webp'};
 const mime = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.webp':'image/webp'};
 const subtitleService=createSubtitleService({claimSource:claimImportSource,extract:extractAudio,checkpointDir:path.join(root,'.runtime/subtitle-jobs'),
   validate:body=>{if(!process.env.MODEL_API_KEY&&(body.speechProvider!=='voicestudio'||(body.language!=='Original'&&body.translationProvider!=='voicestudio')))throw Error('Configure Meta, or choose VoiceStudio for both speech and translation.');},
   transcribe:(bytes,j)=>j.speechProvider==='voicestudio'?transcribeVoiceStudio(bytes,j.speechLanguage,j.keywords):transcribe(bytes,j.speechLanguage,j.keywords),
   translate:(cues,j)=>j.translationProvider==='voicestudio'?translateVoiceStudio(cues,j.language,j.speechLanguage,j.dialectNote):translate(cues,j.language,j.dialectNote)});
 
+const projectApi=createProjectApi();
 const server = http.createServer(async (req,res) => {
   if(await handleImport(req,res,json))return;
+  if(await projectApi(req,res,json))return;
   if(await subtitleService.handle(req,res,json))return;
   if(req.url === '/api/status' && req.method === 'GET') {
     let voiceStudioAvailable=false;
