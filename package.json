@@ -7,11 +7,11 @@
     "dev": "node server.js",
     "start": "node server.js",
     "check": "node --check server.js && node --check lib/imports.js && node --check lib/subtitles.js && node --check public/app.js && node --check public/timing.js",
-    "test": "node --test tests/*.test.js",
-    "test:imports": "node --test tests/imports.test.js",
+    "test": "node scripts/test.js",
+    "test:imports": "node scripts/test.js imports",
     "setup:imports": "sh scripts/setup-import.sh"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22.13"
   }
 }
