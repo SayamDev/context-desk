@@ -1,0 +1,10 @@
+.env
+node_modules/
+
+.runtime/
+
+# Local agent settings, screenshots and private runtime data
+.codex/
+.impeccable/
+qa-*.jpg
+.DS_Store

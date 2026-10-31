@@ -1,0 +1,35 @@
+# Product and speech research — 2026-10-29
+
+| Reference | Verified workflow | What Context Desk takes from it |
+| --- | --- | --- |
+| [OpusClip](https://www.opus.pro/) | Finds clips from long video, rearranges them, adds dynamic captions and automatic reframing. Its marketing describes a virality score. | Moment suggestions and reframing; no claim that a score predicts engagement. |
+| [Eklipse Auto Clipper](https://eklipse.gg/auto-clipper/) | Scans Twitch/YouTube/Kick VODs **after** a stream ends, then ranks and prepares vertical clips. | Show clips as the feed runs; keep the editor in control of the story. |
+| [Twitch Clips and Auto Clips](https://help.twitch.tv/s/article/how-to-use-clips) | Captures a moment without leaving the stream and offers an adjustable portrait crop. [Auto Clips alpha](https://help.twitch.tv/s/article/auto-clips) uses speech and chat signals but is currently English-only and invite-only. | Keep capture and review beside the live monitor. |
+| [Premiere Text-Based Editing](https://helpx.adobe.com/premiere/desktop/edit-projects/edit-video-using-text-based-editing/overview-of-text-based-editing.html) | Transcript text carries timecodes and can trim/rearrange video. [Captions](https://helpx.adobe.com/premiere/desktop/add-text-images/insert-captions/about-captions.html) have their own editable track and SRT export. | Timed caption editor, source timecodes and SRT sidecars. |
+| [DaVinci Resolve 20](https://documents.blackmagicdesign.com/SupportNotes/DaVinci_Resolve_20_New_Features_Guide.pdf) | Studio has transcription-driven script assembly, subtitle animation and extensive edit controls. | Use a real cut preview and allow manual ordering/trim instead of a one-click opaque output. |
+| [Cutaway](https://github.com/S07K/cutaway) and [Abekyo Editor](https://github.com/abekyo/abekyo-editor) | Open-source examples of local timelines, caption editing, JSON projects and deterministic export. | Architectural references only; their code was not copied into this project. |
+| [vidIQ AI Clips](https://vidiq.com/features/ai-clips/) | Markets long video to multiple short clips, captions, and several output formats. | Multiple candidates from one recording are baseline; Context Desk should show the source time and grounds for each suggestion. |
+| [Riverside Magic Clips](https://riverside.com/magic-clips) | Markets automatic clips from recordings, editable transcript, layouts and captions. | Keep generated clips editable and subtitles reviewable. Accuracy claims on its site are not independently verified here. |
+| [Clipzula](https://www.clipzula.com/) | Markets live Twitch/Kick clipping as well as uploaded video and links, clip volume, captions, hooks and scheduling. | Live capture and a large clip count alone are not unique. Context Desk focuses on reality-story evidence and producer approval. |
+| [OpenShorts](https://github.com/mutonby/openshorts) | MIT-licensed self-hosted clipping app; README describes batch clips, auto crop and Whisper captions. | Open source, batch, and auto crop are already present elsewhere. Do not claim them as an invention. |
+| [WayinVideo](https://help.wayin.ai/en/articles/16210969-video-editor-overview) | Its editor documents trim, reframe, subtitle translation, audio tools, hooks, elements, B-roll, transitions, autosave and publishing. Its [caption help](https://help.wayin.ai/en/articles/15692093-how-to-add-and-edit-subtitles) explicitly tells editors to review translated captions. | It sets a high feature and usability bar. Context Desk should be simpler on first use and more rigorous about transcript uncertainty and source context. |
+
+The user also supplied a screenshot naming Whop, Reach.cat, Vyro, ClipAffiliates / Clipping.io, and native programs. [Reach.cat](https://dev.reach.cat/creator), [Vyro](https://vyro.com/), [ClipAffiliates](https://www.clipaffiliates.com/) and [Whop clipping campaigns](https://whop.com/clip-earn-69b9/clipper-program-38-19eb/) are primarily creator/campaign marketplaces with payment and submission workflows, not evidence that a particular editor produces better moments. `clipping.io` could not be verified from its site in this research pass. A marketplace integration is outside the current prototype.
+
+The credible differentiation to test is an **evidence-linked unscripted production desk**: preserve chronological setup/turn/payoff, show the exact source window, keep uncertain dialect and names reviewable, and allow a producer to override the model with an explicit manual pick. This is a product hypothesis, not a demonstrated advantage over these competitors or a claim of improved engagement.
+
+## Dialects and captions
+
+There is no single scientifically useful count of the world's dialects: boundaries and labels depend on the language community and classification method. [Glottolog](https://glottolog.org/glottolog/glottologinformation) tracks languages, dialects and families as distinct "languoids" and says its classifications can change with new research. Arabic alone spans many regional varieties, with code-switching and inconsistent spelling. A [2024 review of Arabic ASR](https://www.sciencedirect.com/science/article/pii/S0167639324000815) identifies those as major recognition problems. Similar variation exists in other languages.
+
+[Meta's speech-to-text documentation](https://dev.meta.ai/docs/speech-to-text) confirms 25 language biases, keyword biasing, speaker turns and turn-level timestamps. It explicitly says word-level timestamps, confidence scores and emotion detection are unavailable. Context Desk therefore lets editors enter any dialect/region description, bias the supported language and proper names, rerun a window, and review draft captions/translation against the source. It does not invent a dialect score or frame estimated phrase timings as exact words.
+
+Meta's [MMS ASR checkpoint](https://huggingface.co/facebook/mms-1b-all) covers many languages, but that particular model card lists a CC BY-NC licence. It was not included as a production fallback because the licence and compute requirements need separate review.
+
+## Source-platform boundary
+
+A public video URL is not automatically a downloadable or editable source. [YouTube's API policy](https://developers.google.com/youtube/terms/developer-policies-guide) prohibits API services from offering video downloads or separated audio/video. Context Desk supports a user-selected tab surface and locally supplied footage; use it only when the editor has the necessary recording and reuse rights. The browser's [display-capture API](https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getDisplayMedia) requires user permission and may omit audio depending on browser and platform.
+
+## Editorial and automation expansion
+
+See [EDITORIAL-FOUNDATIONS.md](EDITORIAL-FOUNDATIONS.md) for the paid-tool workflow comparison, books, primary papers, creator/platform evidence, concrete prompt rules, and proposed quality evaluation. Public product analysis informed an independent implementation; no private paid implementation was copied or accessed.
