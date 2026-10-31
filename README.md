@@ -2,6 +2,8 @@
 
 Context Desk is a local producer desk for finding real story beats while a video plays. It records short windows, asks Meta's models for evidence-backed suggestions, and gives the editor control of captions, framing, cuts, and exports.
 
+See [PROJECT-BRIEF.md](PROJECT-BRIEF.md) for the full product vision, requested features, inspiration links, current implementation, limitations, and competition priorities.
+
 ## Start
 
 Requires Node.js 20+ and a current Chromium browser for live tab capture.
