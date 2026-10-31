@@ -1,3 +1,4 @@
+import {createHistory,splitEdits} from './history.js';
 import {languageBias,speechLanguages,dialectExamples} from './languages.js';
 import {createMemoryView} from './story-memory.js';
 import {createJobsView} from './jobs.js';
@@ -53,7 +54,7 @@ async function status(){setActivity('connect','Connecting your workspace','Check
 function cleanupSource(){$('wholePreview').pause();$('wholePreview').removeAttribute('src');$('wholePreview').load();$('wholePreview').hidden=true;state.sourceLoadToken++;state.sourceUploadAbort?.abort();state.sourceUploadAbort=null;finishActivity('source');stopScan();state.autoFrameJob++;state.batchCancel=true;state.batchRunning=false;state.batchId=null;$('batchPanel').hidden=!state.batchExports.length;$('batchResults').innerHTML='';$('batchButton').disabled=true;if(state.batchExports.length)batchProgress('Source disconnected. Rendered draft clips remain available below until this page closes.');if(state.sourceType==='screen')state.recordStream?.getVideoTracks().forEach(track=>track.stop());state.screenStream?.getTracks().forEach(t=>t.stop());state.screenStream=null;state.stageCrop=null;state.cropDraft=null;state.cropPicking=false;state.resumeAfterCrop=false;state.lastDraftStart=-1;$('monitor').classList.remove('video-cropped');$('cropMask').hidden=true;$('cropSelection').hidden=true;$('sourceCropRow').hidden=true;$('liveCaptions').hidden=true;$('sourceQuality').hidden=true;$('cropStatus').textContent='Auto frame looks for the moving player. You can draw the area yourself if it misses.';if(state.sourceUrl&&!state.moments.some(moment=>moment.url===state.sourceUrl)){URL.revokeObjectURL(state.sourceUrl);sourceUrls.delete(state.sourceUrl)}state.sourceUrl=null;state.source=null;state.sourceType=null;state.sourceName='';state.recordStream=null;program.srcObject=null;program.removeAttribute('src');program.controls=true;program.load();$('emptySource').hidden=false;setSourceLabel('NO SOURCE');updateButtons();}
 let importId=null,importCancelled=false,sourcePageUrl='';
 async function loadVideoFile(file,{sourceLink='',auto=true}={}){
-  if(!projectSession?.restoring){try{await projectSession?.beforeSourceChange()}catch(error){message(error.message);return}}
+  if(!projectSession?.restoring){try{await finishCaptureForSwitch();await projectSession?.beforeSourceChange();editHistory.reset()}catch(error){message(error.message);return}}
   cleanupSource();if(!projectSession?.restoring){state.moments=[];state.cut=[];state.selected=null;state.batchExports=[];}const loadToken=state.sourceLoadToken;setActivity('source','Opening your video','Preparing the picture and original audio…');
   state.sourceUrl=URL.createObjectURL(file);sourceUrls.add(state.sourceUrl);program.controls=true;program.muted=true;program.src=state.sourceUrl;state.source=file;state.sourceType='file';state.sourceName=file.name;state.sourcePageUrl=sourceLink;state.batchId=crypto.randomUUID();state.batchCancel=false;$('batchPanel').hidden=false;$('batchResults').innerHTML='';setSourceLabel(file.name);$('emptySource').hidden=true;updateButtons();
   try{await mediaReady(program);if(loadToken!==state.sourceLoadToken)return;if(program.duration>21600||file.size>20*1024*1024*1024)throw Error('Choose a recording up to 6 hours and 20 GB.');{ setActivity('source','Preparing your long recording','Copying the file into the local processing cache. The original stays on this computer.');state.sourceUploadAbort=new AbortController();const staged=await fetch('/api/import/upload',{method:'POST',signal:state.sourceUploadAbort.signal,headers:{'Content-Type':file.type||'video/mp4','X-Video-Duration':String(program.duration),'X-Video-Name':encodeURIComponent(file.name)},body:file});const job=await staged.json();if(loadToken!==state.sourceLoadToken)return;if(!staged.ok)throw Error(job.error||'The long recording could not be prepared.');state.source={importId:job.id,size:file.size,type:file.type,name:file.name};const previousUrl=state.sourceUrl;state.sourceUrl=job.mediaUrl;program.src=job.mediaUrl;await mediaReady(program);URL.revokeObjectURL(previousUrl);sourceUrls.delete(previousUrl);if(await projectSession.adopt(job.projectId||job.id))return;}$('batchButton').disabled=false;batchProgress(`${formatTime(program.duration)} ready · preparing your clip drop`);updateSourceQuality();await connectionReady;if(loadToken!==state.sourceLoadToken)return;renderQueue();showWorkspace('clips');if(auto&&$('autoGenerate').checked&&state.meta){finishActivity('source');await $('batchButton').onclick();}else batchProgress(state.meta?'Video ready. Choose Find clips to begin.':'Video ready. Add a Meta API key to enable automatic clip selection.');}
@@ -61,7 +62,7 @@ async function loadVideoFile(file,{sourceLink='',auto=true}={}){
   finally{if(loadToken===state.sourceLoadToken)finishActivity('source')}
 }
 async function loadImportedVideo(job,sourceLink,{auto=true}={}){
-  if(!projectSession?.restoring){try{await projectSession?.beforeSourceChange()}catch(error){message(error.message);return}}
+  if(!projectSession?.restoring){try{await finishCaptureForSwitch();await projectSession?.beforeSourceChange();editHistory.reset()}catch(error){message(error.message);return}}
   cleanupSource();if(!projectSession?.restoring){state.moments=[];state.cut=[];state.selected=null;state.batchExports=[];}const loadToken=state.sourceLoadToken;setActivity('source','Opening your recording','Streaming the video from this computer. Preparing a bounded clip scan…');
   state.sourceUrl=job.mediaUrl;state.source={importId:job.id,size:job.size,type:job.mime,name:job.title};state.sourceType='file';state.sourceName=job.title;state.sourcePageUrl=sourceLink;state.batchId=crypto.randomUUID();state.batchCancel=false;program.controls=true;program.muted=true;program.src=job.mediaUrl;$('emptySource').hidden=true;$('batchPanel').hidden=false;$('batchResults').innerHTML='';setSourceLabel(job.title);updateButtons();
   try{await mediaReady(program);if(loadToken!==state.sourceLoadToken)return;if(!projectSession?.restoring&&await projectSession.adopt(job.projectId||job.id))return;$('batchButton').disabled=false;updateSourceQuality();await connectionReady;if(loadToken!==state.sourceLoadToken)return;renderQueue();showWorkspace('clips');finishActivity('source');if(auto&&$('autoGenerate').checked&&state.meta)await $('batchButton').onclick();else batchProgress('Recording ready. Choose Find clips to begin.');}finally{if(loadToken===state.sourceLoadToken)finishActivity('source')}
@@ -88,10 +89,10 @@ $('linkForm').onsubmit=async event=>{
 $('cancelImport').onclick=async()=>{importCancelled=true;if(importId)await fetch('/api/import/'+importId,{method:'DELETE'}).catch(()=>{});finishActivity('import');linkStatus('Import cancelled. Paste another link whenever you’re ready.');};
 $('captureFallback').onclick=()=>{if(sourcePageUrl&&!openedSourceLinks.has(sourcePageUrl)){window.open(sourcePageUrl,'context-desk-source','noopener,noreferrer');openedSourceLinks.add(sourcePageUrl)}$('screenButton').click()};
 $('screenButton').onclick=async()=>{
-  try{
-    const stream=await navigator.mediaDevices.getDisplayMedia({video:{displaySurface:'browser',frameRate:{ideal:60}},audio:true,selfBrowserSurface:'exclude'});if(projectSession){await projectSession.beforeSourceChange();state.moments=[];state.cut=[];state.selected=null;await projectSession.createLive();}setActivity('share','Connecting the live picture','Preparing automatic framing and scanning…');cleanupSource();state.screenStream=stream;state.liveEpoch=performance.now();state.source=stream;state.sourceType='screen';state.sourceName='Shared video tab';program.muted=true;program.volume=0;program.controls=false;program.srcObject=stream;await program.play();if(!program.videoWidth)await mediaReady(program);
+  let connectingStream;try{
+    const stream=connectingStream=await navigator.mediaDevices.getDisplayMedia({video:{displaySurface:'browser',frameRate:{ideal:60}},audio:true,selfBrowserSurface:'exclude'});if(projectSession){await finishCaptureForSwitch();const resume=projectSession.current&&!projectSession.current.sourceId;if(!resume){await projectSession.beforeSourceChange();state.moments=[];state.cut=[];state.selected=null;await projectSession.createLive();}else await projectSession.flush();}setActivity('share','Connecting the live picture','Preparing automatic framing and scanning…');cleanupSource();state.screenStream=stream;state.liveElapsedOffset=Math.max(0,...state.moments.filter(m=>m.sourceType==='screen').map(m=>m.end));state.liveEpoch=performance.now();state.source=stream;state.sourceType='screen';state.sourceName='Shared video tab';program.muted=true;program.volume=0;program.controls=false;program.srcObject=stream;await program.play();if(!program.videoWidth)await mediaReady(program);
     stream.getVideoTracks()[0].addEventListener('ended',()=>{cleanupSource();message('The shared tab stopped. Captured clips remain available.');});setSourceLabel('LIVE TAB CONNECTED');$('emptySource').hidden=true;$('sourceCropRow').hidden=false;updateButtons();beginCrop();state.resumeAfterCrop=true;updateSourceQuality();finishActivity('share');await detectAndApplyCrop();
-  }catch(error){message(error.name==='NotAllowedError'?'Sharing was cancelled. Choose Connect live tab when you’re ready.':error.message||'The tab could not be connected.');linkStatus(error.name==='NotAllowedError'?'Browser sharing was cancelled. Your other clips are still available.':'Could not connect this tab. Try again with tab audio enabled.');}
+  }catch(error){if(connectingStream!==state.screenStream)connectingStream?.getTracks().forEach(track=>track.stop());message(error.name==='NotAllowedError'?'Sharing was cancelled. Choose Connect live tab when you’re ready.':error.message||'The tab could not be connected.');linkStatus(error.name==='NotAllowedError'?'Browser sharing was cancelled. Your other clips are still available.':'Could not connect this tab. Try again with tab audio enabled.');}
   finally{finishActivity('share')}
 };
 $('disconnectButton').onclick=()=>{cleanupSource();message('Source disconnected. Captured windows remain available for this session.');};
@@ -230,7 +231,8 @@ async function startScan(){
     state.scanning=true;showWorkspace('clips');claimPlayback();updateButtons();message(state.meta?'Scanning: Meta receives each window until the visible AI limit is reached.':'Scanning: windows will be captured locally. Add a Meta key for automatic story suggestions.');startWindow();if(state.sourceType==='file'&&program.paused)await program.play();
   }catch(error){state.scanning=false;updateButtons();message(error.message||'Could not start scanning.');}
 }
-function liveTime(){return (performance.now()-state.liveEpoch)/1000}
+async function finishCaptureForSwitch(){if(state.sourceType!=='screen')return;const recorder=state.recording;if(recorder?.state==='recording')stopScan('Saving the current live window before switching…');if(recorder?.saved)await recorder.saved;await projectSession?.flush()}
+function liveTime(){return (state.liveElapsedOffset||0)+(performance.now()-state.liveEpoch)/1000}
 function stopScan(reason){state.scanning=false;clearTimeout(state.windowTimer);clearInterval(state.frameTimer);if(state.recording?.state==='recording'){state.recording.endTime=state.sourceType==='file'?program.currentTime:liveTime();state.recording.stop();}updateButtons();if(reason)message(reason);}
 function grabFrame(frames,crop){if(program.readyState<2||!program.videoWidth||!program.videoHeight)return;const sx=crop?crop.x*program.videoWidth:0,sy=crop?crop.y*program.videoHeight:0,sw=crop?crop.w*program.videoWidth:program.videoWidth,sh=crop?crop.h*program.videoHeight:program.videoHeight;const c=document.createElement('canvas');const scale=Math.min(1,640/sw);c.width=Math.max(2,Math.round(sw*scale));c.height=Math.max(2,Math.round(sh*scale));c.getContext('2d').drawImage(program,sx,sy,sw,sh,0,0,c.width,c.height);frames.push(c.toDataURL('image/jpeg',.68));}
 function startWindow(){
@@ -242,11 +244,11 @@ function startWindow(){
   let setupError;state.recording=null;
   for(const mimeType of [...mimeTypes,undefined]){try{state.recording=new MediaRecorder(state.recordStream,{...(mimeType?{mimeType}:{}),videoBitsPerSecond:captureBitrate,audioBitsPerSecond:192000});break;}catch(error){setupError=error;}}
   if(!state.recording){message(`Recording could not start (${setupError?.name||'unsupported format'}). Share the tab again or try a local video.`);stopScan();return;}
-  const recorder=state.recording,frames=[],chunks=[],sourceName=state.sourceName,sourceType=state.sourceType;
+  const recorder=state.recording,frames=[],chunks=[],sourceName=state.sourceName,sourceType=state.sourceType,ownerProjectId=projectSession.current?.id;recorder.saved=new Promise((resolve,reject)=>{recorder.resolveSave=resolve;recorder.rejectSave=reject});recorder.saved.catch(()=>{});
   const start=sourceType==='file'?program.currentTime:liveTime();
   recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
   recorder.onerror=event=>{message(`Recording stopped: ${event.error?.message||'the source became unavailable'}. Your captured windows remain in the queue.`);state.scanning=false;updateButtons()};
-  recorder.onstop=()=>{clearTimeout(state.windowTimer);clearInterval(state.frameTimer);const blob=new Blob(chunks,{type:recorder.mimeType||'video/webm'});const end=recorder.endTime??(sourceType==='file'?program.currentTime:liveTime());if(blob.size>1000)processWindow(blob,frames,start,end,Boolean(recorder.manual),sourceName,sourceType,crop,sourcePixels,captureArea);if(state.recording!==recorder)return;if(state.scanning&&state.recordStream?.getVideoTracks().some(track=>track.readyState==='live')&&(sourceType!=='file'||!program.ended))startWindow();else if(state.scanning){stopScan();message(sourceType==='file'?'Video finished. Captured moments are ready to edit.':'The shared tab stopped. Share it again to continue scanning.');}};
+  recorder.onstop=()=>{clearTimeout(state.windowTimer);clearInterval(state.frameTimer);const blob=new Blob(chunks,{type:recorder.mimeType||'video/webm'});const end=recorder.endTime??(sourceType==='file'?program.currentTime:liveTime());if(blob.size>1000)void processWindow(blob,frames,start,end,Boolean(recorder.manual),sourceName,sourceType,crop,sourcePixels,captureArea,ownerProjectId,recorder.resolveSave).catch(error=>{recorder.rejectSave(error);message('Live window could not be saved: '+error.message)});else recorder.resolveSave();if(state.recording!==recorder)return;if(state.scanning&&state.recordStream?.getVideoTracks().some(track=>track.readyState==='live')&&(sourceType!=='file'||!program.ended))startWindow();else if(state.scanning){stopScan();message(sourceType==='file'?'Video finished. Captured moments are ready to edit.':'The shared tab stopped. Share it again to continue scanning.');}};
   try{recorder.start();grabFrame(frames,captureArea);state.frameTimer=setInterval(()=>grabFrame(frames,captureArea),4000);state.windowTimer=setTimeout(()=>{if(recorder.state==='recording'){recorder.endTime=sourceType==='file'?program.currentTime:liveTime();recorder.stop();}},WINDOW_MS);}catch(error){message(`Recorder could not continue (${error.name||'unknown error'}). Captured windows remain available.`);stopScan();}
 }
 program.addEventListener('ended',()=>{if(state.scanning)stopScan(`Video finished at ${formatTime(program.duration)}. Captured windows are ready to edit.`);});
@@ -260,21 +262,10 @@ function renderBatchDownloads(){
   $('batchDownloads').innerHTML=state.batchExports.length?`<div class="batch-download-head"><strong>Rendered draft clips</strong><span>No unreviewed hooks or captions · open each clip to finish</span></div>${state.batchExports.map(exported=>`<a href="${exported.url}" download="${escapeHtml(exported.name)}">${escapeHtml(exported.name)} ↘</a>`).join('')}`:'';
 }
 async function exportBatchDrafts(moments){
-  if(state.batchExporting||!moments.length)return;
-  state.batchExporting=true;renderBatchResults();
-  try{
-    for(let index=0;index<moments.length;index++){
-      const moment=moments[index];
-      batchProgress(`Rendering draft ${index+1} of ${moments.length} · source ${formatTime(moment.start)}–${formatTime(moment.end)}`);
-      const draft={...moment,showHook:false,showCaptions:false};
-      const output=await renderComposedVideo([draft]);
-      const name=`context-desk-${Math.floor(moment.start)}-draft.${output.extension}`,url=URL.createObjectURL(output.blob);
-      batchExportUrls.add(url);state.batchExports.push({name,url,source:moment.sourceName});void preserveExport(output.blob,name,true);renderBatchDownloads();
-    }
-    batchProgress(`${moments.length} draft clips rendered. Download each file below; review it before publishing.`);
-  }catch(error){batchProgress(`Draft rendering stopped: ${error.message||'unknown error'}. Completed files remain below.`)}
-  finally{state.batchExporting=false;finishActivity('batch');renderBatchResults()}
+  if(state.batchExporting)return;state.batchExporting=true;renderBatchResults();
+  try{for(const m of moments)await queueVideoExport([m],`context-desk-${Math.floor(m.start)}-draft`,{draft:true,openJobs:false});showWorkspace('jobs');batchProgress(`${moments.length} draft exports queued. Words and opening overlays are omitted until reviewed.`)}catch(error){batchProgress(error.message)}finally{state.batchExporting=false;renderBatchResults()}
 }
+
 function renderScanCoverage(){
   const moments=batchMoments(),duration=Number.isFinite(program.duration)?program.duration:0;let covered=0,last=0;
   for(const m of [...moments].filter(m=>m.analysis).sort((a,b)=>a.start-b.start)){covered+=Math.max(0,m.end-Math.max(m.start,last));last=Math.max(last,m.end)}
@@ -359,11 +350,14 @@ $('batchButton').onclick=async()=>{
   catch(error){batchProgress(error.message)}finally{button.disabled=false;finishActivity('queue')}
 };
 
-async function processWindow(blob,frames,start,end,manual,sourceName,sourceType,crop,sourcePixels,captureArea){
+async function processWindow(blob,frames,start,end,manual,sourceName,sourceType,crop,sourcePixels,captureArea,ownerProjectId=projectSession.current?.id,onSaved=()=>{}){
   const id=crypto.randomUUID(),url=URL.createObjectURL(blob);
   const shouldAnalyze=state.meta&&!state.captureStalled&&(manual||!aiLimit()||state.aiCalls<aiLimit());
   const item={id,url,blob,frames:frames.slice(0,3),start,end,sourceName,sourceType,sourceCrop:crop,sourceCaptureArea:captureArea,sourcePixels,cleanCapture:sourceType==='screen',sourceLink:sourceType==='screen'?$('streamUrl').value.trim():'',manual,status:shouldAnalyze?'analysing':state.meta?'budgeted':'needs-key',analysis:null,transcript:'',trimIn:0,trimOut:Math.max(.1,(end-start)),hook:'',alternateHook:'',frameMode:'fit',zoom:1,focusX:50,focusY:50,showHook:true,captionLanguage:'Original',autoCaptionLanguage:$('liveCaptionLanguage').value,captionStyle:'punch',dialectNote:$('sourceDialect').value.trim(),captionCues:{Original:[]},captionReviewed:{},showCaptions:false,captionError:''};
+  item.requestSettings={showContext:$('showContext').value,storyLens:$('storyLens').value,speechProvider:$('speechProvider').value,speechLanguage:speechChoices(),keywords:$('speechKeywords').value};
+  if(ownerProjectId!==projectSession.current?.id){const asset=await projectSession.asset(blob);item.url=asset.url;item.blob={assetId:asset.id,size:asset.size,type:asset.type};item.status='captured';await saveDetachedMoment(ownerProjectId,item);onSaved();return}
   state.moments.unshift(item);state.windowCount++;renderQueue();
+  await projectSession.asset(blob);projectSession.changed();await projectSession.flush();onSaved();
   const audioInfo=await audioAsWav(blob);
   item.audioRms=audioInfo?.rms??null;
   if(sourceType==='screen'){
@@ -386,15 +380,16 @@ async function processWindow(blob,frames,start,end,manual,sourceName,sourceType,
   state.aiCalls++;updateBudgetUi();
   try{await analyzeItem(item,audioInfo?.data||null);}
   catch(error){item.status='error';item.error=error.message;}
-  renderQueue();if(state.selected===id)renderEditor();
+  if(projectSession.current?.id!==ownerProjectId)await saveDetachedMoment(ownerProjectId,item);else{renderQueue();if(state.selected===id)renderEditor();}
 }
+async function saveDetachedMoment(projectId,item){const asset=item.blob instanceof Blob?await projectSession.asset(item.blob):null;const value={};for(const key of savedMomentKeys)if(item[key]!==undefined)value[key]=item[key];if(asset){value.url=asset.url;value.blob={assetId:asset.id,size:asset.size,type:asset.type}}await requestJson('/api/projects/'+projectId,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'moment-result',moment:value})})}
 async function analyzeItem(item,audio){
   setActivity(item.id,'Finding the story','Transcribing audio and checking the picture. You can keep navigating.');
   try{
   if(audio===undefined){if(item.batchId){audio=item.audioData;if(!audio&&item.blob?.importId){const result=await requestJson('/api/import/'+item.blob.importId+'/audio',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({start:item.start,end:item.end})});audio=result.data}}else{const blob=item.blob instanceof Blob?item.blob:await (await fetch(item.url)).blob();audio=(await audioAsWav(blob)).data}}
   const requestFrames=await Promise.all(item.frames.map(async frame=>frame.startsWith('data:')?frame:await blobDataUrl(await (await fetch(frame)).blob())));
   const previous=state.moments[state.moments.indexOf(item)+1];
-  const response=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({frames:requestFrames,audio,showContext:$('showContext').value,storyLens:$('storyLens').value,speechProvider:$('speechProvider').value,speechLanguage:speechChoices(),keywords:$('speechKeywords').value,dialectNote:item.dialectNote,previousTranscript:previous?.transcript||''})});
+  const response=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({frames:requestFrames,audio,...(item.requestSettings||{showContext:$('showContext').value,storyLens:$('storyLens').value,speechProvider:$('speechProvider').value,speechLanguage:speechChoices(),keywords:$('speechKeywords').value}),dialectNote:item.dialectNote,previousTranscript:previous?.transcript||''})});
   const data=await response.json();if(!response.ok)throw Error(data.error||'Analysis failed');
   item.analysis=data.analysis;item.transcript=data.transcript||'';item.speechError=data.speechError||'';item.speechSource=data.speechSource||'';item.detectedLanguage=data.detectedLanguage||'';item.timingSource=Array.isArray(data.words)&&data.words.length?'word':'estimated';
   item.sourceCaptionsVisible=data.analysis?.visibleSourceCaptions===true;
@@ -496,9 +491,7 @@ async function selectMoment(id,{scroll=true}={}){
 }
 function seekPreview(time){return new Promise((resolve,reject)=>{if(Math.abs(clipVideo.currentTime-time)<.04&&clipVideo.readyState>=2){resolve();return}const timeout=setTimeout(()=>{cleanup();reject(Error('The video is taking too long to load. Try selecting the clip again.'))},10000);const cleanup=()=>{clearTimeout(timeout);clipVideo.removeEventListener('seeked',ready)};const ready=()=>{cleanup();resolve()};clipVideo.addEventListener('seeked',ready,{once:true});clipVideo.currentTime=time;});}
 
-function outputDimensions(quality='preview'){const side=quality===1080?1080:quality===720?720:540;return state.aspect==='portrait'?[side,Math.round(side*16/9)]:state.aspect==='square'?[side,side]:[Math.round(side*16/9),side]}
-function exportDimensions(moments){const quality=$('exportQuality').value;if(quality!=='source')return outputDimensions(Number(quality));const pixels=moments[0]?.sourcePixels;if(!pixels)return outputDimensions(720);if(state.aspect==='landscape')return [pixels.width,pixels.height];const side=Math.min(2160,Math.max(540,pixels.height));return state.aspect==='portrait'?[side,Math.round(side*16/9)]:[side,side]}
-function canSaveUnrecompressed(moment){return !moment.batchId&&$('exportQuality').value==='source'&&state.aspect==='landscape'&&moment.frameMode==='fit'&&moment.zoom===1&&(!moment.showHook||!moment.hook)&&!moment.showCaptions&&!moment.sourceCaptionMask&&moment.trimIn<.05&&Math.abs(moment.trimOut-(moment.end-moment.start))<.12&&(!moment.sourceCrop||moment.cleanCapture)&&($('exportFormat').value!=='webm'||moment.blob.type.includes('webm'))}
+function outputDimensions(quality='preview'){const side=quality===1080?1080:quality===720?720:540;return state.aspect==='portrait'?[side,Math.round(side*16/9)]:state.aspect==='square'?[side,side]:state.aspect==='fourfive'?[side,Math.round(side*5/4)]:[Math.round(side*16/9),side]}
 function mediaTime(moment,time){return (moment.mediaStart||0)+time}
 function localTime(moment,time){return time-(moment.mediaStart||0)}
 function activeCues(moment){return moment.captionCues[moment.captionLanguage]||[]}
@@ -699,7 +692,7 @@ $('dialectNote').oninput=e=>{const m=state.moments.find(x=>x.id===state.selected
 $('captionsInput').oninput=e=>{const m=state.moments.find(x=>x.id===state.selected);if(!m)return;const parsed=parseCues(e.target.value,m.end-m.start);m.captionError=parsed.error||'';m.captionReviewed[m.captionLanguage]=false;$('captionReviewed').checked=false;if(!parsed.error){m.captionCues[m.captionLanguage]=parsed.cues;if(m.captionLanguage==='Original'){for(const language of Object.keys(m.captionCues)){if(language!=='Original')delete m.captionCues[language]}m.captionReviewed={}}}$('captionStatus').textContent=parsed.error||'Draft updated. Listen through and confirm every line before export.';if(!parsed.error)renderCaptionLines(m);drawPreview()};
 $('showCaptions').onchange=e=>{const m=state.moments.find(x=>x.id===state.selected);if(m){m.showCaptions=e.target.checked;drawPreview()}};
 $('maskSourceCaptions').onchange=e=>{const m=state.moments.find(x=>x.id===state.selected);if(m){m.sourceCaptionMask=e.target.checked;drawPreview()}};
-$('captionReviewed').onchange=e=>{const m=state.moments.find(x=>x.id===state.selected);if(!m)return;if(activeCues(m).some(c=>c.uncertain)||m.captionError||!timedCues(m).some(c=>c.end>m.trimIn&&c.start<m.trimOut)){e.target.checked=false;$('captionStatus').textContent=m.captionError||'No subtitles fall within this trim. Reset the sync offset or correct the line timings.';return}m.captionReviewed[m.captionLanguage]=e.target.checked};
+$('captionReviewed').onchange=e=>{const m=state.moments.find(x=>x.id===state.selected);if(!m)return;if(activeCues(m).some(c=>c.uncertain)||m.captionError||!timedCues(m).some(c=>c.end>m.trimIn&&c.start<m.trimOut)){e.target.checked=false;$('captionStatus').textContent=m.captionError||(activeCues(m).some(c=>c.uncertain)?'Resolve flagged subtitle lines before confirming review.':'No subtitles fall within this trim. Reset the sync offset or correct the line timings.');return}m.captionReviewed[m.captionLanguage]=e.target.checked};
 $('reanalyseButton').onclick=async()=>{
   const m=state.moments.find(x=>x.id===state.selected);if(!m||!state.meta)return;
   const button=$('reanalyseButton');button.disabled=true;button.textContent='RECHECKING…';
@@ -722,17 +715,12 @@ function srtTime(seconds){const ms=Math.max(0,Math.round(seconds*1000)),hours=Ma
 function sequenceCues(moments){let offset=0;const cues=[];for(const m of moments){for(const cue of timedCues(m)){const start=Math.max(cue.start,m.trimIn),end=Math.min(cue.end,m.trimOut);if(end-start>.1)cues.push({start:offset+start-m.trimIn,end:offset+end-m.trimIn,text:cue.text});}offset+=m.trimOut-m.trimIn;}return cues}
 function exportSrt(moments,name){if(!moments.length||moments.some(m=>!timedCues(m).some(c=>c.end>m.trimIn&&c.start<m.trimOut)||!m.captionReviewed[m.captionLanguage])){message('Listen through and confirm each subtitle track before exporting SRT.');return;}const lines=sequenceCues(moments).map((cue,index)=>`${index+1}\n${srtTime(cue.start)} --> ${srtTime(cue.end)}\n${cue.text}\n`).join('\n');download(new Blob([lines],{type:'text/plain;charset=utf-8'}),name);}
 $('srtButton').onclick=()=>{const m=state.moments.find(x=>x.id===state.selected);if(m)exportSrt([m],`context-desk-${Math.floor(m.start)}.srt`)};
-$('exportButton').onclick=async()=>{
-  const m=state.moments.find(x=>x.id===state.selected);if(!m||!validateTrim()||!validateCaptions(m))return;
-  if(canSaveUnrecompressed(m)){const extension=m.blob.type.includes('mp4')?'mp4':'webm';if(m.blob instanceof Blob)download(m.blob,`context-desk-${Math.floor(m.start)}-source.${extension}`);else downloadSaved(m.url,`context-desk-${Math.floor(m.start)}-source.${extension}`);message(m.status==='stalled'||m.status==='silent'||m.audioRms!==null&&m.audioRms!==undefined&&m.audioRms<.001?'Export saved, but this window has silent audio or a stalled picture. Check the file before using it.':`Source-quality ${extension.toUpperCase()} saved immediately. This recorded clip stays usable after the stream stops.`);return;}
-  const button=$('exportButton');button.disabled=true;button.textContent='PREPARING CLIP…';
-  try{
-    const output=await renderComposedVideo([m],()=>button.textContent='RENDERING CLIP…');
-    download(output.blob,`context-desk-${Math.floor(m.start)}-edit.${output.extension}`);
-    message(`Clean ${output.extension.toUpperCase()} clip exported locally. Watch the cut before publishing.`);
-  }catch(error){message(error.message||'Clip export failed.');}
-  finally{button.disabled=false;button.innerHTML='EXPORT CLIP <b>↗</b>';}
-};
+async function queueVideoExport(moments,name,{draft=false,openJobs=true}={}){
+  setActivity('export-save','Saving your edit','Preparing a durable render job…');
+  try{await projectSession.flush();const j=await requestJson('/api/exports',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({projectId:projectSession.current.id,momentIds:moments.map(m=>m.id),aspect:state.aspect,quality:$('exportQuality').value==='source'?'source':Number($('exportQuality').value),format:$('exportFormat').value,draft,name})});await jobsView.refresh();if(openJobs)showWorkspace('jobs');return j}finally{finishActivity('export-save')}
+}
+$('exportButton').onclick=async()=>{const m=state.moments.find(x=>x.id===state.selected);if(!m||!validateTrim()||!validateCaptions(m))return;try{await queueVideoExport([m],`context-desk-${Math.floor(m.start)}-edit`)}catch(error){$('editorStatus').textContent=error.message}};
+
 let lastExportUrl=null;
 function download(blob,name){if(lastExportUrl)URL.revokeObjectURL(lastExportUrl);lastExportUrl=URL.createObjectURL(blob);const a=$('lastExport');a.href=lastExportUrl;a.download=name;a.textContent=`DOWNLOAD ${name.toUpperCase()} ↘`;a.hidden=false;a.click();void preserveExport(blob,name);}
 window.addEventListener('pagehide',()=>{if(lastExportUrl)URL.revokeObjectURL(lastExportUrl);for(const url of sourceUrls)URL.revokeObjectURL(url);for(const url of batchExportUrls)URL.revokeObjectURL(url)});
@@ -805,45 +793,8 @@ function renderCut(){projectSession?.changed();document.body.classList.toggle('h
 function cutNotes(){return {title:$('cutTitle').value.trim(),outputFormat:state.aspect,exportedForReview:true,sequence:cutMoments().map((m,index)=>({order:index+1,source:m.sourceName,sourceLink:m.sourceLink,sourceCrop:m.sourceCrop,sourcePixels:m.sourcePixels,sourceTimeBasis:m.sourceType==='screen'?'elapsed seconds since tab share began':'video playhead seconds',sourceStartSeconds:m.start+m.trimIn,sourceEndSeconds:m.start+m.trimOut,frameMode:m.frameMode,zoom:m.zoom,focusX:m.focusX,focusY:m.focusY,showHook:m.showHook,sourceCaptionMask:Boolean(m.sourceCaptionMask),hook:m.hook,alternateHook:m.alternateHook,evidence:m.analysis?.evidence||'',contextNote:m.analysis?.contextNote||'',riskNote:m.analysis?.riskNote||'',storyProvider:m.analysis?'Meta Muse Spark':null,speechProvider:m.speechSource||null,translationProvider:m.translationSource||null,timingSource:m.timingSource||null,transcript:m.transcript,captionLanguage:m.captionLanguage,captionStyle:m.captionStyle,captionOffset:m.captionOffset||0,captionCues:timedCues(m).map(({index,...cue})=>cue),captionsReviewed:Boolean(m.captionReviewed[m.captionLanguage])}))}}
 $('exportEdl').onclick=()=>download(new Blob([JSON.stringify(cutNotes(),null,2)],{type:'application/json'}),'context-desk-story-cut-notes.json');
 $('exportCutSrt').onclick=()=>exportSrt(cutMoments(),'context-desk-story-cut.srt');
-async function renderComposedVideo(moments,onProgress){
-  setActivity('render','Exporting video','Keep this page open. Edited video renders at approximately playback speed.');
-  let recorder,playback,audioContext,canvasStream;
-  try{
-    audioContext=new AudioContext();await audioContext.resume();
-    playback=document.createElement('video');playback.playsInline=true;
-    const audioSource=audioContext.createMediaElementSource(playback);
-    const audioOutput=audioContext.createMediaStreamDestination();audioSource.connect(audioOutput);
-    const [width,height]=exportDimensions(moments);const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;
-    const context=canvas.getContext('2d');const fps=Math.min(60,Math.max(30,...moments.map(moment=>moment.sourcePixels?.frameRate||30)));canvasStream=canvas.captureStream(fps);
-    const stream=new MediaStream([...canvasStream.getVideoTracks(),...audioOutput.stream.getAudioTracks()]);
-    const candidates=$('exportFormat').value==='webm'?['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm']:['video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
-    const mimeType=candidates.find(type=>MediaRecorder.isTypeSupported(type));
-    recorder=new MediaRecorder(stream,{...(mimeType?{mimeType}:{}),videoBitsPerSecond:width>=1920||height>=1920?(fps>=50?16000000:12000000):6000000,audioBitsPerSecond:192000});
-    const parts=[];recorder.ondataavailable=e=>{if(e.data.size)parts.push(e.data)};
-    const finished=new Promise(resolve=>recorder.onstop=resolve);recorder.start();recorder.pause();
-    for(let i=0;i<moments.length;i++){
-      const moment=moments[i];onProgress?.(i+1,moments.length);
-      playback.src=moment.url;playback.load();
-      await mediaReady(playback);
-      if(mediaTime(moment,moment.trimIn)>.05){const sought=new Promise(resolve=>playback.addEventListener('seeked',resolve,{once:true}));playback.currentTime=mediaTime(moment,moment.trimIn);await sought;}
-      let drawing=true;const draw=()=>{if(!drawing)return;drawComposedFrame(context,playback,moment,playback.currentTime-mediaTime(moment,moment.trimIn));requestAnimationFrame(draw)};
-      draw();recorder.resume();await playback.play();
-      await new Promise((resolve,reject)=>{const started=performance.now();const timer=setInterval(()=>{if(playback.currentTime>=mediaTime(moment,moment.trimOut)-.06||playback.ended){clearInterval(timer);resolve();}else if(performance.now()-started>(moment.trimOut-moment.trimIn+4)*1000){clearInterval(timer);reject(Error('The source stopped during export.'));}},40)});
-      playback.pause();recorder.pause();drawing=false;
-    }
-    recorder.stop();await finished;
-    const output=new Blob(parts,{type:recorder.mimeType||'video/webm'});
-    if(output.size<1000)throw Error('The browser produced an empty cut. Try exporting the source window.');
-    return {blob:output,extension:recorder.mimeType.startsWith('video/mp4')?'mp4':'webm'};
-  }finally{finishActivity('render');if(recorder?.state==='recording')recorder.stop();playback?.pause();canvasStream?.getTracks().forEach(track=>track.stop());await audioContext?.close()}
-}
-$('exportSequence').onclick=async()=>{
-  const moments=cutMoments();if(!moments.length||moments.some(m=>!validateCaptions(m)))return;
-  const button=$('exportSequence');button.disabled=true;
-  try{const output=await renderComposedVideo(moments,(current,total)=>button.textContent=`RENDERING ${current}/${total}…`);download(output.blob,`context-desk-story-cut.${output.extension}`);$('cutStatus').textContent=`${output.extension.toUpperCase()} rough cut exported. Watch it through before sharing.`;}
-  catch(error){$('cutStatus').textContent=error.message||'Rough-cut export failed.';}
-  finally{button.disabled=false;button.innerHTML='EXPORT ROUGH CUT <b>↗</b>';}
-};
+$('exportSequence').onclick=async()=>{const moments=cutMoments();if(!moments.length||moments.some(m=>!validateCaptions(m)))return;try{await queueVideoExport(moments,$('cutTitle').value||'context-desk-story-cut')}catch(error){$('cutStatus').textContent=error.message}};
+
 let wholeJobs=[],wholeJob=null,wholePoll=null,wholeTrackUrl=null,wholePreparing=false;
 function renderWholeSubtitles(){
   if(!$('wholeSubtitles'))return;$('wholeSubtitles').hidden=state.sourceType!=='file'&&!wholeJob;
@@ -902,8 +853,8 @@ function projectSnapshot(){
 async function restoreProject(p){
   const source=p.sourceId?await requestJson('/api/import/'+p.sourceId).catch(()=>null):null;
   if(source?.status==='ready')await loadImportedVideo(source,p.state.sourcePageUrl||source.sourceUrl||'',{auto:false});
-  else{cleanupSource();message('Source media is unavailable. Saved clips and edits are retained in the Library. Reimport the original recording to recover playback.');}
-  const saved=p.state;await memoryView.list(saved.storyMemoryId||'');state.moments=saved.moments||[];state.cut=saved.cut||[];state.selected=saved.selected||null;state.aspect=saved.aspect||'landscape';state.aiCalls=saved.aiCalls||0;state.batchId=saved.batchId||crypto.randomUUID();state.batchCancel=true;state.exportHistory=saved.exports||[];state.batchExports=state.exportHistory.filter(e=>e.batch);
+  else{cleanupSource();message(p.sourceId?'Source media is unavailable. Saved clips and edits are retained. Restore the original recording before processing.':'Live session restored. Saved windows can play and export; connect a live tab again to capture new footage.');}
+  editHistory.reset();const saved=p.state;await memoryView.list(saved.storyMemoryId||'');state.moments=saved.moments||[];state.cut=saved.cut||[];state.selected=saved.selected||null;state.aspect=saved.aspect||'landscape';state.aiCalls=saved.aiCalls||0;state.batchId=saved.batchId||crypto.randomUUID();state.batchCancel=true;state.exportHistory=saved.exports||[];state.batchExports=state.exportHistory.filter(e=>e.batch);
   for(const [id,value]of Object.entries(saved.settings||p.source?.settings||{})){const el=$(id);if(!el)continue;if(el.type==='checkbox')el.checked=Boolean(value);else el.value=value}
   updateButtons();updateBudgetUi();updateSpeechSummary();renderQueue();renderBatchResults();renderCut();renderBatchDownloads();
   if(saved.workspace==='edit'&&state.selected&&state.moments.some(m=>m.id===state.selected))await selectMoment(state.selected,{scroll:false});else showWorkspace(['source','clips','library','jobs'].includes(saved.workspace)?saved.workspace:'clips');
@@ -932,6 +883,16 @@ $('clipDirection').onchange=()=>{renderQueue();renderBatchResults()};
 $('captionTranslationMode').onchange=async()=>{const m=state.moments.find(x=>x.id===state.selected);if(!m)return;m.translationMode=$('captionTranslationMode').value;m.captionReviewed={};for(const language of Object.keys(m.captionCues))if(language!=='Original')delete m.captionCues[language];if(m.captionLanguage!=='Original')await translateMoment(m,m.captionLanguage,{force:true});else renderEditor()};
 const memoryView=createMemoryView({trashToggle:$('showMemoryTrash'),trashButton:$('trashMemory'),select:$('storyMemorySelect'),rows:$('memoryFacts'),status:$('memoryStatus'),getSelected:()=>{const m=state.moments.find(x=>x.id===state.selected);return m?{...m,projectId:projectSession.current?.id}:null},onSelect:()=>projectSession?.changed()});
 $('createMemory').onclick=()=>memoryView.create($('newMemoryTitle').value||'Story memory');$('addMemoryNote').onclick=()=>memoryView.add();$('addMemoryEvidence').onclick=()=>memoryView.add(true);$('saveMemory').onclick=()=>memoryView.save();$('exportMemory').onclick=()=>memoryView.export();$('trashMemory').onclick=()=>memoryView.trash();
+
+const editKeys=['trimIn','trimOut','hook','alternateHook','frameMode','zoom','focusX','focusY','showHook','captionLanguage','translationMode','captionStyle','dialectNote','captionCues','captionReviewed','showCaptions','captionOffset','sourceCaptionMask','approved'];
+function editSnapshot(){return {aspect:state.aspect,cut:[...state.cut],selected:state.selected,moments:state.moments.map(m=>({id:m.id,...Object.fromEntries(editKeys.filter(k=>m[k]!==undefined).map(k=>[k,structuredClone(m[k])]))}))}}
+function applyEditSnapshot(value){const ids=new Set(value.moments.map(m=>m.id));state.moments=state.moments.filter(m=>!m.splitCreated||ids.has(m.id));for(const edit of value.moments){const m=state.moments.find(m=>m.id===edit.id);if(m)Object.assign(m,edit);else if(splitOriginals.has(edit.id))state.moments.push({...structuredClone(splitOriginals.get(edit.id)),...edit})}state.cut=value.cut.filter(id=>state.moments.some(m=>m.id===id));state.aspect=value.aspect;state.selected=value.selected;renderQueue();renderCut();renderBatchResults();renderEditor();projectSession.changed()}
+const splitOriginals=new Map();const editHistory=createHistory({apply:applyEditSnapshot,onChange:()=>{$('undoEdit').disabled=!editHistory.canUndo;$('redoEdit').disabled=!editHistory.canRedo;projectSession?.changed()}});
+$('undoEdit').onclick=()=>editHistory.undo();$('redoEdit').onclick=()=>editHistory.redo();
+let beforeEdit=null;const editable=event=>event.target.matches('.editor input,.editor textarea,.editor select,.cut-section input')&&!event.target.matches('#seekBar,#loopClip');
+for(const type of ['input','change']){document.addEventListener(type,event=>{if(editable(event))beforeEdit=editSnapshot()},true);document.addEventListener(type,event=>{if(editable(event)&&beforeEdit){const before=beforeEdit;beforeEdit=null;editHistory.record(before,editSnapshot(),event.target.id||event.target.getAttribute('aria-label'))}})}
+$('splitClip').onclick=()=>{const m=state.moments.find(x=>x.id===state.selected);if(!m)return;const before=editSnapshot();try{const [first,second]=splitEdits(m,localTime(m,clipVideo.currentTime),crypto.randomUUID());Object.assign(m,first);second.splitCreated=true;splitOriginals.set(second.id,structuredClone(second));state.moments.push(second);if(state.cut.includes(m.id))state.cut.splice(state.cut.indexOf(m.id)+1,0,second.id);editHistory.record(before,editSnapshot(),'split');renderQueue();renderBatchResults();renderCut();renderEditor();$('historyStatus').textContent='Two editable trims created; source timing is preserved.'}catch(error){$('historyStatus').textContent=error.message}};
+document.addEventListener('keydown',event=>{if(!(event.metaKey||event.ctrlKey)||event.key.toLowerCase()!=='z'||/^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName||''))return;event.preventDefault();event.shiftKey?editHistory.redo():editHistory.undo()});
 
 const jobsView=createJobsView({panel:$('jobRows'),counts:$('jobCounts'),status:$('jobsStatus'),onOpen:async id=>{await projectSession.open(id);showWorkspace('clips')},onJobs:async jobs=>{
   $('navJobCount').textContent=jobs.filter(j=>['queued','running'].includes(j.status)).length;

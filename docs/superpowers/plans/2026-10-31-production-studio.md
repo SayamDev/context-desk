@@ -67,11 +67,11 @@ Files: public/library.js, public/languages.js, lib/projects.js, server.js, tests
 ## Task 5 — Editing, deterministic export and live reliability
 
 Files: lib/exports.js, public/app.js, tests/exports.test.js, QA.md.
-- [ ] Add undo/redo, split and 4:5 while preserving source edit decisions.
-- [ ] Implement consistent FFmpeg export jobs, persistent output, progress/cancel and sidecar tracks.
-- [ ] Persist actual live media segments and health state; benchmark tracking/fallback before claiming it works.
-- [ ] Probe output audio, dimensions, caption timing and RTL rendering on real files.
-- [ ] Commit the tested slice.
+- [x] Add undo/redo, split and 4:5 while preserving source edit decisions.
+- [x] Implement consistent FFmpeg export jobs, persistent output, progress/cancel and sidecar tracks.
+- [x] Persist completed live media windows and save them before switching sources. Sustained browser-sharing and optional tracking benchmarks remain unverified; do not claim they work.
+- [x] Probe output audio, dimensions, caption timing and RTL rendering on real files.
+- [x] Commit the tested slice.
 
 ## Task 6 — Evaluation, performance and submission
 
