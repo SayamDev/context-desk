@@ -1,6 +1,7 @@
 import {randomUUID} from 'node:crypto';
 import {createMomentSearch} from './lib/moment-search.js';
 import {createLiveIngestService} from './lib/live-ingest.js';
+import {createLiveBufferService} from './lib/live-buffer.js';
 import {createSocialPublishingService} from './lib/social-publishing.js';
 import {createProductApi} from './lib/product-api.js';
 import {speechCues} from './public/timing.js';
@@ -50,6 +51,7 @@ const timelineApi=createTimelineApi({store:studioStore(),claimSource:claimImport
 const reframeApi=createReframeApi({store:studioStore(),claimSource:claimImportSource});
 const creativeService=createCreativeAssetService({store:studioStore()});
 const bundleService=createBundleService({store:studioStore()});
+const liveBufferService=createLiveBufferService();
 const liveOptions=new Map();let liveAnalysisQueue=Promise.resolve();
 const liveService=createLiveIngestService({store:studioStore(),onWindow:payload=>{const pending=liveAnalysisQueue.then(()=>analyseLiveWindow(payload));liveAnalysisQueue=pending.catch(()=>{});return pending}});
 const productApi=createProductApi({store:studioStore(),search:createMomentSearch({store:studioStore()}),live:liveService,social:createSocialPublishingService({store:studioStore()}),onLiveOptions:(projectId,options)=>{liveOptions.set(projectId,{...options,requests:0});studioStore().putRecord('live_options',projectId,{...options,requests:0})}});
@@ -70,6 +72,7 @@ const server = http.createServer(async (req,res) => {
   if(await timelineApi(req,res,json))return;
   if(await reframeApi(req,res,json))return;
   if(await subtitleService.handle(req,res,json))return;
+  if(await liveBufferService.handle(req,res,json))return;
   const route=new URL(req.url,'http://localhost').pathname;
   if(route==='/api/discovery-preview'&&req.method==='POST'){try{let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>10000)throw Error('Preview request is too large.')}return json(res,200,discoveryService.preview(JSON.parse(raw||'{}')))}catch(error){return json(res,400,{error:error.message})}}
   const transcriptRoute=route.match(/^\/api\/discovery\/([^/]+)\/transcript$/);if(transcriptRoute&&req.method==='GET'){try{const job=discoveryService.get(transcriptRoute[1]);res.setHeader('Content-Disposition','attachment; filename="context-desk-transcript.json"');return json(res,200,{sourceId:job.sourceId,draft:true,fullSourceTranscribed:job.fullSourceTranscribed,cues:discoveryService.transcript(job.id)})}catch(error){return json(res,404,{error:error.message})}}
@@ -148,7 +151,7 @@ const server = http.createServer(async (req,res) => {
   if(!name) return json(res,404,{error:'Not found'});
   try {const data=await fs.readFile(path.join(root,'public',name)); res.writeHead(200,{'Content-Type':mime[path.extname(name)],'Cache-Control':'no-store'});res.end(data);} catch {json(res,404,{error:'Not found'});}
 });
-let shuttingDown=false;for(const signal of ['SIGTERM','SIGINT'])process.on(signal,async()=>{if(shuttingDown)return;shuttingDown=true;await liveService.shutdown();server.close(()=>process.exit(0));setTimeout(()=>process.exit(0),2000).unref()});
+let shuttingDown=false;for(const signal of ['SIGTERM','SIGINT'])process.on(signal,async()=>{if(shuttingDown)return;shuttingDown=true;await Promise.all([liveService.shutdown(),liveBufferService.shutdown()]);server.close(()=>process.exit(0));setTimeout(()=>process.exit(0),2000).unref()});
 server.listen(port,'127.0.0.1',()=>console.log(`Context Desk: http://localhost:${port}`));
 
 function json(res,code,value){res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(value));}
