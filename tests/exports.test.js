@@ -11,3 +11,18 @@ test('FFmpeg exports a saved 4:5 clip with real audio and Arabic subtitle assets
   }finally{store.close();await fs.rm(root,{recursive:true,force:true})}
 });
 test('split caption corrections and review flags are independent in each half',()=>{const [a,b]=splitEdits(moment,3,'other');a.captionCues.Arabic[0].text='Changed in first clip';a.captionReviewed.Arabic=false;assert.equal(b.captionCues.Arabic[0].text,'مرحبا بالعالم');assert.equal(b.captionReviewed.Arabic,true);assert.equal(moment.captionCues.Arabic[0].text,'مرحبا بالعالم')});
+test('social story export resolves every segment to project English and blocks missing/reviewless targets',async()=>{
+ const root=await fs.mkdtemp(path.join(os.tmpdir(),'social-export-')),store=openStore(root),file=path.join(root,'fixture.mp4');
+ try{
+  await ffmpeg(['-v','error','-y','-f','lavfi','-i','testsrc2=size=320x180:rate=12','-f','lavfi','-i','sine=frequency=500:sample_rate=16000','-t','3','-c:v','libx264','-preset','ultrafast','-c:a','aac',file]);
+  const p=store.createProject({title:'Synthetic multilingual export QA',sourceId:'source'});
+  store.saveProject(p.id,{settings:{liveCaptionLanguage:'English'},moments:['one','two'].map((id,i)=>({...moment,id,start:0,end:3,mediaStart:0,trimIn:i*1.4,trimOut:(i+1)*1.4,captionOffset:0,captionCues:{Arabic:[{start:0,end:3,text:'المصدر'}]},url:'/api/import/00000000-0000-0000-0000-000000000001/media'})),cut:[]},0);
+  const service=createExportService({store,claimSource:()=>({file,release(){}})}),request={projectId:p.id,momentIds:['one','two'],aspect:'portrait',quality:1080,format:'mp4',destination:'tiktok'};
+  assert.throws(()=>service.start(request),/Review/);
+  const saved=store.getProject(p.id);store.saveProject(p.id,{...saved.state,moments:saved.state.moments.map(m=>({...m,captionCues:{...m.captionCues,English:[{start:0,end:3,text:m.id==='one'?'The question.':'The response.'}]},captionReviewed:{English:true}}))},saved.revision);
+  const job=service.start(request);let j;for(let i=0;i<1000;i++){j=service.get(job.id);if(['complete','error'].includes(j.status))break;await new Promise(r=>setTimeout(r,10))}
+  assert.equal(j.status,'complete',j.error);assert.deepEqual(j.captionLanguages,['English']);assert.equal(j.destination,'tiktok');
+  const probe=await probeMedia(store.assetPath(j.output.id).file);assert.equal(probe.width,1080);assert.equal(probe.height,1920);assert.equal(probe.audio,true);assert.ok(Math.abs(probe.duration-2.8)<.2);
+  const srt=await fs.readFile(store.assetPath(j.srt.id).file,'utf8');assert.match(srt,/The question/);assert.match(srt,/The response/);assert.doesNotMatch(srt,/المصدر/);
+ }finally{store.close();await fs.rm(root,{recursive:true,force:true})}
+});

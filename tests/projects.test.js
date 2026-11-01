@@ -7,6 +7,10 @@ test('library presentation preference survives the API roundtrip and rejects arb
   assert.equal((await call({view:'invented'})).data.view,'list');
  }finally{store.close();await fs.rm(root,{recursive:true,force:true})}
 });
+test('project serialization retains the target language, explicit clip override and social preset',()=>{
+ const state=cleanProjectState({settings:{liveCaptionLanguage:'English',socialDestination:'tiktok'},moments:[{id:'m',url:'/api/assets/'+'a'.repeat(64),start:0,end:5,captionLanguage:'French',captionLanguageOverride:'French',captionCues:{Original:[],English:[],French:[]}}]});
+ assert.equal(state.settings.liveCaptionLanguage,'English');assert.equal(state.settings.socialDestination,'tiktok');assert.equal(state.moments[0].captionLanguageOverride,'French');
+});
 test('Library separates usable clip picks from retained rejected analysis windows',async()=>{
  const root=await fs.mkdtemp(path.join(os.tmpdir(),'desk-clip-count-')),store=openStore(root),api=createProjectApi(store);
  try{const p=store.createProject({title:'Honest counts'});store.saveProject(p.id,{moments:[{id:'a',status:'not-selected'},{id:'b',status:'suggested'},{id:'c',status:'error',approved:true}],settings:{}},0);

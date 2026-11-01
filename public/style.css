@@ -208,3 +208,29 @@ button.source-button.primary:hover:not(:disabled),
  .library-toolbar select {min-width:0;width:100%}
  .library-trash {grid-column:1}.view-switch {grid-column:2;justify-self:end;margin-left:0}
 }
+
+/* Playback preferences are independent of the edit model. */
+.playback-options{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:12px 0 16px;color:var(--muted)}
+.playback-options label{display:flex;flex-direction:column;align-items:stretch;gap:8px;font-size:14px}
+.playback-options label:has(input){flex:1;min-width:150px;flex-direction:row;align-items:center}
+.playback-options input[type=range]{width:100%;min-width:80px;accent-color:var(--accent)}
+.playback-options button,.playback-options select{min-height:44px;padding:8px 12px;font-size:14px}
+.playback-options [role=status]{flex-basis:100%;color:var(--focus)}
+.playback-options [role=status]:empty{display:none}
+.caption-scope{padding:0 0 16px;margin-bottom:16px;border-bottom:1px solid var(--line);font-size:14px;line-height:1.5}
+.caption-scope p{margin:0 0 12px;color:var(--text);font-weight:600}
+.caption-scope label{display:flex;align-items:center;gap:10px;text-transform:none;letter-spacing:normal;font-size:14px}
+.caption-scope [role=status]{display:block;margin-top:8px;color:var(--accent)}
+.social-export{display:grid;grid-template-columns:1fr auto;gap:12px 16px;padding-bottom:20px;margin-bottom:20px;border-bottom:1px solid var(--line)}
+.social-export>div,.social-export>p{grid-column:1/-1}
+.social-export h3{margin:0 0 8px;font-size:22px;font-family:inherit}
+.social-export p{margin:0;font-size:14px;line-height:1.6;color:var(--muted)}
+.social-export label{display:flex;flex-direction:column;align-items:stretch;gap:8px;font-size:14px;min-width:0}
+.social-export select{width:100%;flex:none;min-width:0;min-height:44px}
+.social-export button{padding:10px 16px;min-height:44px}
+.social-handoff{display:flex;gap:12px;flex-wrap:wrap;align-items:center;width:100%}
+.social-handoff p{margin:0;flex-basis:100%;font-size:14px;line-height:1.6;color:var(--muted)}
+.social-handoff a,.social-handoff button{min-height:44px;display:inline-flex;align-items:center;padding:10px 14px}
+.preview-frame:fullscreen{background:#080b10;display:grid;place-items:center;width:100%;height:100%}
+:fullscreen #previewCanvas{max-width:100%;max-height:100vh;object-fit:contain}
+@media(max-width:600px){.social-export{grid-template-columns:1fr}.social-export>div,.social-export>p{grid-column:auto}.playback-options{gap:8px}.playback-options label{font-size:14px}}

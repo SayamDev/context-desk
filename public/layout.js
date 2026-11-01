@@ -52,6 +52,8 @@ export function mountLayout({navigate,onFilter,onView,onTrim,onSource}){
   one('.editor-title h2').textContent='Studio';
   const preview=one('.clip-preview'),timeline=element('section','edit-timeline','<div class="timeline-heading"><h3>Trim the moment</h3><span id="trimDuration"></span></div><div id="timelineFrames" class="timeline-frames" aria-label="Sampled source frames"></div><div class="timeline-selection" id="timelineSelection"></div><div class="trim-handles"><label>Start<input id="trimStartRange" type="range" min="0" max="1" step="0.1" value="0"></label><label>End<input id="trimEndRange" type="range" min="0" max="1" step="0.1" value="1"></label></div>');
   timeline.id='editTimeline';preview.querySelector('.trim-row').before(timeline);
+  const playback=element('div','playback-options','<button id="mutePreview" type="button" aria-pressed="false">Mute</button><label for="previewVolume">Volume<input id="previewVolume" type="range" min="0" max="100" step="1" value="100"></label><label for="previewSpeed">Speed<select id="previewSpeed"><option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="1" selected>1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label><button id="previewFullscreen" type="button">Fullscreen</button><span id="previewBufferStatus" role="status"></span>');
+  one('.transport').after(playback);
   for(const [id,edge] of [['trimStartRange','in'],['trimEndRange','out']])$(id).oninput=e=>onTrim(edge,Number(e.target.value));
   const viewSource=element('button','source-review','Watch original context');viewSource.id='watchOriginal';viewSource.type='button';viewSource.onclick=onSource;one('.editor-history').append(viewSource);
   one('.caption-workspace').open=true;
@@ -61,6 +63,7 @@ export function mountLayout({navigate,onFilter,onView,onTrim,onSource}){
   const tabs=element('div','inspector-tabs','<button id="captionTab" type="button" aria-pressed="true">Captions</button><button id="storyTab" type="button" aria-pressed="false">Story & evidence</button>');
   const storyPanel=element('div','story-panel');storyPanel.id='storyInspector';
   const exportPanel=element('div','studio-export');
+  exportPanel.insertAdjacentHTML('afterbegin','<div class="social-export"><div><h3>Made for your next post.</h3><p>Choose a destination, export, then upload your finished file.</p></div><label for="socialDestination">Export for<select id="socialDestination"><option value="custom">Custom export</option><option value="tiktok">TikTok</option><option value="instagram">Instagram Reels</option><option value="facebook">Facebook Reels</option><option value="shorts">YouTube Shorts</option><option value="youtube">YouTube video</option></select></label><button id="applySocialPreset" type="button">Apply preset</button><p id="socialExportHint" role="status">Your current edit and export settings.</p></div>');
   for(const selector of ['.export-settings','.export-actions','#lastExport','#approveBatch','#addToCut','.export-hint']){const node=one(selector);if(node)exportPanel.append(node)}
   for(const child of [...story.children])if(child!==caption)storyPanel.append(child);
   story.replaceChildren(tabs,caption,storyPanel,exportPanel);storyPanel.hidden=true;
@@ -70,6 +73,8 @@ export function mountLayout({navigate,onFilter,onView,onTrim,onSource}){
   const keep=new Set([caption.querySelector('summary'),one('.caption-options'),one('.caption-auto-hint'),one('.caption-line-heading'),$('captionLines'),$('captionStatus'),$('sourceCaptionWarning'),$('showCaptions').closest('label'),$('captionReviewed').closest('label')]);
   for(const child of [...caption.children])if(!keep.has(child))advanced.append(child);
   caption.append(advanced);
+  const languageScope=element('div','caption-scope','<p id="captionScopeStatus"></p><label><input id="captionOverride" type="checkbox"> Use a different language for this clip</label><span id="languageQueueStatus" role="status"></span>');
+  one('.caption-options').before(languageScope);
   const modeLabel=$('captionTranslationMode').previousElementSibling;modeLabel.append($('captionTranslationMode'));
   one('.editor').after($('wholeSubtitles'));
   const originalEvidence=one('.evidence');originalEvidence.querySelector('summary').textContent='Source evidence & story shape';

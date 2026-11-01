@@ -1,4 +1,5 @@
 import {requestJson} from './projects.js';
+import {socialHandoff} from './social.js';
 const escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function jobMarkup(j){
   const exporting=j.kind==='export',discovery=j.kind==='discovery',active=j.status==='running',waiting=j.status==='queued';
@@ -6,13 +7,15 @@ function jobMarkup(j){
   const progress=exporting?j.completedSeconds/j.duration:discovery?(j.sectionsDone+j.checksDone)/(j.sectionsTotal+j.checksTotal):j.sectionsDone/j.sectionsTotal;
   const action=(name,label)=>`<button data-job="${j.id}" data-base="${base}" data-action="${name}">${label}</button>`;
   const open=exporting?j.output?`<a href="${escape(j.output.url)}" download="${escape(j.sourceName)}.${j.output.type==='video/webm'?'webm':'mp4'}">Download video</a>${j.srt?`<a href="${escape(j.srt.url)}" download="context-desk.srt">Download SRT</a>`:''}`:'':discovery?`<button data-open="${j.projectId}">Open clips</button>`:j.cueCount?`<a href="/api/subtitles/${j.id}/srt">Download draft SRT</a>`:'';
+  const target=exporting&&j.output?socialHandoff(j.destination):null;
+  const handoff=target?`<div class="social-handoff"><p>${escape(target.label)} export · ${j.captionLanguages?.length?'Subtitles: '+escape(j.captionLanguages.join(', ')):'Subtitles omitted'}. Download the video, then choose it in ${escape(target.label)}. Nothing has been posted.</p><a href="${target.upload}" target="_blank" rel="noopener noreferrer">Open ${escape(target.label)}</a><button data-share-file="${j.id}" ${typeof navigator!=='undefined'&&navigator.canShare&&navigator.share?'':'hidden'}>Share video file…</button><span data-share-status role="status"></span></div>`:'';
   return `<article class="job-row" data-job-row="${j.id}">
     <div class="job-title"><h3>${escape(j.sourceName)}</h3><span>${exporting?'VIDEO EXPORT':discovery?'STORY DISCOVERY':'SUBTITLE TRACK'}${j.language?' · '+escape(j.language):''}</span><b class="job-state">${escape(j.status)}${j.queuePosition?' · position '+j.queuePosition:''}</b></div>
     <div class="job-progress"><p>${escape(j.phase)}</p><progress max="1" value="${Number.isFinite(progress)?progress:0}"></progress><p>${j.sectionsDone}/${j.sectionsTotal} ${exporting?'rendered clips':discovery?'picture samples':'sections'} · ${j.sectionsRemaining} remaining${discovery?' · '+j.checksDone+'/'+j.checksTotal+' story checks · '+j.suggested+' supported moments':''}</p>
       ${exporting?'':`<small>${j.speechRequests} speech · ${discovery?j.storyRequests+' story · ':''}${j.translationRequests} translation requests</small>`}
       ${j.output?`<details class="export-preview"><summary>Preview finished video</summary><video src="${escape(j.output.url)}" controls playsinline preload="metadata"></video></details>`:''}
       ${j.error?`<p class="job-error">${escape(j.error)}</p>`:''}
-    </div><div class="job-actions">${open}${active||waiting?action('pause','Pause'):''}${resume?action('resume',j.inFlight?'Retry unfinished section':'Resume'):''}${waiting?action('first','Move first'):''}${active||waiting||resume&&j.status!=='cancelled'?action('cancel','Cancel'):''}</div>
+    </div><div class="job-actions">${open}${active||waiting?action('pause','Pause'):''}${resume?action('resume',j.inFlight?'Retry unfinished section':'Resume'):''}${waiting?action('first','Move first'):''}${active||waiting||resume&&j.status!=='cancelled'?action('cancel','Cancel'):''}${handoff}</div>
   </article>`;
 }
 export function createJobsView({panel,counts,status,onJobs,onOpen,onPlay=()=>{}}){
@@ -33,6 +36,7 @@ export function createJobsView({panel,counts,status,onJobs,onOpen,onPlay=()=>{}}
     }
   }
   panel.onclick=async event=>{
+    const share=event.target.closest('[data-share-file]');if(share){const job=jobs.find(j=>j.id===share.dataset.shareFile),note=share.closest('.social-handoff').querySelector('[data-share-status]');share.disabled=true;try{if(!job?.output||job.output.size>100*1024*1024)throw Error('Download this video instead. File sharing is limited to 100 MB.');note.textContent='Preparing file…';const response=await fetch(job.output.url);if(!response.ok)throw Error('Could not read the saved export. Download it instead.');const file=new File([await response.blob()],job.sourceName+'.mp4',{type:job.output.type});if(!navigator.canShare?.({files:[file]}))throw Error('This browser cannot share video files. Use Download video.');await navigator.share({files:[file],title:job.sourceName});note.textContent='Share sheet closed. Check the destination app to finish posting.'}catch(error){note.textContent=error.name==='AbortError'?'Sharing cancelled. Your export is still saved.':error.message}finally{share.disabled=false}return}
     const open=event.target.closest('[data-open]');if(open){await onOpen(open.dataset.open);return}
     const button=event.target.closest('[data-job]');if(!button)return;button.disabled=true;
     try{await requestJson('/api/'+button.dataset.base+'/'+button.dataset.job,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:button.dataset.action})});await refresh()}catch(error){status.textContent=error.message;button.disabled=false}

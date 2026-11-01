@@ -16,3 +16,15 @@ The public pages still direct readers to the application overview/waiver and say
 6. Present the real Arabic smoke-test error and the next native-review gate honestly. Do not describe the synthetic rendering fixture as an actual reality-show success.
 
 Public code is MIT; model APIs, footage, fonts and referenced datasets have their own terms. No private competitor implementation was copied. No virality guarantee, emotion diagnosis, universal dialect claim or live reliability claim should appear in the pitch.
+
+## Accepted-participant guide supplied 1 November 2026
+
+The user supplied the Participant Guide as pasted dashboard text. This is stronger evidence for submission mechanics than the public overview, but it is not the complete final Official Rules/IP agreement. Embedded links were reduced to labels, so the final submission form and full legal terms still need direct URLs.
+
+The supplied guide requires a public repository, a publicly accessible three-minute demo video, a working product/code for judging, all contributors listed, and one submission per team through Cerebral Valley. Solo entrants are permitted; maximum team size is four. Deadline: 4 November 2026, 9 PM EST = 5 November, 2 AM Europe/London. Verify the actual form before submission. Only event-built contributions may be demonstrated as hackathon work; make dated contributions explicit. Its building-period line says 27 October–4 November while kickoff is 26 October, so do not assume 26 October work is eligible without organizer clarification. Rights to code, data and assets are required; supplied YouTube links do not establish redistribution rights.
+
+Guide rubric: Impact30%, Meta tooling25%, technical execution20%, demo25%. Baseline viability and meaningful use of Meta models are pass/fail. Context Desk's proposed positioning remains Build for Your World: a source-linked multilingual story production workflow. Make the actual Meta reasoning, correction, recoverable processing and real export visible in the demo. Avoid promising virality, emotion diagnosis or unvalidated dialect accuracy.
+
+Bonus eligibility is separate: open-weight award requires Muse Glimmer or Muse Spark Open actually running on eligible infrastructure; the creative-build award specifies Muse Image or Muse Wonder. Current Muse Spark API/Voice integration alone does not establish those bonus qualifications. Do not add superficial model features merely for prizes. Posting the demo on X for the viral award requires a separate user-authorized publication; nothing has been posted or submitted.
+
+Remaining evidence: complete Official Rules covering eligibility and IP/media terms, exact form fields/URLs, permitted demo footage, dated contribution manifest, final accessible demo/live-product links, and human validation of the demonstrated subtitles/story. No terms accepted or submission made on the user's behalf.

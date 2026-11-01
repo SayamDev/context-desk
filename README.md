@@ -8,6 +8,8 @@ An open-source, local production studio for finding **real story moments**, revi
 
 A video-first Discover view keeps the original recording beside searchable source windows and a timestamped Moment Map. Overlapping windows have separate lanes. Studio pairs the real preview/trim timeline with editable captions and source evidence; Library supports saved grid/list views and Jobs keeps completed exports available. The charcoal/peach visual system, self-hosted wordmark, interaction contract and actual QA evidence are recorded in [DESIGN.md](DESIGN.md), [UX-CONTRACT.md](UX-CONTRACT.md) and [V2 verification](docs/V2-VERIFICATION.md).
 
+Studio now has independent volume/mute/speed controls and stable media identity across inspector updates. A project subtitle language governs all clips unless an explicit clip override is enabled; missing translations queue with caching and review gates. Export presets prepare MP4s for TikTok, Instagram, Facebook and YouTube, with saved-file/download handoffs rather than a claim of connected publishing. See the [player, language and social release evidence](docs/PLAYER-LANGUAGE-SOCIAL-RELEASE.md).
+
 ## Run locally
 
 Requires **Node 22.13+**, Python 3.10+ and FFmpeg with libass for subtitle rendering. A current Chromium browser is needed for shared-tab capture.

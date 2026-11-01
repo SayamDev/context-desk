@@ -1,6 +1,8 @@
-# Context Desk status — 2026-10-31
+# Context Desk status — 2026-11-01
 
 This supersedes older capability snapshots. Historical test detail remains in QA.md and the build ledger. Implemented features and real-world quality are separate claims.
+
+The screenshot-priority release fixes same-source player reloads, adds persistent volume/mute/speed, enforces project subtitle output with visible clip overrides, and adds social MP4 presets/download handoffs. A real Muse Spark translation and browser-generated 1080×1920 MP4 with English captions/audio were checked. Direct social OAuth publishing is not implemented. [Detailed diagnosis, verification and limits](docs/PLAYER-LANGUAGE-SOCIAL-RELEASE.md).
 
 | Capability | Current evidence |
 | --- | --- |
@@ -21,7 +23,7 @@ This supersedes older capability snapshots. Historical test detail remains in QA
 - Dialect-rich Arabic, overlap, code-switching, proper names and translation fidelity reviewed by qualified speakers. One clean FLEURS sample is insufficient: its strict WER was 33.3%, or 6.7% after the explicitly documented combining-mark normalization. The repeated opening word needs correction.
 - Sustained real live stream with clean framing, audible saved/exported media, background-tab behavior and source-disconnection recovery. Prior live QA froze/recorded silence. No claim that browser capture or SAM tracking is implemented or production-proven.
 - Complete six-hour/20 GB stress test, long full-subtitle run, disk exhaustion, multiple browsers/devices and large-library performance. Prior 2:05:55 / 3.44 GB import succeeded; that is not a six-hour test.
-- Final accepted-participant Official Rules, submission form, eligibility, IP terms and deadline verification. The user requested a later reminder; public application/waiver pages alone do not settle these requirements.
+- Final accepted-participant Official Rules, submission form, eligibility, IP terms and deadline verification. The participant guide was provided on 1 November, but final rules/form links and IP terms are still unverified; public application/waiver pages alone do not settle them.
 
 ## Outside the implemented product
 

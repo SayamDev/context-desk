@@ -36,3 +36,10 @@ Document owns vertical scroll; bounded results/cue panes may scroll on desktop, 
 ## Evidence and limitations
 
 Baseline source and 55 tests: docs/V2-BASELINE-AUDIT.md. New acceptance evidence belongs in docs/V2-VERIFICATION.md. A static design audit is not a substitute for browser/media tests, native-language review or actual sustained live testing. No general WCAG certification is claimed.
+
+## Player, caption scope and social delivery ownership
+
+- `public/player.js` owns preview volume/mute/rate preferences and resolved source identity. Preferences never trigger project edits, source changes, seeks or autoplay. Focused controls keep their native keyboard action.
+- `public/caption-policy.js` owns clip override → project target → user default resolution. `public/app.js` dispatches missing tracks with concurrency two; source transcripts and translated tracks stay separate. Late results cannot replace human corrections or choose a different active language. `lib/exports.js` resolves the same policy before review/track validation.
+- `lib/translation-store.js` caches completed translation results in SQLite. Failed/interrupted provider attempts require explicit retry; browser dispatch is not advertised as a durable Jobs worker.
+- `public/social.js` owns destination recipes/Shorts duration checks. Studio sets actual export parameters. Jobs presents saved files and upload-page/native-share handoffs only after a completed render. Handoff is not evidence of an attached/uploaded/published post. No connected-account or scheduling controls are presented.

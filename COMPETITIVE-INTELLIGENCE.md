@@ -86,3 +86,15 @@ No numeric “virality” score is required. Any future ranking should name its 
 ## Research limits and follow-up evidence
 
 This record supports a scoped V2 direction. It does not validate competitor quality, Arabic/dialect accuracy, visual reasoning, latency, privacy enforcement, public API reliability, or a production-ready Context Desk implementation. Competitor documentation can change and screenshots can lag releases. A later benchmark needs the same rights-cleared source set, explicit task criteria, measured cost/time, human correctness review and permission for any paid service. Until then use “documented,” “advertised,” and “proposed” accurately.
+
+## Screenshot follow-up: quso, Klap, Restream and delivery
+
+Public pages rechecked 1 November 2026. These are vendor claims/visible entry pages, not authenticated editor or output-quality benchmarks.
+
+| Public source | Observed or advertised pattern | Original Context Desk decision |
+| --- | --- | --- |
+| [quso.ai](https://quso.ai/) — P/M | Direct link/upload entry and separate clipping, captions, scheduling and editing product descriptions. | Keep the recording-to-clips path simple; add one delivery destination selector instead of many separate export decisions. No copied virality claims or fabricated account integrations. |
+| [Klap](https://klap.app/) — P/M | Link/file input; automated reframing, captions, customization and publishing/scheduling advertised. | Apply destination aspect/resolution/format together; keep human review and visible language inheritance. No claim that our frame tracking or scheduler matches Klap. |
+| [Restream](https://restream.io/) — P/M | Live production, multiple destinations and Clips presented as related products. | Preserve separate live-capture reliability and saved-export delivery gates. A saved local file remains the shareable artifact; a destination link does not imply an active social connection. |
+
+The user's reference screenshot prioritises the video-first dark editor, transcript/timeline co-location, dependable volume and consistent output language. The existing V2 direction already follows that hierarchy; this revision repairs the canonical player/language model and extends delivery rather than copying competitor artwork or rebuilding the editor again. [TikTok's official API](https://developers.tiktok.com/docs/en/content-posting-api-get-started) distinguishes real authorized publishing from a file handoff. [YouTube's official upload API](https://developers.google.com/youtube/data/reference/rest/v3/videos/insert) requires authorization, and its [Shorts guide](https://support.google.com/youtube/answer/15424877) establishes the three-minute export check. No current Meta publishing rule was inferred from inaccessible docs.

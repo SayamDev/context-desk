@@ -14,6 +14,11 @@ test('caption uncertainty toggle participates in history and autosave before ref
 test('Studio navigation reopens the selected media after restoring another workspace',()=>{
  const binding=source.split('\n').find(line=>line.startsWith('function navigateWorkspace('));assert.ok(binding);
  let opened=null,view=null;const state={selected:'persisted-moment'};
- new Function('state','selectMoment','showWorkspace',binding+';navigateWorkspace("edit")')(state,id=>{opened=id},name=>{view=name});
+ new Function('state','document','selectMoment','showWorkspace',binding+';navigateWorkspace("edit")')(state,{body:{dataset:{workspace:'library'}}},id=>{opened=id},name=>{view=name});
  assert.equal(opened,'persisted-moment');assert.equal(view,null);
+});
+test('pressing the current Studio navigation does not pause or reselect the playing clip',()=>{
+ const binding=source.split('\n').find(line=>line.startsWith('function navigateWorkspace('));let reselected=false;
+ new Function('state','document','selectMoment','showWorkspace',binding+';navigateWorkspace("edit")')({selected:'playing'},{body:{dataset:{workspace:'edit'}}},()=>{reselected=true},()=>{});
+ assert.equal(reselected,false);
 });

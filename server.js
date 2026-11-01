@@ -8,6 +8,7 @@ import {captureFrame} from './lib/media-worker.js';
 import {createExportService} from './lib/exports.js';
 import {createMemoryApi,memoryContext} from './lib/memory.js';
 import {languageBias,normalizeTranslationMode} from './public/languages.js';
+import {createDurableTranslationCache} from './lib/translation-store.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -17,7 +18,7 @@ try { for (const line of (await fs.readFile(path.join(root,'.env'),'utf8')).spli
 const port = Number(process.env.PORT || 3001);
 const voiceStudioUrl = 'http://127.0.0.1:3900';
 const languageCodes = {Arabic:'ar',Bengali:'bn',Dutch:'nl',English:'en',French:'fr',German:'de',Hebrew:'he',Hindi:'hi',Indonesian:'id',Italian:'it',Japanese:'ja',Kannada:'kn',Korean:'ko',Malay:'ms','Mandarin Chinese':'zh',Marathi:'mr',Polish:'pl',Portuguese:'pt',Spanish:'es',Tagalog:'tl',Tamil:'ta',Telugu:'te',Thai:'th',Turkish:'tr',Vietnamese:'vi',Urdu:'ur'};
-const staticFiles = {'/':'index.html','/app.js':'app.js','/layout.js':'layout.js','/studio-ui.js':'studio-ui.js','/timing.js':'timing.js','/translation-cache.js':'translation-cache.js','/projects.js':'projects.js','/jobs.js':'jobs.js','/languages.js':'languages.js','/history.js':'history.js','/moment-results.js':'moment-results.js','/story-memory.js':'story-memory.js','/style.css':'style.css','/assets/context-desk-studio.webp':'assets/context-desk-studio.webp','/assets/fonts/Manrope.ttf':'assets/fonts/Manrope.ttf'};
+const staticFiles = {'/':'index.html','/app.js':'app.js','/player.js':'player.js','/social.js':'social.js','/caption-policy.js':'caption-policy.js','/layout.js':'layout.js','/studio-ui.js':'studio-ui.js','/timing.js':'timing.js','/translation-cache.js':'translation-cache.js','/projects.js':'projects.js','/jobs.js':'jobs.js','/languages.js':'languages.js','/history.js':'history.js','/moment-results.js':'moment-results.js','/story-memory.js':'story-memory.js','/style.css':'style.css','/assets/context-desk-studio.webp':'assets/context-desk-studio.webp','/assets/fonts/Manrope.ttf':'assets/fonts/Manrope.ttf'};
 const mime = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.webp':'image/webp','.ttf':'font/ttf'};
 if(process.env.NODE_ENV!=='test')await recoverLegacySubtitles(studioStore(),path.join(root,'.runtime/subtitle-jobs'));
 const subtitleService=createSubtitleService({claimSource:claimImportSource,extract:extractAudio,store:studioStore(),
@@ -32,6 +33,7 @@ const discoveryService=createDiscoveryService({store:studioStore(),claimSource:c
 const exportService=createExportService({store:studioStore(),claimSource:claimImportSource});
 const projectApi=createProjectApi();
 const memoryApi=createMemoryApi(studioStore());
+const captionTranslationCache=createDurableTranslationCache(studioStore());
 const server = http.createServer(async (req,res) => {
   if(await handleImport(req,res,json))return;
   if(await projectApi(req,res,json))return;
@@ -101,8 +103,9 @@ const server = http.createServer(async (req,res) => {
       if(!cues.length) return json(res,400,{error:'No transcript lines are available to translate.'});
       const useVoiceStudio=body.provider==='voicestudio';
       if(!useVoiceStudio&&!process.env.MODEL_API_KEY)return json(res,503,{error:'Add MODEL_API_KEY to .env, then restart the server to enable Meta translation.'});
-      const translated=useVoiceStudio?await translateVoiceStudio(cues,body.language,body.sourceLanguage,String(body.dialectNote||'').slice(0,120)):await translate(cues,body.language,String(body.dialectNote||'').slice(0,120),body.translationMode,body.glossary);
-      return json(res,200,{lines:translated,provider:useVoiceStudio?'VoiceStudio local':'Meta Muse Spark'});
+      const dialect=String(body.dialectNote||'').slice(0,120),mode=normalizeTranslationMode(body.translationMode),glossary=String(body.glossary||'').slice(0,1000);
+      const result=await captionTranslationCache.run([useVoiceStudio?'voicestudio-nllb-v1':'muse-spark-1.3:caption-v1',body.sourceLanguage||'',body.language,dialect,mode,glossary,cues],async()=>({lines:useVoiceStudio?await translateVoiceStudio(cues,body.language,body.sourceLanguage,dialect):await translate(cues,body.language,dialect,mode,glossary),provider:useVoiceStudio?'VoiceStudio local':'Meta Muse Spark'}),{refresh:body.refresh===true});
+      return json(res,200,result);
     } catch(error) {return json(res,502,{error:error.message||'Translation failed.'});}
   }
   if(req.method!=='GET') return json(res,405,{error:'Method not allowed'});

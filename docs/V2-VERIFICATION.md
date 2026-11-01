@@ -39,7 +39,7 @@ The frontend premium static auditor was run in strict mode with public/ as the s
 
 The cumulative 72,119-byte stylesheet was replaced by a single V2 token/layout system (39,173 bytes after the review fixes). Removed the eager 221KB old entry artwork request and external Google Fonts stylesheet; the wordmark font is locally hosted 161KB with an OFL notice. This is an asset/request comparison, not a measured speed or cost benchmark. Local 64-test run completed in under one second in the recorded environment; that does not measure provider or long-video latency.
 
-Remaining: producer-reviewed full-episode yield, dialect-heavy and overlapping speech evaluation with native reviewers, translation correctness, sustained live/background capture and automatic framing, maximum six-hour/20GB stress, SAM tracking and other explicitly deferred advanced features, accepted-participant final rules/form. The public Meta page was rechecked on 1 November; the user deferred providing the final rules and a reminder already exists. These gates are not resolved by this UI work.
+Remaining: producer-reviewed full-episode yield, dialect-heavy and overlapping speech evaluation with native reviewers, translation correctness, sustained live/background capture and automatic framing, maximum six-hour/20GB stress, SAM tracking and other explicitly deferred advanced features, accepted-participant final rules/form. The public Meta page was rechecked on 1 November; the one-time reminder subsequently fired and the participant guide was supplied; final rules/form URLs and IP terms still need verification. These gates are not resolved by this UI work.
 
 ## Post-build hook contrast correction
 
@@ -48,3 +48,7 @@ The stop hook found two genuine hover-cascade failures: active Add video used pe
 ### Approved screenshot-only comparison follow-up
 
 On 1 November, the user explicitly approved sending only the synthetic QA screenshot, including its test project/caption text, to 12ui. Automatic review rejected the repository-enabled command as exceeding that scope. The follow-up omitted `--repo` and supplied only the QA image and existing generated reference. It stopped at conversion creation because 12ui requires an eligible plan or available credits. The kit reports nothing purchased; no LayerDoc, target HTML or comparison plan was produced, and no app changes were applied. The existing local review remains the completed visual evidence. No billing change or alternate-credit workaround was attempted. Recovery evidence is in `/private/tmp/context-desk-v2-close-discover/README.md` and `plan/STALL.md`; resume this same kit only after the account requirement is resolved rather than starting a new purchase.
+
+## Screenshot-priority release extension
+
+The 1 November player/language/social extension has **76 passing automated tests** and **30 JavaScript syntax checks**. The diagnosed player reset, canonical language policy, bounded/durable translation cache, social export recipes, real browser/model/render evidence and remaining limits are documented in [PLAYER-LANGUAGE-SOCIAL-RELEASE.md](PLAYER-LANGUAGE-SOCIAL-RELEASE.md). This adds functional controls within the selected V2 direction; it does not supersede the outstanding 12ui account blocker or imply production certification for the entire app.

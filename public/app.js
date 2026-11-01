@@ -8,6 +8,9 @@ import {mergeAnalysisCompletion} from './moment-results.js';
 import {createProjectSession,recoverBrowserMoments,settingIds,savedMomentKeys,requestJson} from './projects.js';
 import {createTranslationCache,translationKey} from './translation-cache.js';
 import {syncedCues,shouldRestart,speechCues,srtDocument} from './timing.js';
+import {assignMediaSource,bindPlayerControls} from './player.js';
+import {captionTarget,inheritCaptionTarget,commitCaptionTranslation,translationQueue,outputLanguages} from './caption-policy.js';
+import {socialPresets,socialExportIssue} from './social.js';
 const $ = id => document.getElementById(id);
 const program=$('program'), clipVideo=$('clipVideo'), stageCanvas=$('stageCanvas');
 const state={sourceLoadToken:0,sourceUploadAbort:null,source:null,sourceName:'',sourceType:null,sourceUrl:null,screenStream:null,stageCrop:null,cropDraft:null,cropPicking:false,resumeAfterCrop:false,autoFrameJob:0,liveEpoch:0,recordStream:null,recording:null,scanning:false,windowTimer:null,frameTimer:null,moments:[],selected:null,cut:[],cutPreviewIndex:-1,cutPreviewBusy:false,lastDraftStart:-1,aspect:'landscape',meta:false,windowCount:0,aiCalls:0,staticSilentWindows:0,captureStalled:false,batchId:null,batchRunning:false,batchCancel:false,batchExporting:false,batchExports:[]};
@@ -18,11 +21,35 @@ function renderActivity(){const current=[...activities.values()].at(-1);$('activ
 setInterval(()=>{if(activities.size)renderActivity()},1000);
 let layout=null,libraryView='list';
 function showWorkspace(view){window.scrollTo({top:0});if(view==='edit'&&!state.selected)return;document.body.dataset.workspace=view;layout?.syncWorkspace(view);document.querySelectorAll('.workspace-nav button').forEach(button=>{if(button.dataset.workspace===view)button.setAttribute('aria-current','step');else button.removeAttribute('aria-current')});const content={library:['Library','Your recordings, moments and edits — ready when you are.'],jobs:['Jobs','See what is complete, what is waiting, and what needs attention.'],source:['Your next clip starts here.','Paste a link or choose a file. We’ll prepare your video and find the moments worth sharing.'],clips:['Discover','Generate a clip drop from your recording, or review windows arriving from your live feed.'],edit:['Studio','Trim the moment, review your subtitles, then export your finished clip.']}[view];if(view==='source')$('workspaceTitle').innerHTML='Good stories start<br><span>with the source.</span>';else $('workspaceTitle').textContent=content[0];$('workspaceDescription').textContent=content[1];if(view!=='edit')clipVideo.pause();if(!['clips','source'].includes(view)&&state.sourceType==='file')program.pause();if(view==='library')void renderLibrary();projectSession?.changed();}
-function navigateWorkspace(view){if(view==='edit'&&state.selected)return selectMoment(state.selected);showWorkspace(view)}
+function navigateWorkspace(view){if(view==='edit'&&state.selected){if(document.body.dataset.workspace==='edit')return;return selectMoment(state.selected)}showWorkspace(view)}
 document.querySelectorAll('.workspace-nav button').forEach(button=>button.onclick=()=>navigateWorkspace(button.dataset.workspace));
 $('backToClips').onclick=()=>showWorkspace('clips');
 const quickLanguages=document.createElement('div');quickLanguages.className='language-quick';for(const id of ['speechLanguage','liveCaptionLanguage']){const label=$(id).closest('label');if(id==='liveCaptionLanguage')label.firstChild.textContent='OUTPUT SUBTITLES ';quickLanguages.append(label)}$('linkForm').querySelector('.link-launch-row').after(quickLanguages);
 layout=mountLayout({navigate:navigateWorkspace,onFilter:()=>renderQueue(false),onView:view=>{libraryView=view;layout.setLibraryView(view);void saveLibraryPreferences()},onTrim:(edge,value)=>{const m=state.moments.find(m=>m.id===state.selected);if(!m)return;performEdit('trim-'+edge,()=>{const range=clampTrim(edge,value,m.trimIn,m.trimOut,m.end-m.start);$('trimIn').value=range.in;$('trimOut').value=range.out;validateTrim();layout.syncTimeline(m,formatTime)})},onSource:()=>reviewSource(state.selected)});
+bindPlayerControls(clipVideo,{volume:$('previewVolume'),mute:$('mutePreview'),speed:$('previewSpeed'),status:$('previewBufferStatus'),fullscreen:$('previewFullscreen'),surface:$('previewCanvas').parentElement});
+function userCaptionDefault(){try{const value=localStorage.getItem('context-desk-output-language');return outputLanguages.includes(value)?value:'Original'}catch{return 'Original'}}
+$('liveCaptionLanguage').value=userCaptionDefault();
+const captionWork=translationQueue(2);let captionWaiting=0,captionFailed=0;
+function projectCaptionTarget(){return $('liveCaptionLanguage').value||'Original'}
+function applySocialPreset(){const preset=socialPresets[$('socialDestination').value];if(!preset?.aspect){$('socialExportHint').textContent='Your current edit and export settings.';return}performEdit('social-preset',()=>{state.aspect=preset.aspect;$('aspectSelect').value=preset.aspect;$('exportQuality').value=String(preset.quality);$('exportFormat').value=preset.format==='mp4'?'auto':preset.format;setPreviewSize();drawPreview()});$('socialExportHint').textContent=preset.hint+' · choose Fit to preserve the whole image or Fill to crop.'}
+$('socialDestination').onchange=applySocialPreset;$('applySocialPreset').onclick=applySocialPreset;
+function queueCaptionTarget(m){
+  const language=inheritCaptionTarget(m,projectCaptionTarget()),owner=projectSession?.current?.id;
+  if(projectSession?.restoring)return;
+  if(m.translationError)return;
+  if(!owner||language==='Original'||m.captionCues?.[language]?.length||!m.captionCues?.Original?.length)return;
+  const key=owner+':'+m.id+':'+language;
+  if(m.captionQueued?.has(language)||m.translationPending?.has(language))return;
+  m.captionQueued??=new Set();m.captionQueued.add(language);captionWaiting++;updateCaptionQueue();
+  void captionWork.add(key,async()=>{if(projectSession?.current?.id!==owner||!state.moments.includes(m)||captionTarget(m,projectCaptionTarget())!==language)return;await translateMoment(m,language);if(m.translationError)captionFailed++}).catch(()=>{captionFailed++}).finally(()=>{m.captionQueued.delete(language);captionWaiting--;updateCaptionQueue();const visible=owner===projectSession?.current?.id&&state.moments.find(item=>item.id===m.id);if(visible&&visible!==m)queueMicrotask(()=>queueCaptionTarget(visible))});
+}
+function updateCaptionQueue(){$('languageQueueStatus').textContent=captionWaiting?`${captionWaiting} subtitle ${captionWaiting===1?'track':'tracks'} queued or translating · 2 at a time`:captionFailed?`${captionFailed} translation ${captionFailed===1?'attempt needs':'attempts need'} attention. Open the clip to retry.`:''}
+function setProjectCaptionTarget(language){
+  $('liveCaptionLanguage').value=language;captionFailed=0;updateSpeechSummary();
+  for(const m of state.moments){inheritCaptionTarget(m,language);if(m.captionCues?.Original?.length)m.showCaptions=true;queueCaptionTarget(m)}
+  try{localStorage.setItem('context-desk-output-language',language)}catch{}
+  projectSession?.changed();if(state.selected)renderEditor();
+}
 
 $('codeSwitchLanguage').innerHTML+='<option>'+speechLanguages.join('</option><option>')+'</option>';
 $('dialectHints').innerHTML=dialectExamples.map(value=>'<option value="'+value+'">').join('');
@@ -42,7 +69,7 @@ function aiLimit(){return Number($('aiBudget').value)||0}
 function updateBudgetUi(){const limit=aiLimit();$('budgetUsage').textContent=`${state.aiCalls} OF ${limit||'∞'} SENT`}
 $('aiBudget').onchange=updateBudgetUi;
 function updateSpeechSummary(){const local=$('translationProvider').value==='voicestudio';$('translationMode').disabled=local;$('glossary').disabled=local;$('translationCapability').textContent=local?'VoiceStudio uses direct local translation. Style and glossary controls require Meta.':'Glossary and style apply to new translations. Use Translate again after changing them.';$('speechSummaryValue').textContent=`${$('speechProvider').value==='voicestudio'?'VoiceStudio local':'Meta Muse Voice'} · ${speechChoices()||'Auto detect'} · ${$('liveCaptionLanguage').value==='Original'?'original speech':$('liveCaptionLanguage').value+' draft'}`}
-$('codeSwitchLanguage').onchange=updateSpeechSummary;$('speechLanguage').onchange=updateSpeechSummary;$('liveCaptionLanguage').onchange=updateSpeechSummary;
+$('codeSwitchLanguage').onchange=updateSpeechSummary;$('speechLanguage').onchange=updateSpeechSummary;$('liveCaptionLanguage').onchange=()=>setProjectCaptionTarget($('liveCaptionLanguage').value);
 $('speechProvider').onchange=()=>{updateSpeechSummary();if($('speechProvider').value==='voicestudio'&&!state.voiceStudio)message('Open VoiceStudio to use local transcription. Meta Muse Spark still analyses the video frames.')};
 $('translationProvider').onchange=()=>{updateSpeechSummary();if($('translationProvider').value==='voicestudio'&&!state.voiceStudio)message('Open VoiceStudio to use local translation. Choose the source speech language too.');if(state.selected)renderEditor()};
 function setSourceLabel(text){$('sourceLabel').textContent=text;}
@@ -401,7 +428,7 @@ async function analyzeItem(item,audio){
   if(item.sourceCaptionsVisible)item.sourceCaptionMask=true;
   let lastEnd=0;
   item.captionCues={Original:speechCues(data,item.end-item.start).map(cue=>{cue.start=Math.max(cue.start,lastEnd);if(cue.end-cue.start<.2)return null;lastEnd=cue.end;return cue}).filter(Boolean)};
-  item.captionReviewed={};item.captionLanguage='Original';item.showCaptions=!item.batchId&&Boolean(item.captionCues.Original.length);
+  item.captionReviewed={};item.captionLanguage=captionTarget(item,item.autoCaptionLanguage);item.showCaptions=!item.batchId&&Boolean(item.captionCues.Original.length);
   item.status=data.analysis?data.analysis.worthClipping?'suggested':'not-selected':'error';
   item.error=data.analysisError||'';item.hook=data.analysis?.hook||'';item.alternateHook=data.analysis?.alternateHook||'';
   if(item.autoCaptionLanguage!=='Original'&&item.captionCues.Original.length){
@@ -418,7 +445,7 @@ async function translateCues(item,language,{force=false}={}){
   const cues=item.captionCues.Original.map(c=>({...c})),dialect=item.dialectNote||'',provider=$('translationProvider').value,sourceLanguage=item.detectedLanguage||speechChoices();
   const originalKey=translationKey(cues,language,dialect,provider,sourceLanguage,item.translationMode||$('translationMode').value,$('glossary').value);if(force)item.translationRevision=(item.translationRevision||0)+1;const key=originalKey+':'+(item.translationRevision||0);
   const result=await momentTranslationCache.get(item,key,async()=>{
-    const response=await fetch('/api/translate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({language,provider,sourceLanguage,dialectNote:dialect,translationMode:item.translationMode||$('translationMode').value,glossary:$('glossary').value,cues})});
+    const response=await fetch('/api/translate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({language,provider,sourceLanguage,dialectNote:dialect,translationMode:item.translationMode||$('translationMode').value,glossary:$('glossary').value,cues,refresh:force})});
     const data=await response.json();if(!response.ok)throw Error(data.error||'Translation failed');return data;
   });
   if(translationKey(item.captionCues.Original,language,item.dialectNote||'',provider,sourceLanguage,item.translationMode||$('translationMode').value,$('glossary').value)!==originalKey)throw Error('The original changed during translation. Select the language again.');
@@ -428,11 +455,13 @@ async function translateCues(item,language,{force=false}={}){
 async function translateMoment(m,language,{force=false}={}){
   if(language==='Original'||!m.captionCues.Original.length)return;
   if(m.captionCues[language]?.length&&!force){m.showCaptions=true;if(state.selected===m.id&&m.captionLanguage===language)renderEditor();return}
+  if(m.translationPending?.has(language))return;
+  const owner=projectSession?.current?.id,original=JSON.stringify(m.captionCues.Original),previous=JSON.stringify(m.captionCues[language]);
   m.translationPending??=new Map();const token={};m.translationPending.set(language,token);m.translationError='';
   const activity=m.id+':translation:'+language;setActivity(activity,'Translating to '+language,'Keeping the source timing and meaning. You can keep editing.');if(state.selected===m.id)renderEditor();
-  try{const cues=await translateCues(m,language,{force});m.captionCues[language]=cues;m.captionReviewed[language]=false;if(m.captionLanguage===language){m.showCaptions=true;m.captionError=cues.some(c=>c.text.length>100)?'Some translated lines need splitting before export.':''}}
+  try{const cues=await translateCues(m,language,{force}),result={original,previous,language,cues,provider:m.translationSource};if(!commitCaptionTranslation(m,result))return;const current=owner===projectSession?.current?.id?state.moments.find(item=>item.id===m.id):null;if(current&&(current===m||commitCaptionTranslation(current,result))){projectSession.changed();await projectSession.flush()}}
   catch(error){if(m.captionLanguage===language)m.translationError=error.message||'Translation failed. Choose Retry translation.'}
-  finally{if(m.translationPending.get(language)===token){m.translationPending.delete(language);finishActivity(activity);}if(state.selected===m.id)renderEditor()}
+  finally{if(m.translationPending.get(language)===token){m.translationPending.delete(language);finishActivity(activity);}if(owner===projectSession?.current?.id&&state.selected===m.id)renderEditor()}
 }
 function showLiveDraft(item){
   if(item.batchId||!state.scanning)return;
@@ -512,6 +541,7 @@ async function reviewSource(id){
 let editorLoadId=0;
 async function selectMoment(id,{scroll=true}={}){
   const m=state.moments.find(x=>x.id===id);if(!m)return;
+  inheritCaptionTarget(m,projectCaptionTarget());queueCaptionTarget(m);
   const loadId=++editorLoadId;if(state.sourceType==='file'){if(state.scanning)stopScan('Playback scan paused while editing.');program.pause()}stopCutPreview();clipVideo.pause();state.selected=id;
   showWorkspace('edit');renderQueue();renderEditor();setActivity('preview','Loading clip preview','Opening the selected source window…');
   try{await mediaReady(clipVideo);if(loadId!==editorLoadId)return;await seekPreview(mediaTime(m,m.trimIn));if(loadId!==editorLoadId)return;setPreviewSize();updatePreviewTime();}
@@ -627,7 +657,7 @@ clipVideo.addEventListener('pause',()=>{cancelPreviewFrame();setButtonLabel('pla
 $('restartClip').onclick=restartPreview;
 $('playPause').onclick=async()=>{try{const m=previewMoment();if(!m)return;if(clipVideo.paused){if(state.cutPreviewIndex<0&&shouldRestart(clipVideo.currentTime,mediaTime(m,m.trimIn),mediaTime(m,m.trimOut)))await seekPreview(mediaTime(m,m.trimIn));claimPlayback(clipVideo);await clipVideo.play()}else clipVideo.pause()}catch{$('editorStatus').textContent='Preview could not play. Select the clip again.'}};
 document.addEventListener('keydown',event=>{
-  if(event.altKey||event.ctrlKey||event.metaKey||/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName||'')||document.activeElement?.isContentEditable)return;
+  if(event.altKey||event.ctrlKey||event.metaKey||/^(INPUT|TEXTAREA|SELECT|BUTTON|A|SUMMARY)$/.test(document.activeElement?.tagName||'')||document.activeElement?.isContentEditable)return;
   const key=event.key.toLowerCase();if(document.activeElement?.tagName==='VIDEO'||(document.body.dataset.workspace!=='edit'&&key!=='m'))return;const m=state.moments.find(x=>x.id===state.selected);
   if(key==='r'&&m){event.preventDefault();restartPreview()}
   else if(event.code==='Space'&&m){event.preventDefault();$('playPause').click()}
@@ -649,7 +679,9 @@ $('focusPlayer').onclick=()=>performEdit('focus-player',()=>{const m=state.momen
 function renderEditor(){
   projectSession?.changed();
   const m=state.moments.find(x=>x.id===state.selected);if(!m)return;
-  if(state.cutPreviewIndex<0&&clipVideo.src!==m.url)clipVideo.src=m.url;
+  inheritCaptionTarget(m,projectCaptionTarget());
+  queueCaptionTarget(m);
+  if(state.cutPreviewIndex<0)assignMediaSource(clipVideo,m.url);
   $('clipTiming').textContent=`${m.sourceType==='screen'?'SHARE +':''}${formatTime(m.start)}–${formatTime(m.end)}`;
   for(const id of ['trimIn','trimOut','hook','alternateHook','exportButton','notesButton','saveSourceButton','addToCut','playPause','restartClip','loopClip','seekBar'])$(id).disabled=false;
   $('saveSourceButton').textContent=m.batchId?'SAVE FULL ORIGINAL':'SAVE RAW WINDOW';
@@ -674,12 +706,13 @@ function renderEditor(){
   $('aspectSelect').value=state.aspect;$('frameMode').value=m.frameMode;$('zoomRange').value=m.zoom;$('focusX').value=m.focusX;$('focusY').value=m.focusY;$('showHook').checked=m.showHook;
   const karaokeAvailable=m.captionLanguage==='Original'&&activeCues(m).length>0&&activeCues(m).every(c=>c.words?.length);$('captionStyle').querySelector('[value=karaoke]').disabled=!karaokeAvailable;if(m.captionStyle==='karaoke'&&!karaokeAvailable)m.captionStyle='punch';
   $('captionTranslationMode').disabled=$('translationProvider').value==='voicestudio';$('captionTranslationMode').value=m.translationMode||$('translationMode').value;$('captionLanguage').value=m.captionLanguage;$('captionStyle').value=m.captionStyle;$('dialectNote').value=m.dialectNote;
+  $('captionOverride').checked=Boolean(m.captionLanguageOverride);$('captionScopeStatus').textContent=m.captionLanguageOverride?`Clip override: ${m.captionLanguage}. Project output: ${projectCaptionTarget()}.`:`Project output: ${projectCaptionTarget()} · language changes apply to every clip.`;
   $('captionsInput').value=cueText(activeCues(m));renderCaptionLines(m);$('captionOffset').value=(m.captionOffset||0).toFixed(1);updateCaptionSyncLabel(m);$('maskSourceCaptions').checked=Boolean(m.sourceCaptionMask);$('showCaptions').checked=m.showCaptions;$('captionReviewed').checked=Boolean(m.captionReviewed[m.captionLanguage]);
   $('translateButton').textContent=m.translationPending?.has(m.captionLanguage)?'TRANSLATING…':m.translationError?'RETRY TRANSLATION':'TRANSLATE AGAIN';
   $('translateButton').disabled=Boolean(m.translationPending?.has(m.captionLanguage))||(!state.meta&&!(state.voiceStudio&&$('translationProvider').value==='voicestudio'))||m.captionLanguage==='Original'||!m.captionCues.Original.length;
   $('reanalyseButton').disabled=!state.meta||!m.frames.length||m.status==='analysing';
   $('srtButton').disabled=!activeCues(m).length;
-  $('captionStatus').textContent=m.translationPending?.has(m.captionLanguage)?'Translating to '+m.captionLanguage+'…':m.captionError||m.translationError||(!m.captionCues.Original.length?'No timed transcript yet. Add lines manually and check them against the audio.':m.captionLanguage==='Original'?((m.speechSource||'Speech')+' draft. '+(m.timingSource==='word'?'Word timings are available; still check dialect, words and sync.':'Short-line timing is estimated; check dialect, words and timing.')):activeCues(m).length?((m.translationSource||'Translation')+' draft. Compare every line with the original speech.'):'Choose a language to translate this clip automatically.');
+  $('captionStatus').textContent=m.translationPending?.has(m.captionLanguage)?m.captionLanguage+' subtitles are being prepared…':m.captionError||m.translationError||(!m.captionCues.Original.length?'No timed transcript yet. Add lines manually and check them against the audio.':m.captionLanguage==='Original'?((m.speechSource||'Speech')+' draft. '+(m.timingSource==='word'?'Word timings are available; still check dialect, words and sync.':'Short-line timing is estimated; check dialect, words and timing.')):activeCues(m).length?((m.translationSource||'Translation')+' draft. Compare every line with the original speech.'):m.captionLanguage+' subtitles queued. Original speech is kept in Story & evidence.');
   layout?.syncTimeline(m,formatTime);setPreviewSize();drawPreview();
 }
 function updateCaptionSyncLabel(m){const offset=m.captionOffset||0;$('captionSyncLabel').textContent=Math.abs(offset)<.01?'Original timing':`${Math.abs(offset).toFixed(1)} seconds ${offset<0?'earlier':'later'}`}
@@ -715,7 +748,8 @@ $('captionLines').oninput=event=>{
   if(m.captionLanguage==='Original'){for(const language of Object.keys(m.captionCues))if(language!=='Original')delete m.captionCues[language];m.captionReviewed={}}
   m.captionError=activeCues(m).some(cue=>!cue.text.trim())?'Caption text cannot be empty.':'';$('captionsInput').value=cueText(activeCues(m));$('captionStatus').textContent=m.captionError||'Words updated. Listen and review before export.';drawPreview();
 };
-$('captionLanguage').onchange=e=>{const m=state.moments.find(x=>x.id===state.selected);if(!m)return;m.captionLanguage=e.target.value;m.captionError='';m.translationError='';if(activeCues(m).length)m.showCaptions=true;renderEditor();if(m.captionLanguage!=='Original')void translateMoment(m,m.captionLanguage)};
+$('captionLanguage').onchange=e=>{const m=state.moments.find(x=>x.id===state.selected);if(!m)return;if(!m.captionLanguageOverride){setProjectCaptionTarget(e.target.value);return}m.captionLanguageOverride=e.target.value;inheritCaptionTarget(m,projectCaptionTarget());m.captionError='';m.translationError='';if(activeCues(m).length)m.showCaptions=true;renderEditor();queueCaptionTarget(m)};
+$('captionOverride').onchange=e=>{const m=state.moments.find(x=>x.id===state.selected);if(!m)return;m.captionLanguageOverride=e.target.checked?m.captionLanguage:null;inheritCaptionTarget(m,projectCaptionTarget());queueCaptionTarget(m);renderEditor()};
 $('captionStyle').onchange=e=>{const m=state.moments.find(x=>x.id===state.selected);if(m){m.captionStyle=e.target.value;drawPreview()}};
 $('applyCaptionLook').onclick=()=>performEdit('caption-look',()=>{const selected=state.moments.find(x=>x.id===state.selected);if(!selected)return;for(const m of state.moments)m.captionStyle=selected.captionStyle;$('captionStatus').textContent='Caption look applied to every captured clip. Words, timing and review status are unchanged.'});
 $('dialectNote').oninput=e=>{const m=state.moments.find(x=>x.id===state.selected);if(m){m.dialectNote=e.target.value;for(const key of Object.keys(m.captionReviewed))m.captionReviewed[key]=false;$('captionReviewed').checked=false}};
@@ -747,7 +781,7 @@ function exportSrt(moments,name){if(!moments.length||moments.some(m=>!timedCues(
 $('srtButton').onclick=()=>{const m=state.moments.find(x=>x.id===state.selected);if(m)exportSrt([m],`context-desk-${Math.floor(m.start)}.srt`)};
 async function queueVideoExport(moments,name,{draft=false,openJobs=true}={}){
   setActivity('export-save','Saving your edit','Preparing a durable render job…');
-  try{await projectSession.flush();const j=await requestJson('/api/exports',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({projectId:projectSession.current.id,momentIds:moments.map(m=>m.id),aspect:state.aspect,quality:$('exportQuality').value==='source'?'source':Number($('exportQuality').value),format:$('exportFormat').value,draft,name})});await jobsView.refresh();if(openJobs)showWorkspace('jobs');return j}finally{finishActivity('export-save')}
+  try{const destination=$('socialDestination').value,issue=socialExportIssue(destination,{duration:moments.reduce((n,m)=>n+m.trimOut-m.trimIn,0),aspect:state.aspect,quality:$('exportQuality').value,format:$('exportFormat').value==='webm'?'webm':'mp4'});if(issue)throw Error(issue);for(const m of moments)inheritCaptionTarget(m,projectCaptionTarget());await projectSession.flush();const j=await requestJson('/api/exports',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({projectId:projectSession.current.id,momentIds:moments.map(m=>m.id),aspect:state.aspect,quality:$('exportQuality').value==='source'?'source':Number($('exportQuality').value),format:$('exportFormat').value==='webm'?'webm':'mp4',destination,draft,name})});await jobsView.refresh();if(openJobs)showWorkspace('jobs');return j}finally{finishActivity('export-save')}
 }
 $('exportButton').onclick=async()=>{const m=state.moments.find(x=>x.id===state.selected);if(!m||!validateTrim()||!validateCaptions(m))return;try{await queueVideoExport([m],`context-desk-${Math.floor(m.start)}-edit`)}catch(error){$('editorStatus').textContent=error.message}};
 
@@ -883,6 +917,7 @@ function projectSnapshot(){
 }
 async function restoreProject(p){
   editHistory.reset();const saved=p.state;await memoryView.list(saved.storyMemoryId||'');state.moments=recoverBrowserMoments(saved.moments||[]);state.cut=saved.cut||[];state.selected=saved.selected||null;state.aspect=saved.aspect||'landscape';state.aiCalls=saved.aiCalls||0;state.batchId=saved.batchId||crypto.randomUUID();state.batchCancel=true;state.exportHistory=saved.exports||[];state.batchExports=state.exportHistory.filter(e=>e.batch);
+  $('liveCaptionLanguage').value=saved.settings?.liveCaptionLanguage||userCaptionDefault();
   for(const [id,value]of Object.entries(saved.settings||p.source?.settings||{})){const el=$(id);if(!el)continue;if(el.type==='checkbox')el.checked=Boolean(value);else el.value=value}
   const source=p.sourceId?await requestJson('/api/import/'+p.sourceId).catch(()=>null):null;
   if(source?.status==='ready'){try{await loadImportedVideo(source,p.state.sourcePageUrl||source.sourceUrl||'',{auto:false})}catch(error){cleanupSource();message('The source cannot play. Saved edits are retained: '+error.message)}}
@@ -890,7 +925,7 @@ async function restoreProject(p){
   state.batchId=saved.batchId||state.batchId;
   updateButtons();updateBudgetUi();updateSpeechSummary();renderQueue();renderBatchResults();renderCut();renderBatchDownloads();
   if(saved.workspace==='edit'&&state.selected&&state.moments.some(m=>m.id===state.selected))await selectMoment(state.selected,{scroll:false});else showWorkspace(['source','clips','library','jobs'].includes(saved.workspace)?saved.workspace:'clips');
-  const last=state.exportHistory.at(-1);if(last){$('lastExport').href=last.url;$('lastExport').download=last.name;$('lastExport').textContent='DOWNLOAD '+last.name.toUpperCase();$('lastExport').hidden=false}
+  $('lastExport').hidden=true;const last=state.exportHistory.at(-1);if(last){$('lastExport').href=last.url;$('lastExport').download=last.name;$('lastExport').textContent='DOWNLOAD '+last.name.toUpperCase();$('lastExport').hidden=false}
 }
 let libraryProjects=[],libraryTimer;
 let libraryRequest=0;
@@ -912,7 +947,7 @@ for(const id of ['librarySort','libraryDirection','showProjectTrash'])$(id).onch
 $('librarySearch').oninput=()=>{$('libraryStatus').textContent='Searching projects…';clearTimeout(libraryTimer);libraryTimer=setTimeout(()=>{void renderLibrary();void saveLibraryPreferences()},200)};
 async function saveLibraryPreferences(){const prefs=await requestJson('/api/preferences');await requestJson('/api/preferences',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({...prefs,view:libraryView,sort:$('librarySort').value,direction:$('libraryDirection').value,search:$('librarySearch').value})})}
 $('libraryRows').onclick=async event=>{const open=event.target.closest('[data-project-open]'),trash=event.target.closest('[data-project-trash]'),relink=event.target.closest('[data-relink]'),recoveries=event.target.closest('[data-recoveries]');try{if(recoveries){await openRecoveryCopies(recoveries.dataset.recoveries)}else if(relink){relinkSourceId=relink.dataset.relink;$('relinkDescription').textContent='Choose the same recording so existing timecodes stay valid. Exact saved fingerprints are checked when available.';$('relinkPanel').hidden=false;$('confirmOriginalSource').checked=false;}else if(open){setActivity('project-open','Opening saved project','Restoring your recording, clips and edits…');await projectSession.open(open.dataset.projectOpen);showWorkspace('clips')}else if(trash){const p=libraryProjects.find(p=>p.id===trash.dataset.projectTrash);await requestJson('/api/projects/'+p.id,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'trash',trashed:!p.trashed})});await renderLibrary()}}catch(error){$('libraryStatus').textContent=error.message}finally{finishActivity('project-open')}};
-projectSession=createProjectSession({capture:projectSnapshot,restore:restoreProject,onStatus:(text,kind)=>{$('saveStatus').textContent=text;$('saveStatus').dataset.state=kind;$('retryProjectSave').hidden=kind!=='error'},onProject:p=>{$('projectBar').hidden=!p;if(p)$('projectTitle').value=p.title},onSaved:p=>{for(const saved of p.state.moments||[]){const m=state.moments.find(m=>m.id===saved.id);if(m)m.frames=saved.frames}}});
+projectSession=createProjectSession({capture:projectSnapshot,restore:restoreProject,onStatus:(text,kind)=>{$('saveStatus').textContent=text;$('saveStatus').dataset.state=kind;$('retryProjectSave').hidden=kind!=='error'},onProject:p=>{$('projectBar').hidden=!p;if(p){$('projectTitle').value=p.title;queueMicrotask(()=>{if(projectSession?.current?.id===p.id)for(const m of state.moments)queueCaptionTarget(m)})}},onSaved:p=>{for(const saved of p.state.moments||[]){const m=state.moments.find(m=>m.id===saved.id);if(m)m.frames=saved.frames}}});
 $('retryProjectSave').onclick=()=>void projectSession.retry().catch(()=>{});
 for(const type of ['input','change'])document.addEventListener(type,event=>{if(event.target.closest('#libraryPanel')||event.target.closest('#wholeSubtitles')||event.target.matches('#momentSearch,#momentFilter,#seekBar'))return;projectSession.changed()});
 
@@ -932,12 +967,12 @@ const memoryView=createMemoryView({trashToggle:$('showMemoryTrash'),trashButton:
 $('createMemory').onclick=()=>memoryView.create($('newMemoryTitle').value||'Story memory');$('addMemoryNote').onclick=()=>memoryView.add();$('addMemoryEvidence').onclick=()=>memoryView.add(true);$('saveMemory').onclick=()=>void memoryView.save().catch(()=>{});$('exportMemory').onclick=()=>memoryView.export();$('trashMemory').onclick=()=>memoryView.trash();
 
 function performEdit(key,mutate){const before=editSnapshot();mutate();editHistory.record(before,editSnapshot(),key);projectSession.changed()}
-const editKeys=['trimIn','trimOut','hook','alternateHook','frameMode','zoom','focusX','focusY','showHook','captionLanguage','translationMode','captionStyle','dialectNote','captionCues','captionReviewed','showCaptions','captionOffset','sourceCaptionMask','approved'];
-function editSnapshot(){return {aspect:state.aspect,cut:[...state.cut],selected:state.selected,moments:state.moments.map(m=>({id:m.id,...Object.fromEntries(editKeys.filter(k=>m[k]!==undefined).map(k=>[k,structuredClone(m[k])]))}))}}
-function applyEditSnapshot(value){const ids=new Set(value.moments.map(m=>m.id));state.moments=state.moments.filter(m=>!m.splitCreated||ids.has(m.id));for(const edit of value.moments){const m=state.moments.find(m=>m.id===edit.id);if(m)Object.assign(m,edit);else if(splitOriginals.has(edit.id))state.moments.push({...structuredClone(splitOriginals.get(edit.id)),...edit})}state.cut=value.cut.filter(id=>state.moments.some(m=>m.id===id));state.aspect=value.aspect;state.selected=value.selected;renderQueue();renderCut();renderBatchResults();renderEditor();projectSession.changed()}
+const editKeys=['trimIn','trimOut','hook','alternateHook','frameMode','zoom','focusX','focusY','showHook','captionLanguage','captionLanguageOverride','translationMode','captionStyle','dialectNote','captionCues','captionReviewed','showCaptions','captionOffset','sourceCaptionMask','approved'];
+function editSnapshot(){return {aspect:state.aspect,targetLanguage:projectCaptionTarget(),cut:[...state.cut],selected:state.selected,moments:state.moments.map(m=>({id:m.id,captionLanguageOverride:m.captionLanguageOverride||null,...Object.fromEntries(editKeys.filter(k=>m[k]!==undefined).map(k=>[k,structuredClone(m[k])]))}))}}
+function applyEditSnapshot(value){const ids=new Set(value.moments.map(m=>m.id));state.moments=state.moments.filter(m=>!m.splitCreated||ids.has(m.id));for(const edit of value.moments){const m=state.moments.find(m=>m.id===edit.id);if(m)Object.assign(m,edit);else if(splitOriginals.has(edit.id))state.moments.push({...structuredClone(splitOriginals.get(edit.id)),...edit})}state.cut=value.cut.filter(id=>state.moments.some(m=>m.id===id));state.aspect=value.aspect;state.selected=value.selected;if(value.targetLanguage)$('liveCaptionLanguage').value=value.targetLanguage;renderQueue();renderCut();renderBatchResults();renderEditor();for(const m of state.moments)queueCaptionTarget(m);projectSession.changed()}
 const splitOriginals=new Map();const editHistory=createHistory({apply:applyEditSnapshot,onChange:()=>{$('undoEdit').disabled=!editHistory.canUndo;$('redoEdit').disabled=!editHistory.canRedo;projectSession?.changed()}});
 $('undoEdit').onclick=()=>editHistory.undo();$('redoEdit').onclick=()=>editHistory.redo();
-let beforeEdit=null;const editable=event=>event.target.matches('.editor input,.editor textarea,.editor select,.cut-section input')&&!event.target.matches('#seekBar,#loopClip,#trimStartRange,#trimEndRange');
+let beforeEdit=null;const editable=event=>event.target.matches('.editor input,.editor textarea,.editor select,.cut-section input')&&!event.target.matches('#seekBar,#loopClip,#trimStartRange,#trimEndRange,#previewVolume,#previewSpeed');
 for(const type of ['input','change']){document.addEventListener(type,event=>{if(editable(event))beforeEdit=editSnapshot()},true);document.addEventListener(type,event=>{if(editable(event)&&beforeEdit){const before=beforeEdit;beforeEdit=null;editHistory.record(before,editSnapshot(),event.target.id||event.target.getAttribute('aria-label'))}})}
 $('splitClip').onclick=()=>{const m=state.moments.find(x=>x.id===state.selected);if(!m)return;const before=editSnapshot();try{const [first,second]=splitEdits(m,localTime(m,clipVideo.currentTime),crypto.randomUUID());Object.assign(m,first);second.splitCreated=true;splitOriginals.set(second.id,structuredClone(second));state.moments.push(second);if(state.cut.includes(m.id))state.cut.splice(state.cut.indexOf(m.id)+1,0,second.id);editHistory.record(before,editSnapshot(),'split');renderQueue();renderBatchResults();renderCut();renderEditor();$('historyStatus').textContent='Two editable trims created; source timing is preserved.'}catch(error){$('historyStatus').textContent=error.message}};
 document.addEventListener('keydown',event=>{if(!(event.metaKey||event.ctrlKey)||event.key.toLowerCase()!=='z'||/^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName||''))return;event.preventDefault();event.shiftKey?editHistory.redo():editHistory.undo()});
@@ -948,7 +983,7 @@ const jobsView=createJobsView({panel:$('jobRows'),counts:$('jobCounts'),status:$
   state.batchRunning=Boolean(running);if(!running)finishActivity('batch');$('batchButton').textContent=running?'VIEW PROCESSING JOB ':`FIND ${$('clipTarget').value} CLIPS ACROSS VIDEO `;
   if(!active.length||projectSession?.restoring)return;
   const p=await requestJson('/api/projects/'+projectSession.current.id);if(p.id!==projectSession.current?.id)return;
-  const known=new Set(state.moments.map(m=>m.id)),fresh=p.state.moments.filter(m=>!known.has(m.id));if(fresh.length){state.moments.push(...fresh);state.moments.sort((a,b)=>b.start-a.start);state.windowCount=state.moments.length;renderQueue();renderBatchResults();projectSession.changed()}
+  const known=new Set(state.moments.map(m=>m.id)),fresh=p.state.moments.filter(m=>!known.has(m.id));if(fresh.length){for(const m of fresh)inheritCaptionTarget(m,projectCaptionTarget());state.moments.push(...fresh);for(const m of fresh)queueCaptionTarget(m);state.moments.sort((a,b)=>b.start-a.start);state.windowCount=state.moments.length;renderQueue();renderBatchResults();projectSession.changed()}
   const used=active.reduce((n,j)=>n+j.storyRequests,0);state.aiCalls=Math.max(state.aiCalls,used);updateBudgetUi();
   const last=active.at(-1);if(last)batchProgress(`${last.phase} · ${last.checksDone}/${last.checksTotal} story checks · ${last.suggested} supported moments. ${last.error||''}`);
 }});

@@ -63,6 +63,7 @@ typography:
     fontSize: "12px"
     fontWeight: 400
     lineHeight: 1.5
+
 rounded:
   panel: "12px"
   control: "7px"
@@ -308,3 +309,7 @@ Original prior studio artwork remains documented in `public/assets/ARTWORK.md` b
 See `UX-CONTRACT.md` for canonical owners, state/feedback/navigation rules and architecture exceptions. Every visible action must work. Selection/edit/project state stays with existing controllers; these are not static prototype screens. Verification evidence and limits belong in `docs/V2-VERIFICATION.md`; documentation of source styles does not certify browser behavior, accessibility, dialect accuracy, live reliability or competition readiness. Suggested viewport checks remain 1440, 1280, 768 and 390px.
 
 **Not canonized:** source-specific overrides and dense-control exceptions are described only where observed; no broader craft or behavior certification is inferred from this code-only documentation pass. The former wordmark description (system sans only) and “mobile panes use natural height” statement were stale: the built wordmark is Manrope and caption lists retain a height bound.
+
+## Player and delivery extension — 1 November 2026
+
+The existing video-first charcoal/peach identity is retained. Playback preferences sit in a wrapping row below transport, with 44px buttons/selects, 14px functional text and a labelled native volume slider. Inspector updates do not replace the media element. The caption inspector starts with the project output scope and an explicit clip-override checkbox; queue/preparation/error text describes actual work. A 22px delivery heading introduces the export destination selector, matching the documented title step. Mobile export controls stack without horizontal scrolling. Existing line, text, muted and accent tokens are reused. Motion is reserved for actual activity; no decorative Lottie runtime is added to the media path.
