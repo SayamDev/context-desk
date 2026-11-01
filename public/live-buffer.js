@@ -68,8 +68,10 @@ export function createLiveBuffer({getUrl=()=>'',onMessage=()=>{}}={}){
     const note=el('p','depth-help','Clips are cut without re-encoding, so they can start up to 2 seconds early. Times count from when you started recording. Use streams you have permission to clip.');
     panel.append(intro,start,desk,note);
     const form=document.getElementById('linkForm');if(form?.parentElement)form.after(panel);else (setup.querySelector('.source-setup-content')||setup).prepend(panel);
-    render();return true;
+    render();resume();return true;
   }
+  // After a page refresh the server may still be recording: pick that session back up.
+  async function resume(){try{const {session:current}=await call('/api/live-buffer');if(current&&!session){session=current;render();schedule()}}catch{/* No session to resume. */}}
   document.addEventListener('keydown',event=>{
     if(session?.status!=='live'||event.metaKey||event.ctrlKey||event.altKey||/^(INPUT|TEXTAREA|SELECT)$/.test(event.target?.tagName)||event.target?.isContentEditable)return;
     const seconds={1:15,2:30,3:60}[event.key];if(seconds){event.preventDefault();clip(seconds)}
