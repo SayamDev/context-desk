@@ -1,4 +1,18 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs/promises';import os from 'node:os';import path from 'node:path';import {openStore} from '../lib/store.js';import {cleanProjectState,createProjectApi} from '../lib/projects.js';import {Readable} from 'node:stream';
+test('library presentation preference survives the API roundtrip and rejects arbitrary modes',async()=>{
+ const root=await fs.mkdtemp(path.join(os.tmpdir(),'desk-view-prefs-')),store=openStore(root),api=createProjectApi(store);
+ try{const call=async body=>{const req=Readable.from([JSON.stringify(body)]);Object.assign(req,{method:'PUT',url:'/api/preferences',headers:{}});let result;await api(req,{},(_,code,data)=>result={code,data});return result};
+  assert.equal((await call({view:'grid',sort:'title',direction:'asc'})).data.view,'grid');
+  assert.equal(store.getRecord('preferences','workspace').view,'grid');
+  assert.equal((await call({view:'invented'})).data.view,'list');
+ }finally{store.close();await fs.rm(root,{recursive:true,force:true})}
+});
+test('Library separates usable clip picks from retained rejected analysis windows',async()=>{
+ const root=await fs.mkdtemp(path.join(os.tmpdir(),'desk-clip-count-')),store=openStore(root),api=createProjectApi(store);
+ try{const p=store.createProject({title:'Honest counts'});store.saveProject(p.id,{moments:[{id:'a',status:'not-selected'},{id:'b',status:'suggested'},{id:'c',status:'error',approved:true}],settings:{}},0);
+  const req=Readable.from([]);Object.assign(req,{url:'/api/projects',method:'GET',headers:{}});let result;await api(req,{},(_,code,data)=>result=data);assert.equal(result.projects[0].clipCount,2);assert.equal(result.projects[0].windowCount,3);
+ }finally{store.close();await fs.rm(root,{recursive:true,force:true})}
+});
 test('project serialization externalizes frames and refuses transient media and credential settings',async()=>{const root=await fs.mkdtemp(path.join(os.tmpdir(),'desk-project-')),store=openStore(root);try{const asset=store.putAsset(Buffer.from('raw captured pixels'),'video/webm'),state=cleanProjectState({settings:{speechLanguage:'Arabic',MODEL_API_KEY:'must not persist'},moments:[{id:'clip',start:4,end:9,url:asset.url,frames:['data:image/jpeg;base64,'+Buffer.from('preview').toString('base64')],hook:'My hook'}]},store);assert.equal(state.settings.MODEL_API_KEY,undefined);assert.match(state.moments[0].frames[0],/^\/api\/assets\//);assert.throws(()=>cleanProjectState({moments:[{id:'x',start:0,end:1,url:'blob:expired'}]},store),/Save the clip media/);assert.throws(()=>store.assetPath('../../.env'),/asset/)}finally{store.close();await fs.rm(root,{recursive:true,force:true})}});
 test('project API returns committed revisions and reports conflicting writes',async()=>{const root=await fs.mkdtemp(path.join(os.tmpdir(),'desk-project-api-')),store=openStore(root),api=createProjectApi(store);try{const p=store.createProject({title:'Edit me'});const call=async revision=>{const req=Readable.from([JSON.stringify({revision,state:{moments:[],cut:[],settings:{speechLanguage:'Arabic'}}})]);req.method='PUT';req.url='/api/projects/'+p.id;req.headers={};let result;await api(req,{},(_,code,data)=>result={code,data});return result};assert.equal((await call(0)).code,200);assert.equal((await call(0)).code,409);assert.equal(store.getProject(p.id).state.settings.speechLanguage,'Arabic')}finally{store.close();await fs.rm(root,{recursive:true,force:true})}});
 test('refresh drafts win over earlier requests but cannot overwrite a different editor',async()=>{

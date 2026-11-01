@@ -2,7 +2,11 @@
 
 An open-source, local production studio for finding **real story moments**, reviewing multilingual subtitles and making editable clips. Meta Muse Spark assesses sampled pictures and transcripts; Muse Voice transcribes the audio. The editor keeps source evidence, uncertainty and human decisions visible.
 
-[Project vision and inspiration](PROJECT-BRIEF.md) · [Current evidence and limits](STATUS.md) · [Build ledger](docs/BUILD-LEDGER.md) · [Speech evaluation](docs/EVALUATION.md)
+[V2 build brief](docs/CONTEXT-DESK-V2-BRIEF.md) · [Competitive intelligence](COMPETITIVE-INTELLIGENCE.md) · [Project vision and inspiration](PROJECT-BRIEF.md) · [Current evidence and limits](STATUS.md) · [Build ledger](docs/BUILD-LEDGER.md) · [Speech evaluation](docs/EVALUATION.md)
+
+## V2 workspace
+
+A video-first Discover view keeps the original recording beside searchable source windows and a timestamped Moment Map. Overlapping windows have separate lanes. Studio pairs the real preview/trim timeline with editable captions and source evidence; Library supports saved grid/list views and Jobs keeps completed exports available. The charcoal/peach visual system, self-hosted wordmark, interaction contract and actual QA evidence are recorded in [DESIGN.md](DESIGN.md), [UX-CONTRACT.md](UX-CONTRACT.md) and [V2 verification](docs/V2-VERIFICATION.md).
 
 ## Run locally
 

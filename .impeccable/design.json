@@ -1,0 +1,418 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-01T01:24:10.096193+00:00",
+  "title": "Design System: Context Desk V2",
+  "extensions": {
+    "colorMeta": {
+      "canvas": {
+        "role": "neutral",
+        "displayName": "Desk Charcoal",
+        "tonalRamp": [
+          "oklch(15% 0.0031 254.16)",
+          "oklch(26% 0.0061 254.16)",
+          "oklch(38% 0.0098 254.16)",
+          "oklch(50% 0.0123 254.16)",
+          "oklch(62% 0.0123 254.16)",
+          "oklch(74% 0.0098 254.16)",
+          "oklch(86% 0.0061 254.16)",
+          "oklch(95% 0.0025 254.16)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Panel Charcoal",
+        "tonalRamp": [
+          "oklch(15% 0.0048 252.07)",
+          "oklch(26% 0.0095 252.07)",
+          "oklch(38% 0.0152 252.07)",
+          "oklch(50% 0.0190 252.07)",
+          "oklch(62% 0.0190 252.07)",
+          "oklch(74% 0.0152 252.07)",
+          "oklch(86% 0.0095 252.07)",
+          "oklch(95% 0.0038 252.07)"
+        ]
+      },
+      "surface-raised": {
+        "role": "neutral",
+        "displayName": "Raised Charcoal",
+        "tonalRamp": [
+          "oklch(15% 0.0063 251.20)",
+          "oklch(26% 0.0126 251.20)",
+          "oklch(38% 0.0201 251.20)",
+          "oklch(50% 0.0252 251.20)",
+          "oklch(62% 0.0252 251.20)",
+          "oklch(74% 0.0201 251.20)",
+          "oklch(86% 0.0126 251.20)",
+          "oklch(95% 0.0050 251.20)"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Quiet Boundary",
+        "tonalRamp": [
+          "oklch(15% 0.0069 250.67)",
+          "oklch(26% 0.0139 250.67)",
+          "oklch(38% 0.0222 250.67)",
+          "oklch(50% 0.0278 250.67)",
+          "oklch(62% 0.0278 250.67)",
+          "oklch(74% 0.0222 250.67)",
+          "oklch(86% 0.0139 250.67)",
+          "oklch(95% 0.0056 250.67)"
+        ]
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "Working White",
+        "tonalRamp": [
+          "oklch(15% 0.0009 247.86)",
+          "oklch(26% 0.0017 247.86)",
+          "oklch(38% 0.0027 247.86)",
+          "oklch(50% 0.0034 247.86)",
+          "oklch(62% 0.0034 247.86)",
+          "oklch(74% 0.0027 247.86)",
+          "oklch(86% 0.0017 247.86)",
+          "oklch(95% 0.0007 247.86)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Timecode Grey",
+        "tonalRamp": [
+          "oklch(15% 0.0056 252.54)",
+          "oklch(26% 0.0111 252.54)",
+          "oklch(38% 0.0178 252.54)",
+          "oklch(50% 0.0222 252.54)",
+          "oklch(62% 0.0222 252.54)",
+          "oklch(74% 0.0178 252.54)",
+          "oklch(86% 0.0111 252.54)",
+          "oklch(95% 0.0044 252.54)"
+        ]
+      },
+      "accent": {
+        "role": "primary",
+        "displayName": "Warm Peach",
+        "tonalRamp": [
+          "oklch(15% 0.0273 52.07)",
+          "oklch(26% 0.0547 52.07)",
+          "oklch(38% 0.0875 52.07)",
+          "oklch(50% 0.1093 52.07)",
+          "oklch(62% 0.1093 52.07)",
+          "oklch(74% 0.0875 52.07)",
+          "oklch(86% 0.0547 52.07)",
+          "oklch(95% 0.0219 52.07)"
+        ]
+      },
+      "accent-ink": {
+        "role": "primary",
+        "displayName": "Peach Ink",
+        "tonalRamp": [
+          "oklch(15% 0.0059 51.27)",
+          "oklch(26% 0.0119 51.27)",
+          "oklch(38% 0.0190 51.27)",
+          "oklch(50% 0.0238 51.27)",
+          "oklch(62% 0.0238 51.27)",
+          "oklch(74% 0.0190 51.27)",
+          "oklch(86% 0.0119 51.27)",
+          "oklch(95% 0.0048 51.27)"
+        ]
+      },
+      "success": {
+        "role": "secondary",
+        "displayName": "Acknowledged Mint",
+        "tonalRamp": [
+          "oklch(15% 0.0261 169.49)",
+          "oklch(26% 0.0522 169.49)",
+          "oklch(38% 0.0835 169.49)",
+          "oklch(50% 0.1044 169.49)",
+          "oklch(62% 0.1044 169.49)",
+          "oklch(74% 0.0835 169.49)",
+          "oklch(86% 0.0522 169.49)",
+          "oklch(95% 0.0209 169.49)"
+        ]
+      },
+      "danger": {
+        "role": "secondary",
+        "displayName": "Review Rose",
+        "tonalRamp": [
+          "oklch(15% 0.0300 20.09)",
+          "oklch(26% 0.0600 20.09)",
+          "oklch(38% 0.0960 20.09)",
+          "oklch(50% 0.1200 20.09)",
+          "oklch(62% 0.1200 20.09)",
+          "oklch(74% 0.0960 20.09)",
+          "oklch(86% 0.0600 20.09)",
+          "oklch(95% 0.0240 20.09)"
+        ]
+      },
+      "focus": {
+        "role": "primary",
+        "displayName": "Light Peach",
+        "tonalRamp": [
+          "oklch(15% 0.0172 59.62)",
+          "oklch(26% 0.0343 59.62)",
+          "oklch(38% 0.0550 59.62)",
+          "oklch(50% 0.0687 59.62)",
+          "oklch(62% 0.0687 59.62)",
+          "oklch(74% 0.0550 59.62)",
+          "oklch(86% 0.0343 59.62)",
+          "oklch(95% 0.0137 59.62)"
+        ]
+      },
+      "control-hover": {
+        "role": "neutral",
+        "displayName": "Control Hover",
+        "tonalRamp": [
+          "oklch(15% 0.0071 250.76)",
+          "oklch(26% 0.0142 250.76)",
+          "oklch(38% 0.0228 250.76)",
+          "oklch(50% 0.0285 250.76)",
+          "oklch(62% 0.0285 250.76)",
+          "oklch(74% 0.0228 250.76)",
+          "oklch(86% 0.0142 250.76)",
+          "oklch(95% 0.0057 250.76)"
+        ]
+      },
+      "checked-window": {
+        "role": "neutral",
+        "displayName": "Checked Steel",
+        "tonalRamp": [
+          "oklch(15% 0.0083 251.72)",
+          "oklch(26% 0.0165 251.72)",
+          "oklch(38% 0.0264 251.72)",
+          "oklch(50% 0.0330 251.72)",
+          "oklch(62% 0.0330 251.72)",
+          "oklch(74% 0.0264 251.72)",
+          "oklch(86% 0.0165 251.72)",
+          "oklch(95% 0.0066 251.72)"
+        ]
+      },
+      "control-pressed": {
+        "role": "neutral",
+        "displayName": "Control Pressed",
+        "tonalRamp": [
+          "oklch(15% 0.0081 253.85)",
+          "oklch(26% 0.0162 253.85)",
+          "oklch(38% 0.0259 253.85)",
+          "oklch(50% 0.0324 253.85)",
+          "oklch(62% 0.0324 253.85)",
+          "oklch(74% 0.0259 253.85)",
+          "oklch(86% 0.0162 253.85)",
+          "oklch(95% 0.0065 253.85)"
+        ]
+      },
+      "media-black": {
+        "role": "neutral",
+        "displayName": "Media Black",
+        "tonalRamp": [
+          "oklch(15% 0.0000 0.00)",
+          "oklch(26% 0.0000 0.00)",
+          "oklch(38% 0.0000 0.00)",
+          "oklch(50% 0.0000 0.00)",
+          "oklch(62% 0.0000 0.00)",
+          "oklch(74% 0.0000 0.00)",
+          "oklch(86% 0.0000 0.00)",
+          "oklch(95% 0.0000 0.00)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "brand": {
+        "displayName": "Local Manrope Wordmark",
+        "purpose": "Brand only; 18px in the compact shell."
+      },
+      "display": {
+        "displayName": "Source Entry Display",
+        "purpose": "Add video entry heading; 34px on mobile."
+      },
+      "headline": {
+        "displayName": "Workspace Heading",
+        "purpose": "Base page heading; redundant Discover/Studio headings are visually hidden."
+      },
+      "title": {
+        "displayName": "Section Title",
+        "purpose": "Base h2 and Settings title."
+      },
+      "panel-title": {
+        "displayName": "Panel Title",
+        "purpose": "Base h3; local working headings may use 17px."
+      },
+      "body": {
+        "displayName": "Working Body",
+        "purpose": "Evidence, descriptions and desktop caption text."
+      },
+      "label": {
+        "displayName": "Control Label",
+        "purpose": "Compact form/control labels."
+      },
+      "metadata": {
+        "displayName": "Source Metadata",
+        "purpose": "Secondary details, timecodes and status."
+      }
+    },
+    "shadows": [
+      {
+        "name": "media-overlay-legibility",
+        "value": "0 1px 4px #000",
+        "purpose": "Text shadow over actual footage."
+      },
+      {
+        "name": "crop-surround",
+        "value": "0 0 0 999px #0005",
+        "purpose": "Functional source-crop dimming mask."
+      }
+    ],
+    "motion": [
+      {
+        "name": "control-state",
+        "value": "background .12s, color .12s, border-color .12s",
+        "purpose": "Base button transitions; reduced motion disables them."
+      },
+      {
+        "name": "active-processing",
+        "value": "working 1s linear infinite",
+        "purpose": "Real activity spinner; working rotates to 360deg and reduced motion disables it."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "compact-shell",
+        "value": "1100px"
+      },
+      {
+        "name": "stacked-workspace",
+        "value": "900px"
+      },
+      {
+        "name": "mobile-controls",
+        "value": "600px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Import Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Peach import action; the same signal identifies source-linked actions.",
+      "html": "<button class=\"ds-primary\" type=\"button\">Import video</button>",
+      "css": ".ds-primary{font:600 14px/1.5 system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:40px;padding:9px 14px;border:1px solid var(--line,#303c49);border-radius:var(--control-radius,7px);cursor:pointer;transition:background .12s,color .12s,border-color .12s;min-width:144px;background:var(--accent,#ffb283);border-color:var(--accent,#ffb283);color:var(--accent-ink,#21150e)}.ds-primary:hover:not(:disabled){background:var(--focus,#ffd2af)}.ds-primary:active:not(:disabled){border-color:var(--line,#303c49)}.ds-primary:focus-visible{outline:2px solid var(--focus,#ffd2af);outline-offset:4px}.ds-primary:disabled{opacity:.45;cursor:not-allowed}@media(prefers-reduced-motion:reduce){*{animation:none!important;scroll-behavior:auto!important;transition:none!important}}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Neutral working action with explicit hover and pressed states.",
+      "html": "<button class=\"ds-secondary\" type=\"button\">Restart</button>",
+      "css": ".ds-secondary{font:600 14px/1.5 system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:40px;padding:9px 14px;border:1px solid var(--line,#303c49);border-radius:var(--control-radius,7px);cursor:pointer;transition:background .12s,color .12s,border-color .12s;background:var(--surface-raised,#1b2530);color:var(--text,#f1f3f5)}.ds-secondary:hover:not(:disabled){background:#273340;border-color:#536273}.ds-secondary:active:not(:disabled){background:#354252}.ds-secondary:focus-visible{outline:2px solid var(--focus,#ffd2af);outline-offset:4px}.ds-secondary:disabled{opacity:.45;cursor:not-allowed}@media(prefers-reduced-motion:reduce){*{animation:none!important;scroll-behavior:auto!important;transition:none!important}}"
+    },
+    {
+      "name": "Ghost Settings Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Muted utility action used to open the single native Settings dialog.",
+      "html": "<button class=\"ds-ghost\" type=\"button\">Settings</button>",
+      "css": ".ds-ghost{font:600 14px/1.5 system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:40px;padding:9px 14px;border:1px solid var(--line,#303c49);border-radius:var(--control-radius,7px);cursor:pointer;transition:background .12s,color .12s,border-color .12s;font-size:12px;background:transparent;color:var(--muted,#adb8c5)}.ds-ghost:hover:not(:disabled){background:#273340;border-color:#536273}.ds-ghost:active:not(:disabled){background:#354252}.ds-ghost:focus-visible{outline:2px solid var(--focus,#ffd2af);outline-offset:4px}.ds-ghost:disabled{opacity:.45;cursor:not-allowed}@media(prefers-reduced-motion:reduce){*{animation:none!important;scroll-behavior:auto!important;transition:none!important}}"
+    },
+    {
+      "name": "Labelled Search Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Raised charcoal input with muted placeholder and visible keyboard focus.",
+      "html": "<label class=\"ds-field\">Search retained moments<input type=\"search\" placeholder=\"Search dialogue or evidence\u2026\"></label>",
+      "css": ".ds-field{display:flex;flex-direction:column;gap:6px;font:600 12px/1.5 system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:var(--muted,#adb8c5)}.ds-field input{font:400 14px/1.5 system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-width:0;padding:10px 12px;background:var(--surface-raised,#1b2530);color:var(--text,#f1f3f5);border:1px solid var(--line,#303c49);border-radius:var(--control-radius,7px);caret-color:var(--accent,#ffb283)}.ds-field input::placeholder{color:var(--muted,#adb8c5);opacity:1}.ds-field input:focus-visible{outline:2px solid var(--focus,#ffd2af);outline-offset:4px}@media(prefers-reduced-motion:reduce){*{animation:none!important;scroll-behavior:auto!important;transition:none!important}}"
+    },
+    {
+      "name": "Workspace Navigation",
+      "kind": "nav",
+      "refersTo": "navigation-active",
+      "description": "Single wrapping workspace navigation; the current screen uses a tonal fill and peach text.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Workspace\"><button type=\"button\">Library</button><button type=\"button\" aria-current=\"page\">Discover</button><button type=\"button\">Studio</button><button type=\"button\">Jobs</button></nav>",
+      "css": ".ds-nav{display:flex;flex-wrap:wrap;gap:6px}.ds-nav button{font:600 14px/1.5 system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:40px;padding:9px 14px;border:1px solid var(--line,#303c49);border-radius:var(--control-radius,7px);cursor:pointer;transition:background .12s,color .12s,border-color .12s;min-height:48px;padding:12px;border:0;background:transparent;color:var(--muted,#adb8c5)}.ds-nav button[aria-current]{background:var(--surface,#131a22);color:var(--accent,#ffb283)}.ds-nav button:hover:not([aria-current]){background:#273340}.ds-nav button:focus-visible{outline:2px solid var(--focus,#ffd2af);outline-offset:4px}@media(prefers-reduced-motion:reduce){*{animation:none!important;scroll-behavior:auto!important;transition:none!important}}"
+    },
+    {
+      "name": "Navigation Count Badge",
+      "kind": "chip",
+      "refersTo": "navigation-count",
+      "description": "Compact count embedded in navigation; text inherits its parent state.",
+      "html": "<span class=\"ds-count-context\">Discover <b class=\"ds-count\">3</b></span>",
+      "css": ".ds-count-context{font:600 14px/1.5 system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:var(--muted,#adb8c5)}.ds-count{font-size:12px;font-weight:500;background:var(--surface-raised,#1b2530);padding:2px 6px;border-radius:4px}@media(prefers-reduced-motion:reduce){*{animation:none!important;scroll-behavior:auto!important;transition:none!important}}"
+    },
+    {
+      "name": "Working Panel",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "Flat video/editor panel with a quiet border and compact heading.",
+      "html": "<section class=\"ds-panel\"><header class=\"ds-panel-heading\">Source monitor</header><p class=\"ds-panel-empty\">Source preview unavailable</p></section>",
+      "css": ".ds-panel{min-width:0;background:var(--surface,#131a22);color:var(--text,#f1f3f5);border:1px solid var(--line,#303c49);border-radius:var(--radius,12px);font:400 14px/1.5 system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}.ds-panel-heading{padding:14px 16px;font-size:12px;font-weight:600;color:var(--muted,#adb8c5)}.ds-panel-empty{margin:0;padding:28px;text-align:center;color:var(--muted,#adb8c5)}@media(prefers-reduced-motion:reduce){*{animation:none!important;scroll-behavior:auto!important;transition:none!important}}"
+    },
+    {
+      "name": "Moment Map Interval",
+      "kind": "custom",
+      "refersTo": "map-window-suggested",
+      "description": "One source interval on a time track; this preview demonstrates geometry without fabricated media or progress.",
+      "html": "<div class=\"ds-map\"><button class=\"ds-window\" type=\"button\">Source window</button></div>",
+      "css": ".ds-map{position:relative;height:58px;border:1px solid var(--line,#303c49);background:var(--canvas,#0c1015);border-radius:8px;overflow:auto}.ds-window{position:absolute;top:7px;left:8%;width:60%;height:24px;min-height:0;min-width:4px;padding:0;border:1px solid var(--accent,#ffb283);border-radius:4px;background:var(--accent,#ffb283);color:var(--accent-ink,#21150e);font:600 12px/20px system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;transition:background .12s,color .12s,border-color .12s}.ds-window:hover{background:var(--focus,#ffd2af);z-index:1}.ds-window:focus-visible{outline:2px solid var(--focus,#ffd2af);outline-offset:4px}@media(prefers-reduced-motion:reduce){*{animation:none!important;scroll-behavior:auto!important;transition:none!important}}"
+    },
+    {
+      "name": "Caption Text Editor",
+      "kind": "input",
+      "refersTo": "caption-editor",
+      "description": "Editable source caption text with compact desktop density and a larger mobile text size.",
+      "html": "<label class=\"ds-caption\">Caption text<textarea placeholder=\"Caption text from the source audio\"></textarea></label>",
+      "css": ".ds-caption{display:flex;flex-direction:column;gap:6px;font:600 12px/1.5 system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:var(--muted,#adb8c5)}.ds-caption textarea{width:100%;min-height:76px;padding:9px;resize:none;background:var(--surface-raised,#1b2530);color:var(--text,#f1f3f5);border:1px solid var(--line,#303c49);border-radius:var(--control-radius,7px);font:400 14px/1.5 system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;caret-color:var(--accent,#ffb283)}.ds-caption textarea::placeholder{color:var(--muted,#adb8c5);opacity:1}.ds-caption textarea:focus-visible{outline:2px solid var(--focus,#ffd2af);outline-offset:4px}@media(max-width:600px){.ds-caption textarea{font-size:16px}}@media(prefers-reduced-motion:reduce){*{animation:none!important;scroll-behavior:auto!important;transition:none!important}}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Source-Linked Production Desk",
+    "overview": "Quiet charcoal chrome gives real video the brightest, largest working surface. Warm peach marks actions, source links and suggested intervals; editing controls remain compact and readable. Creative decisions stay tied to source time, inspectable evidence and honest gaps.\n\nThe operating sequence is source \u2192 discover \u2192 review \u2192 edit \u2192 export. One navigation and a project/save strip orient the working screens. Discover pairs the source monitor with a real time axis and coverage lanes; Studio pairs its viewer with trim work and caption correction. This is an operating application: existing media, edit and queue controllers retain ownership of their controls.\n\nThe user-authorized V2 replaces the former lilac/plum/lime identity. Its visual authority is the selected 12ui B concept and expanded screen family, adapted to the real app. No Impeccable concept seed or roll was run. The direction and comparison evidence are recorded in [V2 visual research](docs/V2-VISUAL-RESEARCH.md).",
+    "keyCharacteristics": [
+      "Video-led workspaces with restrained charcoal boundaries.",
+      "Peach source/action signals and mint acknowledged completion.",
+      "Readable functional sans with a locally hosted Manrope wordmark.",
+      "Source-derived frames, actual time and visible coverage gaps.",
+      "One compact navigation with contextual editing disclosures."
+    ],
+    "rules": [
+      {
+        "name": "The Source Signal Rule",
+        "body": "Peach connects an action or a source-linked selection to the current task; it is not a substitute for video or evidence.",
+        "section": "colors"
+      },
+      {
+        "name": "The Acknowledgement Rule",
+        "body": "Mint and rose report actual application state. Color is accompanied by status text, labels or the relevant control state.",
+        "section": "colors"
+      },
+      {
+        "name": "The Working Type Rule",
+        "body": "Reserve Manrope for the wordmark. Use the functional sans for headings, labels, evidence and editing; do not extend the brand into a decorative display treatment.",
+        "section": "typography"
+      },
+      {
+        "name": "The Single Desk Rule",
+        "body": "Keep one workspace navigation and one representation of each owned control. Move existing controls to their context rather than cloning them into a second rail or settings surface.",
+        "section": "layout"
+      },
+      {
+        "name": "The Flat Workspace Rule",
+        "body": "Use tonal surfaces and borders for grouping. Reserve shadow-like treatments for readable media overlays and crop masking.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** keep source video, actual time and the current editorial task prominent.",
+      "**Do** use peach for actions and source-linked selections, mint for acknowledged state, and rose for review or errors.",
+      "**Do** keep labels, numeric trim alternatives, source context and uncertainty visible or directly reachable.",
+      "**Do** use one navigation and retain canonical controls when adapting layouts.",
+      "**Do** use source-derived media or an explicit unavailable/empty state.",
+      "**Do** preserve native dialog/select behavior, keyboard focus and reduced-motion support."
+    ],
+    "donts": [
+      "**Don't** restore the superseded plum/lilac/lime identity or add gradients, glow, glass, decorative pill eyebrows or oversized italic serif display type.",
+      "**Don't** invent avatars, accounts, notifications, statistics, scan percentages, waveforms or fictional footage to fill the interface.",
+      "**Don't** turn sampled coverage into a claim that unseen source has been reviewed.",
+      "**Don't** use color alone for status or replace editable numeric controls with pointer-only handles.",
+      "**Don't** add ambient card shadows or a redundant navigation rail."
+    ]
+  }
+}
