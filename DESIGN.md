@@ -87,6 +87,7 @@ components:
     padding: "9px 14px"
   button-primary-hover:
     backgroundColor: "{colors.focus}"
+    textColor: "{colors.accent-ink}"
   button-secondary:
     backgroundColor: "{colors.surface-raised}"
     textColor: "{colors.text}"

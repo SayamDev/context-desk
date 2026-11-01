@@ -189,6 +189,18 @@ body[data-workspace=edit] .project-bar,body[data-workspace=clips] .project-bar {
 #speechSummaryValue {font-size:12px;font-weight:400;color:var(--muted)}
 .job-title>span {display:block;margin-bottom:8px}.job-title h3 {margin-top:0}
 .library-thumb>span {padding:12px;text-align:center;line-height:1.5}
+/* Keep both sides of the primary-action colour pair together on hover. */
+.workspace-nav button[data-workspace=source]:hover:not(:disabled),
+button.source-button.primary:hover:not(:disabled),
+.link-launch-row button:hover:not(:disabled),
+.library-heading>button:hover:not(:disabled),
+.batch-controls button:hover:not(:disabled),
+.view-switch button[aria-pressed=true]:hover:not(:disabled),
+.transport button:first-child:hover:not(:disabled),
+.export-actions #exportButton:hover:not(:disabled) {
+ background:var(--focus);color:var(--accent-ink);border-color:var(--focus);
+}
+.moment-map-track button:hover {color:var(--accent-ink)}
 @media(max-width:600px) {
  .library-toolbar {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:end}
  .library-toolbar>input {grid-column:1/-1}
