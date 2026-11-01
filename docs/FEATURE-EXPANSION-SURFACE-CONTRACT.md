@@ -17,7 +17,7 @@ The supplied screenshots foreground footage, editable captions and a timeline. T
 
 ## Durable design contracts
 
-Self-hosted Manrope; display at most 58px desktop, 36px mobile; body minimum 14px in general content, functional metadata minimum 12px. Peach #f4b58a on near-black surfaces continues the committed brand. Typography, source imagery and the Moment Map carry the design; no gradients, glow, icon-card hero or fake growth scores.
+Self-hosted Manrope; display at most 58px desktop, 36px mobile; body minimum 14px in general content, functional metadata minimum 12px. Peach #ffb283 on near-black surfaces continues the committed brand. Typography, source imagery and the Moment Map carry the design; no gradients, glow, icon-card hero or fake growth scores.
 
 All text/controls require sufficient contrast, 44px primary targets, visible focus, stable labels, loading/error/empty states, and no horizontal page overflow at 390, 484, 768 and 1440px. Inspector internals may scroll vertically; the footage must stay usable. Advanced functions should use disclosures rather than another wall of permanently open controls.
 

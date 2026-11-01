@@ -43,3 +43,10 @@ Baseline source and 55 tests: docs/V2-BASELINE-AUDIT.md. New acceptance evidence
 - `public/caption-policy.js` owns clip override → project target → user default resolution. `public/app.js` dispatches missing tracks with concurrency two; source transcripts and translated tracks stay separate. Late results cannot replace human corrections or choose a different active language. `lib/exports.js` resolves the same policy before review/track validation.
 - `lib/translation-store.js` caches completed translation results in SQLite. Failed/interrupted provider attempts require explicit retry; browser dispatch is not advertised as a durable Jobs worker.
 - `public/social.js` owns destination recipes/Shorts duration checks. Studio sets actual export parameters. Jobs presents saved files and upload-page/native-share handoffs only after a completed render. Handoff is not evidence of an attached/uploaded/published post. No connected-account or scheduling controls are presented.
+
+
+## Activity and downloads
+
+The visible Activity destination retains the `jobs` internal owner and `#/jobs` route. Work needing processing/retry is separate from finished downloadable files; completed scans/cancellations live in a closed history disclosure. Provider counters and queue overview are optional. Completed videos offer Watch video and Download video; social upload instructions remain a closed secondary disclosure, and bulk ZIP choices appear only after Select videos. Polling preserves mounted finished-video players. This is a progress/download destination, not a required processing-management step in the import/edit/export flow.
+
+Studio provides direct Recheck speech and Add timed captions actions for an empty transcript. The latter opens both timing disclosures and focuses the canonical text field. The source-time ruler/playhead shares the preview clock used by seek and split. Secondary volume/speed/fullscreen and desktop shortcuts start collapsed on small screens, while play/restart/loop/seek stay visible.

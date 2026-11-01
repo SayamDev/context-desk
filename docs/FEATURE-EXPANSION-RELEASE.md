@@ -18,10 +18,10 @@
 
 ## Actual checks in this expansion
 
-- Default suite: **193 tests, 191 passed, zero failed, two opt-in live tests skipped**. Syntax: **53 JavaScript files**. Later final review changes, if any, must rerun this gate.
+- Default suite: **194 tests, 192 passed, zero failed, two opt-in live tests skipped**. Syntax: **53 JavaScript files**. Later final review changes, if any, must rerun this gate.
 - Separate actual localhost tests: 27-second FFmpeg video/audio receiver plus parent-liveness supervisor cleanup passed. The integrated browser additionally started a separate receiver and sent a real 14-second synthetic speech recording into it. Its recorded window remained editable/playable after the encoder stopped; real Muse Voice/Spark results reopened from saved state. It was correctly rejected as test-pattern footage rather than presented as a useful story.
 - Real deep discovery: a 14-second synthetic speech/test-pattern recording completed **one speech request and one story-ranking request**, 14 seconds transcribed, zero supported candidates. This validates the provider path and truthful empty result, not compelling episode discovery.
-- A real Meta semantic query was submitted against retained live speech; its result must be checked separately from transport success.
+- A real Meta semantic query against retained live speech returned one source-supported match; the saved cache records one provider request and one retained/evidence-bearing candidate, with unseen-footage inspection explicitly false.
 - Real Muse Image: one synthetic original cover brief produced a saved PNG. It was visually inspected. No episode frames were sent for that image request.
 - Real native reframing: a six-second local-only episode excerpt detected faces and safely refused an over-wide group crop. An explicit opening-face position produced **14 saved crop positions**. A real two-second synthetic moving-crop render and a real six-second tracked-footage export completed.
 - Browser transcript selection created a 6.12-second trim from a six-second synthetic caption plus context; Undo restored the original two-clip collection. A synchronous selection-change bug was fixed and covered by a regression test.
@@ -30,6 +30,10 @@
 - Browser downloaded a genuine ZIP containing the MP4, SRT and manifest; Python ZIP integrity check passed. ZIP64 availability is checked, but a greater-than-4GB output archive has not been tested.
 - No horizontal page overflow was measured at actual CSS widths **390, 484, 768 and 1440**. Captures are local review evidence, not public repository assets. A late startup-restore navigation race was corrected and tested.
 - Social transport/state tests use fake providers. The Connections interface showed genuine missing-configuration states. No real OAuth, upload, publishing or scheduling was performed.
+
+## Activity and downloads
+
+The former Jobs screen is now labelled Activity. Processing or work needing attention is separate from finished downloads; completed scans sit in a closed history disclosure. Technical counters and provider request details are optional. Finished videos offer Watch video and Download video; bulk ZIP controls appear only after Select videos. This page monitors work and retrieves results; it is not another required editing step.
 
 ## Reliability fixes found during integration
 
@@ -46,3 +50,8 @@ Public Klap, quso.ai and Restream entry screens were inspected using the request
 ## Remaining product work
 
 Human-reviewed whole-episode clip yield and dialect accuracy; sustained long capture and large-library stress; multi-track/track-level editing, multicamera sync, colour tools, dubbing, automatic B-roll insertion, scheduling/analytics, multiuser cloud workspaces, approved connected social deployments and target-NLE import acceptance remain open. Provider approval, credentials or hosting cannot be replaced by a UI button. No guaranteed engagement, competition result or universal platform/dialect support is claimed.
+
+
+## Finish review
+
+An independent Impeccable reviewer returned `ship` for the **five scored fixes**: readable Activity columns/grouping, direct empty-caption recovery, a synchronized ruler/playhead, compact narrow playback controls, and source-grounded DESIGN.md/sidecar persistence. This verdict covers those fixes, not the complete product, every feature or production acceptance. The Activity redesign also responds to the user's question about the purpose of Jobs. A playing finished video continued from 0.02s to 0.36s across a manual refresh without pausing/resetting.

@@ -36,7 +36,7 @@ function showWorkspace(view){
   window.scrollTo({top:0});document.body.dataset.workspace=view;layout?.syncWorkspace(view);homeView?.sync(view);liveControls?.sync();connectionsView?.sync();discoveryTools?.sync();
   if(!startupNavigation&&location.hash!==workspaceHash(view))history.pushState({workspace:view},'',workspaceHash(view));
   document.querySelectorAll('.workspace-nav button').forEach(button=>{if(button.dataset.workspace===view)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current')});
-  const content={home:['Home','Start a recording or pick up a saved story.'],library:['Projects','Your recordings, moments and edits.'],jobs:['Jobs','Processing, finished exports and anything that needs attention.'],source:['Start a new story.','Paste a link or upload a recording. Clips appear as processing finishes.'],clips:['Discover','Find a story worth sharing. Every suggestion links back to the source.'],edit:['Studio','Your footage. Your words. Your final cut.']}[view];
+  const content={home:['Home','Start a recording or pick up a saved story.'],library:['Projects','Your recordings, moments and edits.'],jobs:['Activity & downloads','Processing progress and finished files.'],source:['Start a new story.','Paste a link or upload a recording. Clips appear as processing finishes.'],clips:['Discover','Find a story worth sharing. Every suggestion links back to the source.'],edit:['Studio','Your footage. Your words. Your final cut.']}[view];
   $('workspaceTitle').textContent=content[0];$('workspaceDescription').textContent=content[1];
   if(view!=='edit')clipVideo.pause();if(!['clips','source'].includes(view)&&state.sourceType==='file')program.pause();
   if(view==='library')void renderLibrary();projectSession?.changed();
@@ -655,7 +655,7 @@ function drawComposedFrame(context,video,moment,elapsed,clock=video.currentTime|
 }
 function previewMoment(){return state.cutPreviewIndex>=0?cutMoments()[state.cutPreviewIndex]:state.moments.find(x=>x.id===state.selected)}
 function mediaReady(video){if(video.readyState>=HTMLMediaElement.HAVE_METADATA)return Promise.resolve();return new Promise((resolve,reject)=>{const cleanup=()=>{clearTimeout(timeout);video.removeEventListener('error',failed);video.removeEventListener('loadedmetadata',loaded)};const loaded=()=>{cleanup();resolve()};const failed=()=>{cleanup();reject(Error('This video could not be opened. Choose a supported MP4 or WebM.'))};const timeout=setTimeout(failed,12000);video.addEventListener('loadedmetadata',loaded,{once:true});video.addEventListener('error',failed,{once:true})})}
-function drawPreview(clock=clipVideo.currentTime){const context=$('previewCanvas').getContext('2d'),m=previewMoment();if(m)drawComposedFrame(context,clipVideo,m,localTime(m,clock)-m.trimIn,clock);else{context.fillStyle='#101014';context.fillRect(0,0,context.canvas.width,context.canvas.height)}}
+function drawPreview(clock=clipVideo.currentTime){const selected=previewMoment();if(selected)layout?.syncPlayhead(selected,localTime(selected,clock));const context=$('previewCanvas').getContext('2d'),m=previewMoment();if(m)drawComposedFrame(context,clipVideo,m,localTime(m,clock)-m.trimIn,clock);else{context.fillStyle='#101014';context.fillRect(0,0,context.canvas.width,context.canvas.height)}}
 function updatePreviewTime(){layout?.syncTimeline(previewMoment(),formatTime);const m=previewMoment(),duration=m?m.trimOut-m.trimIn:0,position=m?Math.max(0,Math.min(duration,localTime(m,clipVideo.currentTime||0)-m.trimIn)):0;$('seekBar').min=0;$('seekBar').max=duration||100;$('seekBar').value=position;$('previewTime').textContent=`${formatTime(position)} / ${formatTime(duration)}`;drawPreview()}
 clipVideo.addEventListener('loadedmetadata',()=>{const m=previewMoment();if(m)clipVideo.currentTime=Math.max(.01,mediaTime(m,m.trimIn));updatePreviewTime()});
 let previewFrameHandle=null,previewFrameKind='',replayBusy=false;
@@ -704,7 +704,7 @@ $('previewCut').onclick=async()=>{if(state.cutPreviewIndex>=0){stopCutPreview();
 $('seekBar').oninput=e=>{const m=previewMoment();if(m)clipVideo.currentTime=mediaTime(m,m.trimIn+Number(e.target.value));updatePreviewTime()};
 $('aspectSelect').onchange=e=>{state.aspect=e.target.value;setPreviewSize();drawPreview()};
 $('audioEnhance').onchange=e=>{const m=state.moments.find(m=>m.id===state.selected);if(m)m.audioEnhance=e.target.checked};
-$('saveCoverFrame').onclick=()=>{const m=state.moments.find(m=>m.id===state.selected);if(!m||!validateCaptions(m))return;drawPreview();$('previewCanvas').toBlob(blob=>{if(blob)download(blob,'context-desk-cover-'+Math.floor(m.start)+'.png')},'image/png')};
+$('saveCoverFrame').onclick=()=>{const m=state.moments.find(m=>m.id===state.selected);if(!m||!validateCaptions(m))return;if(clipVideo.readyState<2||!clipVideo.videoWidth){message('Wait for the clip preview to load, then download its cover frame.');return}drawPreview();$('previewCanvas').toBlob(blob=>{if(blob)download(blob,'context-desk-cover-'+Math.floor(m.start)+'.png')},'image/png')};
 $('frameMode').onchange=e=>{const m=state.moments.find(x=>x.id===state.selected);if(m){m.frameKeyframes=[];m.frameTracking=null;m.frameMode=e.target.value;updateFrameControls();drawPreview()}};
 for(const [id,key] of [['zoomRange','zoom'],['focusX','focusX'],['focusY','focusY']])$(id).oninput=e=>{const m=state.moments.find(x=>x.id===state.selected);if(m){m.frameKeyframes=[];m.frameTracking=null;m[key]=Number(e.target.value);drawPreview()}};
 $('showHook').onchange=e=>{const m=state.moments.find(x=>x.id===state.selected);if(m){m.showHook=e.target.checked;drawPreview()}};
@@ -746,7 +746,7 @@ function renderEditor(){
   $('captionsInput').value=cueText(activeCues(m));renderCaptionLines(m);$('captionOffset').value=(m.captionOffset||0).toFixed(1);updateCaptionSyncLabel(m);$('maskSourceCaptions').checked=Boolean(m.sourceCaptionMask);$('showCaptions').checked=m.showCaptions;$('captionReviewed').checked=Boolean(m.captionReviewed[m.captionLanguage]);
   $('translateButton').textContent=m.translationPending?.has(m.captionLanguage)?'TRANSLATING…':m.translationError?'RETRY TRANSLATION':'TRANSLATE AGAIN';
   $('translateButton').disabled=Boolean(m.translationPending?.has(m.captionLanguage))||(!state.meta&&!(state.voiceStudio&&$('translationProvider').value==='voicestudio'))||m.captionLanguage==='Original'||!m.captionCues.Original.length;
-  $('reanalyseButton').disabled=!state.meta||!m.frames.length||m.status==='analysing';
+  $('reanalyseButton').disabled=!state.meta||!m.frames.length||m.status==='analysing';$('captionEmptyActions').hidden=Boolean(m.captionCues?.Original?.length||activeCues(m).length);$('emptyRecheckSpeech').disabled=$('reanalyseButton').disabled;
   $('srtButton').disabled=!activeCues(m).length;
   $('captionStatus').textContent=m.translationPending?.has(m.captionLanguage)?m.captionLanguage+' subtitles are being prepared…':m.captionError||m.translationError||(!m.captionCues.Original.length?'No timed transcript yet. Add lines manually and check them against the audio.':m.captionLanguage==='Original'?((m.speechSource||'Speech')+' draft. '+(m.timingSource==='word'?'Word timings are available; still check dialect, words and sync.':'Short-line timing is estimated; check dialect, words and timing.')):activeCues(m).length?((m.translationSource||'Translation')+' draft. Compare every line with the original speech.'):m.captionLanguage+' subtitles queued. Original speech is kept in Story & evidence.');
   layout?.syncTimeline(m,formatTime);setPreviewSize();drawPreview();
@@ -766,7 +766,7 @@ function renderCaptionLines(m){
   $('captionLines').innerHTML=cues.length?cues.map((cue,index)=>{
     const timing=timed.find(cue=>cue.index===index),start=timing?.start??0,unavailable=!timing||timing.end<=m.trimIn||start>=m.trimOut;
     return `<div class="caption-line" data-cue="${index}"><button type="button" data-caption-jump="${index}" aria-label="Play from caption ${index+1} at ${start.toFixed(1)} seconds" ${unavailable?'disabled':''}>${start.toFixed(1)}s</button><textarea class="caption-line-text" rows="3" data-cue="${index}" aria-label="Caption ${index+1} text" dir="auto" maxlength="100">${escapeHtml(cue.text)}</textarea><button type="button" class="caption-flag ${cue.uncertain?'is-flagged':''}" data-caption-flag="${index}" aria-label="${cue.uncertain?'Resolve':'Flag'} uncertainty in caption ${index+1}">${cue.uncertain?'Review needed':'Flag'}</button>${cue.uncertain&&cue.reviewReason?`<small class="caption-original">${escapeHtml(cue.reviewReason)}</small>`:''}${m.captionLanguage!=='Original'?`<small class="caption-original" dir="auto">SOURCE · ${escapeHtml(m.captionCues.Original[index]?.text||'Original line unavailable')}</small>`:''}</div>`;
-  }).join(''):'<p class="caption-lines-empty">'+(m.translationPending?.has(m.captionLanguage)?'Preparing '+escapeHtml(m.captionLanguage)+' subtitles…':'No timed speech yet. Recheck speech or add timed lines below.')+'</p>';
+  }).join(''):'<p class="caption-lines-empty">'+(m.translationPending?.has(m.captionLanguage)?'Preparing '+escapeHtml(m.captionLanguage)+' subtitles…':'No timed captions yet. Recheck the speech or add captions to this clip.')+'</p>';
 }
 function highlightCaption(clock){
   const m=previewMoment();if(!m)return;const time=localTime(m,clock),active=timedCues(m).find(cue=>time>=cue.start&&time<cue.end)?.index;
@@ -1015,7 +1015,7 @@ $('splitClip').onclick=()=>{const m=state.moments.find(x=>x.id===state.selected)
 document.addEventListener('keydown',event=>{if(!(event.metaKey||event.ctrlKey)||event.key.toLowerCase()!=='z'||/^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName||''))return;event.preventDefault();event.shiftKey?editHistory.redo():editHistory.undo()});
 
 const jobsView=createJobsView({panel:$('jobRows'),counts:$('jobCounts'),status:$('jobsStatus'),onPlay:video=>claimPlayback(video),onOpen:async id=>{await projectSession.open(id);showWorkspace('clips')},onJobs:async jobs=>{
-  $('navJobCount').textContent=jobs.filter(j=>['queued','running'].includes(j.status)).length;
+  const runningCount=jobs.filter(j=>['queued','running'].includes(j.status)).length;$('navJobCount').textContent=runningCount;$('navJobCount').hidden=!runningCount;
   const active=jobs.filter(j=>j.kind==='discovery'&&j.projectId===projectSession?.current?.id),running=active.find(j=>['queued','running'].includes(j.status));
   state.batchRunning=Boolean(running);if(!running)finishActivity('batch');$('batchButton').textContent=running?'VIEW PROCESSING JOB ':`FIND ${$('clipTarget').value} CLIPS ACROSS VIDEO `;
   if(!active.length||projectSession?.restoring)return;

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-01T01:24:10.096193+00:00",
+  "generatedAt": "2026-11-01T13:31:39.323703+00:00",
   "title": "Design System: Context Desk V2",
   "extensions": {
     "colorMeta": {
@@ -218,11 +218,11 @@
     "typographyMeta": {
       "brand": {
         "displayName": "Local Manrope Wordmark",
-        "purpose": "Brand only; 18px in the compact shell."
+        "purpose": "Wordmark; 18px in the compact shell."
       },
       "display": {
-        "displayName": "Source Entry Display",
-        "purpose": "Add video entry heading; 34px on mobile."
+        "displayName": "Home Source Entry Display",
+        "purpose": "Manrope 58px/1.04, weight 800, -.04em tracking; 48px at 1100px."
       },
       "headline": {
         "displayName": "Workspace Heading",
@@ -247,6 +247,18 @@
       "metadata": {
         "displayName": "Source Metadata",
         "purpose": "Secondary details, timecodes and status."
+      },
+      "display-mobile": {
+        "displayName": "Mobile Home Display",
+        "purpose": "Home source-entry display at 36px at 600px and below."
+      },
+      "home-section": {
+        "displayName": "Home Section Heading",
+        "purpose": "Manrope recent-project and empty-session headings; recent projects reduce to 22px on mobile."
+      },
+      "disclosure": {
+        "displayName": "Activity Detail Disclosure",
+        "purpose": "13px Processing details and platform-upload summaries; group headings reuse the 22px title step."
       }
     },
     "shadows": [
@@ -259,6 +271,11 @@
         "name": "crop-surround",
         "value": "0 0 0 999px #0005",
         "purpose": "Functional source-crop dimming mask."
+      },
+      {
+        "name": "timeline-playhead",
+        "value": "1px 0 3px #0009",
+        "purpose": "Separates the moving white playhead from sampled source frames."
       }
     ],
     "motion": [
@@ -271,16 +288,33 @@
         "name": "active-processing",
         "value": "working 1s linear infinite",
         "purpose": "Real activity spinner; working rotates to 360deg and reduced motion disables it."
+      },
+      {
+        "name": "current-project-hover",
+        "value": "transform .22s ease-out; scale(1.025)",
+        "purpose": "Subtle current-project source-image hover; reduced motion disables the transition."
       }
     ],
     "breakpoints": [
+      {
+        "name": "compact-studio",
+        "value": "1200px"
+      },
       {
         "name": "compact-shell",
         "value": "1100px"
       },
       {
-        "name": "stacked-workspace",
+        "name": "horizontal-clips",
+        "value": "1000px"
+      },
+      {
+        "name": "stacked-discover",
         "value": "900px"
+      },
+      {
+        "name": "stacked-studio",
+        "value": "760px"
       },
       {
         "name": "mobile-controls",
@@ -325,9 +359,9 @@
       "name": "Workspace Navigation",
       "kind": "nav",
       "refersTo": "navigation-active",
-      "description": "Single wrapping workspace navigation; the current screen uses a tonal fill and peach text.",
-      "html": "<nav class=\"ds-nav\" aria-label=\"Workspace\"><button type=\"button\">Library</button><button type=\"button\" aria-current=\"page\">Discover</button><button type=\"button\">Studio</button><button type=\"button\">Jobs</button></nav>",
-      "css": ".ds-nav{display:flex;flex-wrap:wrap;gap:6px}.ds-nav button{font:600 14px/1.5 system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:40px;padding:9px 14px;border:1px solid var(--line,#303c49);border-radius:var(--control-radius,7px);cursor:pointer;transition:background .12s,color .12s,border-color .12s;min-height:48px;padding:12px;border:0;background:transparent;color:var(--muted,#adb8c5)}.ds-nav button[aria-current]{background:var(--surface,#131a22);color:var(--accent,#ffb283)}.ds-nav button:hover:not([aria-current]){background:#273340}.ds-nav button:focus-visible{outline:2px solid var(--focus,#ffd2af);outline-offset:4px}@media(prefers-reduced-motion:reduce){*{animation:none!important;scroll-behavior:auto!important;transition:none!important}}"
+      "description": "Six canonical desktop destinations; five on mobile, with import reachable from Home.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Workspace\"><button type=\"button\" aria-current=\"page\">Home</button><button type=\"button\">Projects</button><button type=\"button\">Discover</button><button type=\"button\">Studio</button><button type=\"button\">Activity</button><button class=\"ds-nav-import\" type=\"button\">New video</button></nav>",
+      "css": ".ds-nav{display:flex;flex-wrap:wrap;gap:6px}.ds-nav button{font:600 14px/1.5 system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:40px;padding:9px 14px;border:1px solid var(--line,#303c49);border-radius:var(--control-radius,7px);cursor:pointer;transition:background .12s,color .12s,border-color .12s;min-height:48px;padding:12px;border:0;background:transparent;color:var(--muted,#adb8c5)}.ds-nav button[aria-current]{background:var(--surface,#131a22);color:var(--accent,#ffb283)}.ds-nav button:hover:not([aria-current]){background:#273340}.ds-nav button:focus-visible{outline:2px solid var(--focus,#ffd2af);outline-offset:4px}@media(prefers-reduced-motion:reduce){*{animation:none!important;scroll-behavior:auto!important;transition:none!important}} .ds-nav .ds-nav-import{margin-left:auto;background:var(--accent,#ffb283);color:var(--accent-ink,#21150e)}.ds-nav .ds-nav-import:hover{background:var(--focus,#ffd2af)}@media(max-width:600px){.ds-nav{flex-wrap:nowrap;gap:2px}.ds-nav button{min-width:0;min-height:40px;padding:8px 5px;font-size:12px;white-space:nowrap;flex:1}.ds-nav .ds-nav-import{display:none}}"
     },
     {
       "name": "Navigation Count Badge",
@@ -338,12 +372,12 @@
       "css": ".ds-count-context{font:600 14px/1.5 system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:var(--muted,#adb8c5)}.ds-count{font-size:12px;font-weight:500;background:var(--surface-raised,#1b2530);padding:2px 6px;border-radius:4px}@media(prefers-reduced-motion:reduce){*{animation:none!important;scroll-behavior:auto!important;transition:none!important}}"
     },
     {
-      "name": "Working Panel",
+      "name": "Studio Task Inspector",
       "kind": "card",
       "refersTo": "panel",
-      "description": "Flat video/editor panel with a quiet border and compact heading.",
-      "html": "<section class=\"ds-panel\"><header class=\"ds-panel-heading\">Source monitor</header><p class=\"ds-panel-empty\">Source preview unavailable</p></section>",
-      "css": ".ds-panel{min-width:0;background:var(--surface,#131a22);color:var(--text,#f1f3f5);border:1px solid var(--line,#303c49);border-radius:var(--radius,12px);font:400 14px/1.5 system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}.ds-panel-heading{padding:14px 16px;font-size:12px;font-weight:600;color:var(--muted,#adb8c5)}.ds-panel-empty{margin:0;padding:28px;text-align:center;color:var(--muted,#adb8c5)}@media(prefers-reduced-motion:reduce){*{animation:none!important;scroll-behavior:auto!important;transition:none!important}}"
+      "description": "One selected task in the right-hand panel: Captions, Style, Story or Export; caption treatments keep the existing tokens.",
+      "html": "<section class=\"ds-panel\"><div class=\"ds-inspector-tabs\"><button type=\"button\" aria-pressed=\"false\">Captions</button><button type=\"button\" aria-pressed=\"true\">Style</button><button type=\"button\" aria-pressed=\"false\">Story</button><button type=\"button\" aria-pressed=\"false\">Export</button></div><h3 class=\"ds-style-heading\">Make it your own.</h3><div class=\"ds-style-grid\"><button class=\"ds-style\" type=\"button\" aria-pressed=\"true\"><span>Your words.</span><small>Punch</small></button><button class=\"ds-style\" type=\"button\" aria-pressed=\"false\"><span class=\"ds-style-clean\">Your words.</span><small>Clean</small></button></div></section>",
+      "css": ".ds-panel{max-width:340px;padding:16px;background:var(--surface,#131a22);color:var(--text,#f1f3f5);border:1px solid var(--line,#303c49);border-radius:var(--radius,12px);font:14px/1.5 system-ui,sans-serif}.ds-inspector-tabs{display:flex;gap:3px;padding-bottom:12px;margin-bottom:16px}.ds-inspector-tabs button,.ds-style{border:1px solid var(--line,#303c49);border-radius:var(--control-radius,7px);color:var(--muted,#adb8c5);background:transparent;cursor:pointer}.ds-inspector-tabs button{flex:1;min-width:0;min-height:42px;padding:8px 7px;font:600 12px/1.5 system-ui,sans-serif}.ds-inspector-tabs button[aria-pressed=true]{background:var(--surface-raised,#1b2530);color:var(--accent,#ffb283)}.ds-style-heading{font-size:22px;line-height:1.25;letter-spacing:-.02em}.ds-style-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.ds-style{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;min-height:94px;padding:12px;background:var(--canvas,#0c1015);color:var(--text,#f1f3f5)}.ds-style[aria-pressed=true]{border-color:var(--accent,#ffb283);background:var(--surface-raised,#1b2530)}.ds-style span{font:800 16px/1.5 system-ui,sans-serif}.ds-style .ds-style-clean{font-weight:500}.ds-style small{font:500 12px/1.5 system-ui,sans-serif}.ds-inspector-tabs button:hover,.ds-style:hover{background:#273340;border-color:#536273}.ds-inspector-tabs button:focus-visible,.ds-style:focus-visible{outline:2px solid var(--focus,#ffd2af);outline-offset:4px}.ds-inspector-tabs button:active,.ds-style:active{background:#354252}@media(max-width:600px){.ds-inspector-tabs button{font-size:14px;min-height:44px}}"
     },
     {
       "name": "Moment Map Interval",
@@ -360,22 +394,30 @@
       "description": "Editable source caption text with compact desktop density and a larger mobile text size.",
       "html": "<label class=\"ds-caption\">Caption text<textarea placeholder=\"Caption text from the source audio\"></textarea></label>",
       "css": ".ds-caption{display:flex;flex-direction:column;gap:6px;font:600 12px/1.5 system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:var(--muted,#adb8c5)}.ds-caption textarea{width:100%;min-height:76px;padding:9px;resize:none;background:var(--surface-raised,#1b2530);color:var(--text,#f1f3f5);border:1px solid var(--line,#303c49);border-radius:var(--control-radius,7px);font:400 14px/1.5 system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;caret-color:var(--accent,#ffb283)}.ds-caption textarea::placeholder{color:var(--muted,#adb8c5);opacity:1}.ds-caption textarea:focus-visible{outline:2px solid var(--focus,#ffd2af);outline-offset:4px}@media(max-width:600px){.ds-caption textarea{font-size:16px}}@media(prefers-reduced-motion:reduce){*{animation:none!important;scroll-behavior:auto!important;transition:none!important}}"
+    },
+    {
+      "name": "Home Source Launcher",
+      "kind": "custom",
+      "refersTo": "home-start",
+      "description": "Peach entry hierarchy with one dark link field, Find clips action and disclosed preferences.",
+      "html": "<section class=\"ds-home\"><h1>Find the story.<br>Make it yours.</h1><p>Turn long videos into clips with a point of view.</p><label class=\"ds-home-label\" for=\"ds-home-url\">Paste a video link</label><div class=\"ds-home-row\"><input id=\"ds-home-url\" type=\"url\" placeholder=\"Video URL\"><button type=\"button\">Find clips</button></div><details class=\"ds-home-details\"><summary>Language & clip preferences</summary><p>Source and output language settings.</p></details></section>",
+      "css": ".ds-home{padding:48px;border-radius:16px;background:var(--accent,#ffb283);color:var(--accent-ink,#21150e);font:14px/1.5 system-ui,sans-serif}.ds-home h1{font:800 58px/1.04 Manrope,system-ui,sans-serif;letter-spacing:-.04em;max-width:12ch;margin:0 0 22px}.ds-home>p{font-size:16px;line-height:1.6;max-width:50ch;margin:0 0 28px}.ds-home-label{display:block;font-size:14px;font-weight:700;margin-bottom:10px}.ds-home-row{display:flex;gap:8px}.ds-home-row input,.ds-home-row button{min-height:52px;border:1px solid var(--canvas,#0c1015);border-radius:var(--control-radius,7px);background:var(--canvas,#0c1015);color:var(--text,#f1f3f5);font:600 14px/1.5 system-ui,sans-serif}.ds-home-row input{min-width:0;flex:1;padding:10px 12px;font-weight:400}.ds-home-row input::placeholder{color:var(--muted,#adb8c5)}.ds-home-row button{padding:12px 18px;white-space:nowrap;cursor:pointer}.ds-home-row button:hover{background:var(--surface-raised,#1b2530)}.ds-home-row button:active{background:#354252}.ds-home-row input:focus-visible,.ds-home-row button:focus-visible,.ds-home-details summary:focus-visible{outline:2px solid var(--focus,#ffd2af);outline-offset:4px}.ds-home-details{margin-top:14px}.ds-home-details summary{min-height:40px;padding:8px 0;font-weight:600;cursor:pointer}.ds-home-details p{font-size:14px}@media(max-width:1100px){.ds-home{padding:32px}.ds-home h1{font-size:48px}}@media(max-width:600px){.ds-home{padding:24px 20px;border-radius:12px}.ds-home h1{font-size:36px}.ds-home>p{font-size:14px}.ds-home-row{flex-direction:column}.ds-home-row input,.ds-home-row button{min-height:48px;font-size:16px}}"
     }
   ],
   "narrative": {
     "northStar": "The Source-Linked Production Desk",
-    "overview": "Quiet charcoal chrome gives real video the brightest, largest working surface. Warm peach marks actions, source links and suggested intervals; editing controls remain compact and readable. Creative decisions stay tied to source time, inspectable evidence and honest gaps.\n\nThe operating sequence is source → discover → review → edit → export. One navigation and a project/save strip orient the working screens. Discover pairs the source monitor with a real time axis and coverage lanes; Studio pairs its viewer with trim work and caption correction. This is an operating application: existing media, edit and queue controllers retain ownership of their controls.\n\nThe user-authorized V2 replaces the former lilac/plum/lime identity. Its visual authority is the selected 12ui B concept and expanded screen family, adapted to the real app. No Impeccable concept seed or roll was run. The direction and comparison evidence are recorded in [V2 visual research](docs/V2-VISUAL-RESEARCH.md).",
+    "overview": "Quiet charcoal chrome gives real video the largest working surface. Warm peach introduces the source on Home, then marks actions, source links and suggested intervals inside the working screens. Editing controls remain compact and readable; creative decisions stay tied to source time, inspectable evidence and honest gaps.\n\nThe operating sequence is source → discover → review → edit → export. Home presents a link field and Find clips action before preferences; one navigation and a project/save strip orient the working screens. Discover pairs the source monitor with a real time axis and coverage lanes. Studio places clip switching, footage and timeline, and one selected inspector task in three columns. Existing media, edit and queue controllers retain ownership of their controls.\n\nThe user-authorized V2 replaces the former lilac/plum/lime identity. Its visual authority is the selected 12ui B concept and expanded screen family, adapted to the real app. No Impeccable concept seed or roll was run. The direction and comparison evidence are recorded in [V2 visual research](docs/V2-VISUAL-RESEARCH.md). The feature expansion retains this world; its Home display and Studio topology are code-led extensions described in [the surface contract](docs/FEATURE-EXPANSION-SURFACE-CONTRACT.md), not a newly approved visual composition.",
     "keyCharacteristics": [
       "Video-led workspaces with restrained charcoal boundaries.",
       "Peach source/action signals and mint acknowledged completion.",
-      "Readable functional sans with a locally hosted Manrope wordmark.",
+      "Locally hosted Manrope for the wordmark and Home hierarchy; functional sans for editing.",
       "Source-derived frames, actual time and visible coverage gaps.",
       "One compact navigation with contextual editing disclosures."
     ],
     "rules": [
       {
         "name": "The Source Signal Rule",
-        "body": "Peach connects an action or a source-linked selection to the current task; it is not a substitute for video or evidence.",
+        "body": "Peach groups the source-entry task on Home and connects actions or source-linked selections to the current task inside the workspace. Actual footage and evidence remain source-derived.",
         "section": "colors"
       },
       {
@@ -385,7 +427,7 @@
       },
       {
         "name": "The Working Type Rule",
-        "body": "Reserve Manrope for the wordmark. Use the functional sans for headings, labels, evidence and editing; do not extend the brand into a decorative display treatment.",
+        "body": "Use Manrope for the wordmark and Home hierarchy. Keep the functional sans for working headings, labels, evidence and editing; caption-brand choices affect the media treatment rather than application chrome.",
         "section": "typography"
       },
       {
@@ -395,7 +437,7 @@
       },
       {
         "name": "The Flat Workspace Rule",
-        "body": "Use tonal surfaces and borders for grouping. Reserve shadow-like treatments for readable media overlays and crop masking.",
+        "body": "Use tonal surfaces and borders for grouping. Reserve shadow-like treatments for readable media overlays, the timeline playhead and crop masking.",
         "section": "elevation"
       }
     ],

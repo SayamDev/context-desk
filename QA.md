@@ -102,4 +102,4 @@ A browser-generated 8.02-second social MP4 was downloaded, fully decoded and fra
 
 ## 2026-11-01 production feature expansion
 
-See [actual feature expansion checks](docs/FEATURE-EXPANSION-RELEASE.md). Default gate: 193 tests / 191 pass / 0 fail / 2 opt-in skips; 53 JavaScript syntax checks. Short real Meta speech/ranking/artwork, local native tracking, integrated 14-second RTMP capture, 1080×1920 branded/audio export, XML and downloaded ZIP are distinguished from fake social-provider tests. Whole-episode quality and actual OAuth/NLE app acceptance remain open.
+See [actual feature expansion checks](docs/FEATURE-EXPANSION-RELEASE.md). Default gate: 194 tests / 192 pass / 0 fail / 2 opt-in skips; 53 JavaScript syntax checks. Short real Meta speech/ranking/artwork, local native tracking, integrated 14-second RTMP capture, 1080×1920 branded/audio export, XML and downloaded ZIP are distinguished from fake social-provider tests. Whole-episode quality and actual OAuth/NLE app acceptance remain open.

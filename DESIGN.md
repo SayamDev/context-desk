@@ -25,10 +25,22 @@ typography:
     lineHeight: 1.5
     letterSpacing: "-0.03em"
   display:
-    fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
-    fontSize: "40px"
+    fontFamily: "Manrope, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    fontSize: "58px"
+    fontWeight: 800
+    lineHeight: 1.04
+    letterSpacing: "-0.04em"
+  display-mobile:
+    fontFamily: "Manrope, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    fontSize: "36px"
+    fontWeight: 800
+    lineHeight: 1.04
+    letterSpacing: "-0.04em"
+  home-section:
+    fontFamily: "Manrope, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    fontSize: "26px"
     fontWeight: 700
-    lineHeight: 1.1
+    lineHeight: 1.2
     letterSpacing: "-0.02em"
   headline:
     fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
@@ -58,6 +70,11 @@ typography:
     fontSize: "12px"
     fontWeight: 600
     lineHeight: 1.5
+  disclosure:
+    fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    fontSize: "13px"
+    fontWeight: 600
+    lineHeight: 1.5
   metadata:
     fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
     fontSize: "12px"
@@ -65,6 +82,7 @@ typography:
     lineHeight: 1.5
 
 rounded:
+  entry: "16px"
   panel: "12px"
   control: "7px"
   map: "8px"
@@ -80,7 +98,41 @@ spacing:
   section: "24px"
   desktop-gutter: "28px"
   shell: "32px"
+  entry: "48px"
 components:
+  activity-detail:
+    typography: "{typography.disclosure}"
+    rounded: "{rounded.control}"
+    padding: "10px 0"
+  home-start:
+    backgroundColor: "{colors.accent}"
+    textColor: "{colors.accent-ink}"
+    rounded: "{rounded.entry}"
+    padding: "48px"
+  button-home:
+    backgroundColor: "{colors.canvas}"
+    textColor: "{colors.text}"
+    rounded: "{rounded.control}"
+    padding: "12px 18px"
+    height: "52px"
+  inspector-tab-active:
+    backgroundColor: "{colors.surface-raised}"
+    textColor: "{colors.accent}"
+    rounded: "{rounded.control}"
+    padding: "8px 7px"
+  caption-template:
+    backgroundColor: "{colors.canvas}"
+    textColor: "{colors.text}"
+    rounded: "{rounded.control}"
+    padding: "12px"
+  caption-template-selected:
+    backgroundColor: "{colors.surface-raised}"
+    textColor: "{colors.text}"
+  studio-clip-active:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.text}"
+    rounded: "{rounded.control}"
+    padding: "8px"
   button-primary:
     backgroundColor: "{colors.accent}"
     textColor: "{colors.accent-ink}"
@@ -142,17 +194,17 @@ components:
 
 **Creative North Star: "The Source-Linked Production Desk"**
 
-Quiet charcoal chrome gives real video the brightest, largest working surface. Warm peach marks actions, source links and suggested intervals; editing controls remain compact and readable. Creative decisions stay tied to source time, inspectable evidence and honest gaps.
+Quiet charcoal chrome gives real video the largest working surface. Warm peach introduces the source on Home, then marks actions, source links and suggested intervals inside the working screens. Editing controls remain compact and readable; creative decisions stay tied to source time, inspectable evidence and honest gaps.
 
-The operating sequence is source → discover → review → edit → export. One navigation and a project/save strip orient the working screens. Discover pairs the source monitor with a real time axis and coverage lanes; Studio pairs its viewer with trim work and caption correction. This is an operating application: existing media, edit and queue controllers retain ownership of their controls.
+The operating sequence is source → discover → review → edit → export. Home presents a link field and Find clips action before preferences; one navigation and a project/save strip orient the working screens. Discover pairs the source monitor with a real time axis and coverage lanes. Studio places clip switching, footage and timeline, and one selected inspector task in three columns. Existing media, edit and queue controllers retain ownership of their controls.
 
-The user-authorized V2 replaces the former lilac/plum/lime identity. Its visual authority is the selected 12ui B concept and expanded screen family, adapted to the real app. No Impeccable concept seed or roll was run. The direction and comparison evidence are recorded in [V2 visual research](docs/V2-VISUAL-RESEARCH.md).
+The user-authorized V2 replaces the former lilac/plum/lime identity. Its visual authority is the selected 12ui B concept and expanded screen family, adapted to the real app. No Impeccable concept seed or roll was run. The direction and comparison evidence are recorded in [V2 visual research](docs/V2-VISUAL-RESEARCH.md). The feature expansion retains this world; its Home display and Studio topology are code-led extensions described in [the surface contract](docs/FEATURE-EXPANSION-SURFACE-CONTRACT.md), not a newly approved visual composition.
 
 **Key Characteristics:**
 
 - Video-led workspaces with restrained charcoal boundaries.
 - Peach source/action signals and mint acknowledged completion.
-- Readable functional sans with a locally hosted Manrope wordmark.
+- Locally hosted Manrope for the wordmark and Home hierarchy; functional sans for editing.
 - Source-derived frames, actual time and visible coverage gaps.
 - One compact navigation with contextual editing disclosures.
 
@@ -162,7 +214,7 @@ The palette is a dark production environment with one warm action accent and sep
 
 ### Primary
 
-- **Warm Peach** (`accent`): Add video, import, scan, playback and export actions; source links; suggested map intervals and the trim selection.
+- **Warm Peach** (`accent`): the Home source-launch surface; import, scan, playback and export actions inside the charcoal workspace; source links, suggested map intervals and the trim selection.
 - **Peach Ink** (`accent-ink`): dark text against peach-filled controls and suggested intervals.
 - **Light Peach** (`focus`): keyboard outlines, link hover and the import/Add video hover fill.
 
@@ -174,7 +226,7 @@ The palette is a dark production environment with one warm action accent and sep
 ### Neutral
 
 - **Desk Charcoal** (`canvas`): document, map track and thumbnail fallback background.
-- **Panel Charcoal** (`surface`): working panels, Library rows, Jobs and Settings.
+- **Panel Charcoal** (`surface`): working panels, Library rows, Activity and Settings.
 - **Raised Charcoal** (`surface-raised`): fields, secondary buttons and selected/current rows.
 - **Quiet Boundary** (`line`): single-pixel panel borders, dividers, progress tracks and resting scrollbar thumbs.
 - **Working White** (`text`): primary interface text.
@@ -183,7 +235,7 @@ The palette is a dark production environment with one warm action accent and sep
 - **Checked Steel** (`checked-window`): checked map intervals and legend swatches; also the neutral hover border.
 - **Media Black** (`media-black`): video/canvas letterboxing and export previews.
 
-**The Source Signal Rule.** Peach connects an action or a source-linked selection to the current task; it is not a substitute for video or evidence.
+**The Source Signal Rule.** Peach groups the source-entry task on Home and connects actions or source-linked selections to the current task inside the workspace. Actual footage and evidence remain source-derived.
 
 **The Acknowledgement Rule.** Mint and rose report actual application state. Color is accompanied by status text, labels or the relevant control state.
 
@@ -191,33 +243,43 @@ The palette is a dark production environment with one warm action accent and sep
 
 **Brand Font:** locally hosted Manrope, falling back to the functional sans stack. The variable font is served from `public/assets/fonts/Manrope.ttf` under the accompanying SIL Open Font License 1.1.
 
-**Body and Heading Font:** system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif. Functional system sans is an explicit choice for this production application. There is no separate mono family; time axes, numeric fields and playback time use tabular numerals where implemented.
+**Home Display Font:** locally hosted Manrope for the entry heading and Home section headings.
 
-**Character:** compact, direct and task-focused. The brand has a distinct face; controls and source/caption text prioritize recognition and editing comfort.
+**Body and Working Heading Font:** system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif. Functional system sans is an explicit choice for this production application. There is no separate mono family; time axes, numeric fields and playback time use tabular numerals where implemented.
+
+**Character:** direct and task-focused. Manrope establishes the brand and a clear entry hierarchy; functional controls, evidence and source/caption text prioritize recognition and editing comfort.
 
 ### Hierarchy
 
 - **Brand:** frontmatter `brand`; reduces to 18px at the compact shell breakpoint. Its 12px tagline uses the body stack and disappears when shell space tightens.
-- **Display:** frontmatter `display`; confined to the Add video entry heading, reducing to 34px on mobile.
+- **Display:** frontmatter `display`; Home entry heading, with a two-line desktop composition and a 12ch maximum width. It reduces to 48px at 1100px and to `display-mobile` at 600px; line-height and tracking remain stable.
+- **Home section:** frontmatter `home-section`; recent-project and empty-session headings, with the recent-project heading reducing to 22px on mobile.
 - **Headline / Title / Panel title:** frontmatter roles describe the base heading ramp. Discover and Studio remove their redundant visible page headings; working panel labels remain compact. Map, scan and job headings use local 17px variants.
 - **Body:** frontmatter `body`; paragraphs are limited to 75ch unless a working surface explicitly needs full width.
+- **Disclosure:** frontmatter `disclosure`; Processing details and platform-upload summaries in Activity. Group headings reuse the existing 22px title step; the completed-history summary uses 16px and Queue overview uses 14px.
 - **Label / Metadata:** frontmatter roles; controls and metadata recur at 12–14px. Caption text areas use 14px/1.5 on desktop and 16px on mobile.
 - **Project name:** editable 20px, weight 600, reducing to 16px on mobile; its transparent resting field belongs to the project strip.
 
-**The Working Type Rule.** Reserve Manrope for the wordmark. Use the functional sans for headings, labels, evidence and editing; do not extend the brand into a decorative display treatment.
+**The Working Type Rule.** Use Manrope for the wordmark and Home hierarchy. Keep the functional sans for working headings, labels, evidence and editing; caption-brand choices affect the media treatment rather than application chrome.
 
 ## Layout
 
-The document owns vertical scrolling. The centered shell has a maximum width of 1660px and desktop horizontal gutters from `desktop-gutter`; the header is at least 78px tall. The main working grid uses a flexible video column and a 350px Discover rail or 330px Studio inspector, separated by `workspace-gap`. The project title and acknowledged save state sit directly above the active work.
+The document owns vertical scrolling. The centered shell has a maximum width of 1660px and desktop horizontal gutters from `desktop-gutter`; the header is at least 78px tall. One navigation contains Home, Projects, Discover, Studio, Activity and New video. The project title and acknowledged save state orient active work rather than adding a second navigation.
 
-Desktop Discover gives the source viewer a height of `min(45vh, 480px)` with a 220px minimum. Studio uses `min(42vh, 440px)` with the same minimum, keeping transport and trim work nearby. These measured viewer rules take precedence over the earlier unrestricted aspect-ratio defaults. Media is contained rather than stretched; sampled thumbnails may crop to fill their small frames.
+Home's peach source-launch panel uses two columns (`1.16fr` and `.84fr`), a 48px gap and `entry` padding. The left column owns one link field and Find clips action, followed by secondary upload/live actions and a language/preferences disclosure. The right contains the actual current project, or clearly empty brand artwork. Recent projects form four source-image columns; they reduce to three at 1100px and two at 900px. At 900px the launch panel becomes one column and the right-hand session panel hides. At 600px, its padding becomes 24px by 20px, its corners become `panel`, and recent projects become horizontal image-and-copy rows.
 
-The recurring spacing steps are in frontmatter. They coexist with observed compact control values such as 6px label gaps, 10px field padding and 14px toolbar spacing; the implementation is not a rigid single-step grid.
+Discover uses a flexible video column and a 350px rail separated by `workspace-gap`. Desktop Studio uses a 168px clip rail, flexible viewer/timeline and 340px inspector separated by 18px. Its inspector contains one selected task: Captions, Style, Story or Export. The clip rail and inspector are sticky at 18px, with viewport-bounded vertical scrolling. Above 900px the more specific Studio caption-list rule retains a 280px inner bound; the outer task inspector also scrolls within its viewport limit. At narrower sizes caption rows flow without that inner bound.
 
-- **At 1100px and below:** the shell tightens, the tagline hides, Discover's rail becomes 310px and Studio's inspector becomes 300px. Job actions wrap beneath their content.
-- **At 900px and below:** navigation wraps to its own header row, workspaces become one column, gutters become 20px, and the queue loses its desktop height bound. Discover moments and Library grid each use two columns.
-- **At 600px and below:** gutters become `panel-inset`, navigation/control groups wrap, moments and Library grid become one column, import and export actions stack, and the Library toolbar uses two columns with full-width search. Caption text grows for editing comfort.
-- **Above 900px:** the Discover rail and Studio inspector are sticky at 16px; queue/caption lists may scroll within bounds. The Studio inspector's caption list is capped at 280px. Other caption lists retain their 350px bound.
+Desktop Discover gives the source viewer a height of `min(45vh, 480px)` with a 220px minimum. Studio uses `min(42vh, 440px)` with the same minimum, keeping transport and trim work nearby. Media is contained rather than stretched; sampled thumbnails crop only in their small frames.
+
+The recurring spacing steps are in frontmatter. They coexist with observed compact values such as 6px label gaps, 10px field padding and 14px toolbar spacing; this is not a rigid single-step grid.
+
+- **At 1200px and below:** Studio's columns become 132px / flexible / 310px with 14px gaps.
+- **At 1100px and below:** the shell tightens, the tagline hides and Discover's rail becomes 310px. Activity uses two columns with actions beneath the title/progress content.
+- **At 1000px and below:** Studio's clip rail becomes a horizontal strip above its two remaining columns. Clip buttons combine a 42px source image with title and timing.
+- **At 900px and below:** navigation wraps to its own header row, Discover becomes one column, gutters become 20px, and its queue loses the desktop height bound. Studio retains a flexible viewer and 310px inspector until its own 760px breakpoint.
+- **At 760px and below:** Studio becomes one column; the inspector follows the viewer and loses sticky positioning and its height bound. Volume and playback settings default to a closed disclosure, while essential transport remains visible.
+- **At 600px and below:** gutters become `panel-inset`; five navigation destinations fit one row and New video hides, with import still directly accessible on Home. Discover moments, Projects grid and Activity become one column. Inspector tabs use 14px text and 44px targets, caption text becomes 16px, and export controls stack. The timeline, source-time ruler and trim inputs remain in the editor flow.
 
 **The Single Desk Rule.** Keep one workspace navigation and one representation of each owned control. Move existing controls to their context rather than cloning them into a second rail or settings surface.
 
@@ -228,14 +290,15 @@ Depth comes from dark tonal layering, one-pixel boundaries and media black. Pane
 ### Shadow Vocabulary
 
 - **Media overlay legibility** (`text-shadow: 0 1px 4px #000`): protects source-overlay text against footage.
+- **Timeline playhead** (`box-shadow: 1px 0 3px #0009`): separates the moving white source-position marker from sampled frames.
 - **Crop surround** (`box-shadow: 0 0 0 999px #0005`): dims the area outside the selected source crop; this is a functional mask, not panel elevation.
 - **Settings backdrop** (`background: #000a`): separates the native modal from the work underneath.
 
-**The Flat Workspace Rule.** Use tonal surfaces and borders for grouping. Reserve shadow-like treatments for readable media overlays and crop masking.
+**The Flat Workspace Rule.** Use tonal surfaces and borders for grouping. Reserve shadow-like treatments for readable media overlays, the timeline playhead and crop masking.
 
 ## Shapes
 
-Panels use `panel` corners, controls use `control`, and the coverage track uses `map`. Small source thumbnails use `thumbnail`; interval buttons and navigation-count badges use `interval`. The timeline filmstrip has a local 5px corner and its selection bar a 2px corner. These small differences follow the working object rather than making every surface a pill.
+The desktop Home source-entry surface uses `entry` corners; panels use `panel`, controls use `control`, and the coverage track uses `map`. Small source thumbnails use `thumbnail`; interval buttons and navigation-count badges use `interval`. The timeline filmstrip has a local 5px corner and its selection bar a 2px corner. These small differences follow the working object rather than making every surface a pill.
 
 One-pixel quiet borders define fields, panels and rows. The source crop uses a two-pixel peach edge. The brand symbol is three rounded diagonal strokes authored as interface vector geometry; action icons are local inline SVG strokes, not text glyphs.
 
@@ -249,7 +312,7 @@ Keyboard focus is a two-pixel light-peach outline offset by four pixels. Base bu
 
 ### Cards / Containers
 
-Working panels are flat `surface` containers with `panel` corners and a quiet border. Panel headings use 14px by 16px padding. Library rows use 16px padding and 18px internal gaps; their grid mode uses 12px padding. Job rows use 22px padding with 24px gaps, reducing to 16px on mobile. Selected moment rows and current captions use `surface-raised` instead of a lifted shadow.
+Working panels are flat `surface` containers with `panel` corners and a quiet border. Panel headings use 14px by 16px padding. Library rows use 16px padding and 18px internal gaps; their grid mode uses 12px padding. Job rows use 22px padding with 24px gaps, reducing to 16px on mobile. Their desktop grid bounds title, progress and actions with flexible minimum-width columns; every cell can shrink and long output labels wrap. Render/artwork previews use disclosures rather than widening the row. Selected moment rows and current captions use `surface-raised` instead of a lifted shadow.
 
 ### Inputs / Fields
 
@@ -257,7 +320,13 @@ Raised charcoal fields use the frontmatter input style, muted placeholders and a
 
 ### Navigation
 
-One horizontal, wrapping navigation contains Library, Discover, Studio, Jobs and the separate Add video action. Ordinary items are muted and transparent; `aria-current` selects a panel-charcoal surface with peach text. Small count badges use raised charcoal and compact corners. Grid/List and inspector tabs expose selected state through `aria-pressed`; the former uses peach fill, the latter raised charcoal with peach text.
+One horizontal, wrapping navigation contains Home, Projects, Discover, Studio, Activity and New video, with stable hash destinations and browser history. The wordmark also returns Home. At 600px New video hides; Home retains the import field and upload/live actions. Ordinary items are muted and transparent; `aria-current` selects a panel-charcoal surface with peach text. Small count badges use raised charcoal and compact corners. Grid/List and the four inspector tabs expose selected state through `aria-pressed`; the former uses peach fill, the latter raised charcoal with peach text. Clip-switch buttons use a peach outline and a panel-charcoal current state.
+
+### Activity & downloads
+
+Activity is the visible destination label and Activity & downloads is the page heading; its existing `#/jobs` address and internal owner remain stable. The page presents Processing & attention and Ready to download as open groups with 22px headings and short 14px descriptions. Completed scans & other activity is a closed disclosure, keeping finished scans and cancelled work available without competing with current tasks or downloads.
+
+Queue overview is collapsed by default. Each row keeps progress or its ready message prominent; Processing details and platform-upload instructions use 13px disclosure summaries. Watch video and Review generated image remain separate review disclosures. The existing bounded row grid, quiet borders and charcoal/peach palette carry this hierarchy without a new material treatment. Select videos reveals bulk ZIP selection; individual downloads remain directly available.
 
 ### Moment Map
 
@@ -265,15 +334,17 @@ A real time axis sits above source-window intervals. Suggested windows are peach
 
 ### Studio Timeline and Captions
 
-The timeline filmstrip uses actual sampled source frames or a frame-unavailable label. A peach selection bar and paired Start/End ranges accompany numeric In/Out inputs. Playback, trim and source-context review remain close to the viewer.
+The timeline filmstrip uses actual sampled source frames or a frame-unavailable label. A moving white playhead overlays the frames; the five-label ruler uses source time and tabular numerals. A peach selection bar and paired Start/End ranges accompany numeric In/Out inputs. Essential transport stays directly below the viewer; mute, volume, speed, fullscreen and shortcut help sit in Volume & playback settings, open by default above 760px and closed on narrower screens. This secondary row uses 44px buttons/selects and a labelled native volume slider; inspector updates preserve the media element.
 
-The inspector defaults to Captions, with Story & evidence as a peer tab. Timestamp buttons sit beside editable text; uncertainty flags use rose and source comparison remains available. Timing, dialect and advanced tools are disclosed below essential caption work. The base caption text area has 9px padding and a 76px minimum height.
+The inspector defaults to Captions, with Style, Story and Export as peer tabs. The caption panel begins with project output scope and an explicit clip-language override. Empty caption work offers Recheck speech and Add timed captions directly, opening the relevant advanced control rather than hiding recovery behind a closed disclosure. Timestamp buttons sit beside editable text; uncertainty flags use rose and source comparison remains available. Timing, dialect and advanced tools are disclosed below essential caption work. The base caption text area has 9px padding and a 76px minimum height.
+
+Style presents six named caption treatments in a two-column grid. Each sample pairs a short text treatment with its label; the current style has a peach border and raised-charcoal fill. Framing, audio enhancement and saved brand styles stay in this task. Brand controls use labelled native fields for font, placement, text/highlight/background colors and size; the two-column field arrangement retains the charcoal app chrome. Media-specific caption colors are user content, not new application palette tokens. Export uses destination and output controls in its own inspector task, reached directly from the Studio Export button. Its delivery heading follows the 22px title step and queue/preparation/error text reports actual work.
 
 ### Settings, Progress and Motion
 
 Native Settings is at most 740px wide and no wider than the viewport minus 32px, with a maximum height of the dynamic viewport minus 48px. It contains the single speech/scan controls; quick language controls are moved into it and returned when it closes. Native dialog behavior supplies focus containment and Escape dismissal.
 
-Progress bars represent actual work. Only the real processing indicator rotates (one second, linear); no invented ETA or decorative scan telemetry is introduced. Reduced-motion disables animation, smooth scrolling and transitions. Scrollbars use the canvas/line/muted/text sequence with standard and WebKit styling; forced colors restores platform scrollbar colors and explicit map/control boundaries.
+Progress bars represent actual work. The real processing indicator rotates (one second, linear); the current-project image has a small hover scale (1.025 over 220ms). Neither adds invented ETA or scan telemetry. Reduced-motion disables animation, smooth scrolling and transitions. Scrollbars use the canvas/line/muted/text sequence with standard and WebKit styling; forced colors restores platform scrollbar colors and explicit map/control boundaries.
 
 ## Do's and Don'ts
 
@@ -302,14 +373,10 @@ Progress bars represent actual work. Only the real processing indicator rotates 
 
 ## Artwork and provenance
 
-Original prior studio artwork remains documented in `public/assets/ARTWORK.md` but is not used over source footage. V2's small geometric brand/map illustration is authored as interface vector geometry. No competitor screenshots, their logos, generated fictional footage or the illustrative screenshot's television photo are served as app media. Private recordings, transcripts and local design outputs remain ignored. Screenshots show explicitly named QA data when no permissioned editorial source is available. Manrope's local font and license are in `public/assets/fonts`.
+Original prior studio artwork remains documented in `public/assets/ARTWORK.md` but is not used over source footage. Home alone uses the original Meta-generated paper-film artwork (`public/assets/story-paper.webp`) when there is no current recording; actual project imagery replaces it when available. V2's small geometric brand/map illustration is authored as interface vector geometry. No competitor screenshots, their logos, generated fictional footage or the illustrative screenshot's television photo are served as app media. Private recordings, transcripts and local design outputs remain ignored. Screenshots show explicitly named QA data when no permissioned editorial source is available. Manrope's local font and license are in `public/assets/fonts`.
 
 ## Behaviour and verification
 
 See `UX-CONTRACT.md` for canonical owners, state/feedback/navigation rules and architecture exceptions. Every visible action must work. Selection/edit/project state stays with existing controllers; these are not static prototype screens. Verification evidence and limits belong in `docs/V2-VERIFICATION.md`; documentation of source styles does not certify browser behavior, accessibility, dialect accuracy, live reliability or competition readiness. Suggested viewport checks remain 1440, 1280, 768 and 390px.
 
-**Not canonized:** source-specific overrides and dense-control exceptions are described only where observed; no broader craft or behavior certification is inferred from this code-only documentation pass. The former wordmark description (system sans only) and “mobile panes use natural height” statement were stale: the built wordmark is Manrope and caption lists retain a height bound.
-
-## Player and delivery extension — 1 November 2026
-
-The existing video-first charcoal/peach identity is retained. Playback preferences sit in a wrapping row below transport, with 44px buttons/selects, 14px functional text and a labelled native volume slider. Inspector updates do not replace the media element. The caption inspector starts with the project output scope and an explicit clip-override checkbox; queue/preparation/error text describes actual work. A 22px delivery heading introduces the export destination selector, matching the documented title step. Mobile export controls stack without horizontal scrolling. Existing line, text, muted and accent tokens are reused. Motion is reserved for actual activity; no decorative Lottie runtime is added to the media path.
+**Not canonized:** the inherited New video entry uses a system-font display treatment and several legacy dense controls remain below 44px; those exceptions are not guidance for new display surfaces or primary actions. This pass records source topology and tokens only, without certifying behavior or repairing those runtime exceptions.
