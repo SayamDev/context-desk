@@ -98,3 +98,8 @@ Diagnosed the relative/absolute source-URL comparison by reproducing a playing c
 Two synthetic subtitle tracks established that old Arabic/Original active values now inherit English, with explicit persisted overrides and no source-language fallback while a target is pending. One new real Muse Spark Arabic-to-French translation completed through the UI. These fixtures test state/pipeline behavior, not dialect accuracy or useful-story selection.
 
 A browser-generated 8.02-second social MP4 was downloaded, fully decoded and frame-inspected: 1080×1920 H.264 24fps, AAC stereo 48kHz, visible English line, mean audio −25.5dB / peak −5.4dB. Automated render tests separately cover project-English resolution across two segments and rejection of missing/unreviewed tracks. Mobile export selector overflow was corrected; actual 390px and 768px viewport widths matched document widths. No platform post was made. Details and evidence paths: [release verification](docs/PLAYER-LANGUAGE-SOCIAL-RELEASE.md).
+
+
+## 2026-11-01 production feature expansion
+
+See [actual feature expansion checks](docs/FEATURE-EXPANSION-RELEASE.md). Default gate: 193 tests / 191 pass / 0 fail / 2 opt-in skips; 53 JavaScript syntax checks. Short real Meta speech/ranking/artwork, local native tracking, integrated 14-second RTMP capture, 1080×1920 branded/audio export, XML and downloaded ZIP are distinguished from fake social-provider tests. Whole-episode quality and actual OAuth/NLE app acceptance remain open.

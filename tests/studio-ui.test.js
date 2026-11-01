@@ -31,3 +31,5 @@ test('coincident source windows get distinct map lanes, while nonoverlapping win
  assert.deepEqual(result.windows.map(w=>[w.moment.id,w.lane]),[['a',0],['b',1],['c',0]]);
  assert.deepEqual(moments.map(m=>m.id),['b','a','c']);
 });
+
+test('producer-created transcript trims remain visible with the supported clip filter',()=>{assert.deepEqual(visibleMoments([{id:'manual',start:0,status:'manual',manual:true},{id:'rejected',start:2,status:'not-selected'}],{filter:'supported'}).map(m=>m.id),['manual'])});

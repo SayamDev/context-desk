@@ -1,3 +1,9 @@
+import {randomUUID} from 'node:crypto';
+import {createMomentSearch} from './lib/moment-search.js';
+import {createLiveIngestService} from './lib/live-ingest.js';
+import {createSocialPublishingService} from './lib/social-publishing.js';
+import {createProductApi} from './lib/product-api.js';
+import {speechCues} from './public/timing.js';
 import http from 'node:http';
 import {handleImport,claimImportSource,extractAudio} from './lib/imports.js';
 import {createProjectApi} from './lib/projects.js';
@@ -7,6 +13,12 @@ import {createDiscoveryService} from './lib/discovery.js';
 import {captureFrame} from './lib/media-worker.js';
 import {createExportService} from './lib/exports.js';
 import {createMemoryApi,memoryContext} from './lib/memory.js';
+import {createBrandApi} from './lib/brands.js';
+import {createMetaStoryRanker} from './lib/meta-story-ranker.js';
+import {createTimelineApi} from './lib/timeline.js';
+import {createReframeApi} from './lib/reframe.js';
+import {createCreativeAssetService} from './lib/creative-assets.js';
+import {createBundleService} from './lib/bundles.js';
 import {languageBias,normalizeTranslationMode} from './public/languages.js';
 import {createDurableTranslationCache} from './lib/translation-store.js';
 import fs from 'node:fs/promises';
@@ -18,7 +30,7 @@ try { for (const line of (await fs.readFile(path.join(root,'.env'),'utf8')).spli
 const port = Number(process.env.PORT || 3001);
 const voiceStudioUrl = 'http://127.0.0.1:3900';
 const languageCodes = {Arabic:'ar',Bengali:'bn',Dutch:'nl',English:'en',French:'fr',German:'de',Hebrew:'he',Hindi:'hi',Indonesian:'id',Italian:'it',Japanese:'ja',Kannada:'kn',Korean:'ko',Malay:'ms','Mandarin Chinese':'zh',Marathi:'mr',Polish:'pl',Portuguese:'pt',Spanish:'es',Tagalog:'tl',Tamil:'ta',Telugu:'te',Thai:'th',Turkish:'tr',Vietnamese:'vi',Urdu:'ur'};
-const staticFiles = {'/':'index.html','/app.js':'app.js','/player.js':'player.js','/social.js':'social.js','/caption-policy.js':'caption-policy.js','/layout.js':'layout.js','/studio-ui.js':'studio-ui.js','/timing.js':'timing.js','/translation-cache.js':'translation-cache.js','/projects.js':'projects.js','/jobs.js':'jobs.js','/languages.js':'languages.js','/history.js':'history.js','/moment-results.js':'moment-results.js','/story-memory.js':'story-memory.js','/style.css':'style.css','/assets/context-desk-studio.webp':'assets/context-desk-studio.webp','/assets/fonts/Manrope.ttf':'assets/fonts/Manrope.ttf'};
+const staticFiles = {'/':'index.html','/app.js':'app.js','/player.js':'player.js','/social.js':'social.js','/caption-policy.js':'caption-policy.js','/layout.js':'layout.js','/studio-ui.js':'studio-ui.js','/timing.js':'timing.js','/translation-cache.js':'translation-cache.js','/projects.js':'projects.js','/jobs.js':'jobs.js','/languages.js':'languages.js','/history.js':'history.js','/moment-results.js':'moment-results.js','/story-memory.js':'story-memory.js','/style.css':'style.css','/assets/context-desk-studio.webp':'assets/context-desk-studio.webp','/assets/story-paper.webp':'assets/story-paper.webp','/assets/fonts/Manrope.ttf':'assets/fonts/Manrope.ttf'};
 const mime = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.webp':'image/webp','.ttf':'font/ttf'};
 if(process.env.NODE_ENV!=='test')await recoverLegacySubtitles(studioStore(),path.join(root,'.runtime/subtitle-jobs'));
 const subtitleService=createSubtitleService({claimSource:claimImportSource,extract:extractAudio,store:studioStore(),
@@ -26,26 +38,48 @@ const subtitleService=createSubtitleService({claimSource:claimImportSource,extra
   transcribe:(bytes,j)=>j.speechProvider==='voicestudio'?transcribeVoiceStudio(bytes,j.speechLanguage,j.keywords):transcribe(bytes,j.speechLanguage,j.keywords),
   translate:(cues,j)=>j.translationProvider==='voicestudio'?translateVoiceStudio(cues,j.language,j.speechLanguage,j.dialectNote):translate(cues,j.language,j.dialectNote,j.translationMode,j.glossary)});
 
-const discoveryService=createDiscoveryService({store:studioStore(),claimSource:claimImportSource,frame:captureFrame,extract:extractAudio,
+const discoveryService=createDiscoveryService({store:studioStore(),claimSource:claimImportSource,frame:captureFrame,extract:extractAudio,rankStories:createMetaStoryRanker(),
   validate:()=>{if(!process.env.MODEL_API_KEY)throw Error('Configure Meta before starting story discovery.');},
   transcribe:(bytes,o)=>o.speechProvider==='voicestudio'?transcribeVoiceStudio(bytes,o.speechLanguage,o.keywords):transcribe(bytes,o.speechLanguage,o.keywords),analyse,
   translate:(cues,o)=>o.translationProvider==='voicestudio'?translateVoiceStudio(cues,o.language,o.speechLanguage,o.dialectNote):translate(cues,o.language,o.dialectNote,o.translationMode,o.glossary)});
 const exportService=createExportService({store:studioStore(),claimSource:claimImportSource});
 const projectApi=createProjectApi();
 const memoryApi=createMemoryApi(studioStore());
+const brandApi=createBrandApi(studioStore());
+const timelineApi=createTimelineApi({store:studioStore(),claimSource:claimImportSource});
+const reframeApi=createReframeApi({store:studioStore(),claimSource:claimImportSource});
+const creativeService=createCreativeAssetService({store:studioStore()});
+const bundleService=createBundleService({store:studioStore()});
+const liveOptions=new Map();let liveAnalysisQueue=Promise.resolve();
+const liveService=createLiveIngestService({store:studioStore(),onWindow:payload=>{const pending=liveAnalysisQueue.then(()=>analyseLiveWindow(payload));liveAnalysisQueue=pending.catch(()=>{});return pending}});
+const productApi=createProductApi({store:studioStore(),search:createMomentSearch({store:studioStore()}),live:liveService,social:createSocialPublishingService({store:studioStore()}),onLiveOptions:(projectId,options)=>{liveOptions.set(projectId,{...options,requests:0});studioStore().putRecord('live_options',projectId,{...options,requests:0})}});
+async function analyseLiveWindow({projectId,moment,asset}){
+ const store=studioStore(),options=liveOptions.get(projectId)||store.getRecord('live_options',projectId);if(!options?.analyze||!process.env.MODEL_API_KEY||options.requests>=options.analysisBudget)return;
+ // Reserve before the paid request; ambiguous failures are never auto-replayed.
+ options.requests++;liveOptions.set(projectId,options);store.putRecord('live_options',projectId,options);
+ try{const source=store.assetPath(asset.id),audio=await extractAudio(source.file,{start:0,end:moment.trimOut}),speech=await transcribe(Buffer.from(audio.data.split(',')[1],'base64'),options.speechLanguage,[]),frames=[];for(const url of moment.frames){const frame=store.assetPath(url.split('/').at(-1));frames.push('data:image/jpeg;base64,'+(await fs.readFile(frame.file)).toString('base64'))}if(!frames.length)throw Error('Saved live frames are unavailable for story review.');const analysis=await analyse(frames,speech.transcript,'Live encoder window: judge only this recorded source.','','',options.storyLens),cues={Original:speechCues(speech,moment.trimOut)};let language='Original';if(options.language!=='Original'&&['English','Arabic','French','Spanish','Hindi','Portuguese','German','Turkish','Urdu'].includes(options.language)&&cues.Original.length){try{const lines=await translate(cues.Original.map((cue,id)=>({...cue,id})),options.language,'','faithful','');cues[options.language]=cues.Original.map((cue,i)=>({...cue,text:lines[i].text,words:undefined}));language=options.language}catch{language=options.language}}store.putRecord('live_analysis_completion',projectId+'/'+moment.id,{id:randomUUID(),baseline:moment,result:{...moment,status:analysis.worthClipping?'suggested':'not-selected',analysis,transcript:speech.transcript,speechSource:speech.speechSource,timingSource:'estimated',captionCues:cues,captionLanguage:language,autoCaptionLanguage:options.language,showCaptions:true,hook:analysis.hook||'',alternateHook:analysis.alternateHook||''}});}
+ catch(error){store.putRecord('live_analysis_completion',projectId+'/'+moment.id,{id:randomUUID(),baseline:moment,result:{status:'error',error:'Live analysis stopped: '+error.message}})}
+}
 const captionTranslationCache=createDurableTranslationCache(studioStore());
 const server = http.createServer(async (req,res) => {
+  if(await productApi(req,res,json))return;
   if(await handleImport(req,res,json))return;
   if(await projectApi(req,res,json))return;
   if(await memoryApi(req,res,json))return;
+  if(await brandApi(req,res,json))return;
+  if(await timelineApi(req,res,json))return;
+  if(await reframeApi(req,res,json))return;
   if(await subtitleService.handle(req,res,json))return;
   const route=new URL(req.url,'http://localhost').pathname;
-  if(route==='/api/jobs'&&req.method==='GET'){const jobs=[...discoveryService.list(),...subtitleService.list(),...exportService.list()].sort((a,b)=>a.createdAt-b.createdAt);return json(res,200,{jobs,counts:jobs.reduce((counts,j)=>{const key={queued:'waiting',running:'running',complete:'completed',error:'failed',interrupted:'paused',paused:'paused',cancelled:'cancelled'}[j.status];counts[key]++;return counts},{waiting:0,running:0,completed:0,failed:0,paused:0,cancelled:0})})}
-  if(route==='/api/discovery'||route.startsWith('/api/discovery/')||route==='/api/exports'||route.startsWith('/api/exports/')){
-    const service=route.startsWith('/api/exports')?exportService:discoveryService;const base=route.startsWith('/api/exports')?'/api/exports':'/api/discovery';
+  if(route==='/api/discovery-preview'&&req.method==='POST'){try{let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>10000)throw Error('Preview request is too large.')}return json(res,200,discoveryService.preview(JSON.parse(raw||'{}')))}catch(error){return json(res,400,{error:error.message})}}
+  const transcriptRoute=route.match(/^\/api\/discovery\/([^/]+)\/transcript$/);if(transcriptRoute&&req.method==='GET'){try{const job=discoveryService.get(transcriptRoute[1]);res.setHeader('Content-Disposition','attachment; filename="context-desk-transcript.json"');return json(res,200,{sourceId:job.sourceId,draft:true,fullSourceTranscribed:job.fullSourceTranscribed,cues:discoveryService.transcript(job.id)})}catch(error){return json(res,404,{error:error.message})}}
+  if(route==='/api/jobs'&&req.method==='GET'){const jobs=[...discoveryService.list(),...subtitleService.list(),...exportService.list(),...creativeService.list(),...bundleService.list()].sort((a,b)=>a.createdAt-b.createdAt);return json(res,200,{jobs,counts:jobs.reduce((counts,j)=>{const key={queued:'waiting',running:'running',complete:'completed',error:'failed',interrupted:'paused',paused:'paused',cancelled:'cancelled'}[j.status];counts[key]++;return counts},{waiting:0,running:0,completed:0,failed:0,paused:0,cancelled:0})})}
+  const services={'/api/discovery':discoveryService,'/api/exports':exportService,'/api/creative':creativeService,'/api/bundles':bundleService},base=Object.keys(services).find(base=>route===base||route.startsWith(base+'/'));
+  if(base){
+    const service=services[base];
     try{if(req.method==='POST'&&req.headers.origin&&req.headers.origin!==`http://${req.headers.host}`)throw Error('Open processing actions from the local app.');
       if(req.method==='GET'){return json(res,200,route===base?{jobs:service.list()}:service.get(route.split('/').at(-1)))}
-      if(req.method!=='POST')return json(res,405,{error:'Method not allowed'});let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>10000)throw Error('Job request is too large.')}const body=JSON.parse(raw||'{}');return json(res,202,route===base?service.start(body):service.command(route.split('/').at(-1),body.action));
+      if(req.method!=='POST')return json(res,405,{error:'Method not allowed'});let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>50000)throw Error('Job request is too large.')}const body=JSON.parse(raw||'{}');return json(res,202,route===base?service.start(body):service.command(route.split('/').at(-1),body.action));
     }catch(error){return json(res,400,{error:error.message})}
   }
   if(req.url === '/api/status' && req.method === 'GET') {
@@ -109,10 +143,12 @@ const server = http.createServer(async (req,res) => {
     } catch(error) {return json(res,502,{error:error.message||'Translation failed.'});}
   }
   if(req.method!=='GET') return json(res,405,{error:'Method not allowed'});
-  const name=staticFiles[new URL(req.url,'http://localhost').pathname];
+  const publicPath=new URL(req.url,'http://localhost').pathname;
+  const name=staticFiles[publicPath]||(/^\/[a-z][a-z0-9-]*\.js$/.test(publicPath)?publicPath.slice(1):null);
   if(!name) return json(res,404,{error:'Not found'});
   try {const data=await fs.readFile(path.join(root,'public',name)); res.writeHead(200,{'Content-Type':mime[path.extname(name)],'Cache-Control':'no-store'});res.end(data);} catch {json(res,404,{error:'Not found'});}
 });
+let shuttingDown=false;for(const signal of ['SIGTERM','SIGINT'])process.on(signal,async()=>{if(shuttingDown)return;shuttingDown=true;await liveService.shutdown();server.close(()=>process.exit(0));setTimeout(()=>process.exit(0),2000).unref()});
 server.listen(port,'127.0.0.1',()=>console.log(`Context Desk: http://localhost:${port}`));
 
 function json(res,code,value){res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(value));}

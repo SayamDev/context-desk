@@ -4,11 +4,13 @@ An open-source, local production studio for finding **real story moments**, revi
 
 [V2 build brief](docs/CONTEXT-DESK-V2-BRIEF.md) · [Competitive intelligence](COMPETITIVE-INTELLIGENCE.md) · [Project vision and inspiration](PROJECT-BRIEF.md) · [Current evidence and limits](STATUS.md) · [Build ledger](docs/BUILD-LEDGER.md) · [Speech evaluation](docs/EVALUATION.md)
 
-## V2 workspace
+## Production workspace
 
 A video-first Discover view keeps the original recording beside searchable source windows and a timestamped Moment Map. Overlapping windows have separate lanes. Studio pairs the real preview/trim timeline with editable captions and source evidence; Library supports saved grid/list views and Jobs keeps completed exports available. The charcoal/peach visual system, self-hosted wordmark, interaction contract and actual QA evidence are recorded in [DESIGN.md](DESIGN.md), [UX-CONTRACT.md](UX-CONTRACT.md) and [V2 verification](docs/V2-VERIFICATION.md).
 
 Studio now has independent volume/mute/speed controls and stable media identity across inspector updates. A project subtitle language governs all clips unless an explicit clip override is enabled; missing translations queue with caching and review gates. Export presets prepare MP4s for TikTok, Instagram, Facebook and YouTube, with saved-file/download handoffs rather than a claim of connected publishing. See the [player, language and social release evidence](docs/PLAYER-LANGUAGE-SOCIAL-RELEASE.md).
+
+The next expansion adds Home, a clip-switching Studio inspector, opt-in full-transcript discovery, source-supported semantic search, transcript video cuts, saved caption brand kits, native local face tracks, speech enhancement, Meta artwork, XML handoff, ZIP downloads and local encoder reception. YouTube/TikTok connection adapters require your approved app configuration; Instagram/Facebook remain manual upload. See [the expansion evidence and boundaries](docs/FEATURE-EXPANSION-RELEASE.md) and [the complete feature matrix](docs/FEATURE-PARITY-MATRIX.md).
 
 ## Run locally
 

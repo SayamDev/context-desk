@@ -53,3 +53,8 @@ Browser work exposed and fixed Studio navigation failing to rehydrate a saved se
 ## 1 November — screenshot priorities and social export
 
 Reproduced source reassignment from relative/absolute URL comparison, then fixed media identity and independent volume/mute/speed controls. Added project output inheritance with visible clip overrides, bounded translation dispatch, SQLite result/attempt cache and backend export policy. Added TikTok/Instagram/Facebook/YouTube MP4 presets and finished-file handoffs. No social post or OAuth connection was made. Browser-verified a real Spark translation and a downloaded 8.02s 1080×1920 H.264/AAC file with English captions. The final suite is 76/76 plus 30 syntax checks. See [the release report](PLAYER-LANGUAGE-SOCIAL-RELEASE.md) for exact proof and limitations. The participant-guide summary provided in the preceding turn is preserved in SUBMISSION.md; full Official Rules/IP/form verification remains open.
+
+
+## Production feature expansion — 2026-11-01
+
+The complete feature vision remains in FEATURE-PARITY-MATRIX.md. Implemented a proper Home, focused Studio, deep transcript discovery, semantic retained-source search, transcript cuts, caption kits, native local face tracking, enhanced audio, Meta image jobs, XML/ZIP deliverables, local encoder capture and social connection foundations. Actual checks and unresolved dependencies are recorded in FEATURE-EXPANSION-RELEASE.md. Do not infer real OAuth posting, complete episode/dialect quality or six-hour reliability from short fixtures.

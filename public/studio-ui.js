@@ -2,7 +2,7 @@
 export function visibleMoments(moments,{query='',filter='all',direction='asc'}={}){
   const words=query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
   return moments.filter(m=>{
-    if(filter==='supported'&&m.status!=='suggested'&&!m.approved)return false;
+    if(filter==='supported'&&m.status!=='suggested'&&!m.approved&&!m.manual)return false;
     if(filter==='attention'&&!['error','interrupted','needs-key','budgeted','stalled'].includes(m.status))return false;
     const text=[m.hook,m.transcript,m.analysis?.evidence,m.analysis?.reason,m.analysis?.beatType].filter(Boolean).join(' ').toLocaleLowerCase();
     return words.every(word=>text.includes(word));
