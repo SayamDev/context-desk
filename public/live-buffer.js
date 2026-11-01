@@ -31,7 +31,7 @@ export function createLiveBuffer({getUrl=()=>'',onMessage=()=>{}}={}){
   function mount(){
     if(panel?.isConnected)return true;const setup=document.getElementById('sourceSetup');if(!setup)return false;
     panel=node('details',undefined,'live-buffer speech-details');panel.id='liveBufferControls';panel.open=true;panel.append(node('summary','Clip a live stream as it airs'));
-    const intro=node('p','Paste a live YouTube, Twitch or Kick link above. Context Desk records it on this computer, keeps only the last 5 minutes, and cuts the last 15, 30 or 60 seconds the moment something happens. Keys 1, 2, 3 while recording.','depth-help');
+    const intro=node('p','Paste a live YouTube, Twitch or Kick link in the field above. Context Desk records it on this computer, keeps only the last 5 minutes, and cuts the last 15, 30 or 60 seconds the moment something happens. Keys 1, 2, 3 while recording.','depth-help');
     const start=node('button','Start live buffer');start.type='button';
     start.onclick=()=>{const url=String(getUrl()||'').trim();if(!url){report('Paste the live stream link first.');return}run(()=>call('/api/live-buffer',{url}))};
     const head=node('div',undefined,'live-buffer-head');clock=node('strong','00:00','live-buffer-clock');status=node('span','','live-buffer-status');status.setAttribute('role','status');status.setAttribute('aria-live','polite');
@@ -45,7 +45,7 @@ export function createLiveBuffer({getUrl=()=>'',onMessage=()=>{}}={}){
     marks=node('p','','live-buffer-marks');list=node('ol',undefined,'live-buffer-clips');
     const note=node('p','Clips are cut without re-encoding, so they can start up to 2 seconds early. Times count from when you started recording. Use streams you have permission to clip.','depth-help');
     panel.append(intro,start,head,bar,actions,marks,list,note);
-    const content=setup.querySelector('.source-setup-content')||setup;content.prepend(panel);render();return true;
+    const form=document.getElementById('linkForm');if(form?.parentElement)form.after(panel);else (setup.querySelector('.source-setup-content')||setup).prepend(panel);render();return true;
   }
   document.addEventListener('keydown',event=>{
     if(session?.status!=='live'||event.metaKey||event.ctrlKey||event.altKey||/^(INPUT|TEXTAREA|SELECT)$/.test(event.target?.tagName)||event.target?.isContentEditable)return;
