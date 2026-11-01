@@ -33,3 +33,11 @@ test('coincident source windows get distinct map lanes, while nonoverlapping win
 });
 
 test('producer-created transcript trims remain visible with the supported clip filter',()=>{assert.deepEqual(visibleMoments([{id:'manual',start:0,status:'manual',manual:true},{id:'rejected',start:2,status:'not-selected'}],{filter:'supported'}).map(m=>m.id),['manual'])});
+test('Discover sorts by editorial score and keeps discarded clips out of view until asked',async()=>{
+  const {visibleMoments}=await import('../public/studio-ui.js');
+  const m=(id,start,score,extra={})=>({id,start,status:'suggested',analysis:{rankingScore:score},...extra});
+  const list=[m('a',10,61),m('b',20,92),m('c',30,undefined),m('d',40,80,{dismissed:true})];
+  assert.deepEqual(visibleMoments(list,{sort:'score'}).map(x=>x.id),['b','a','c']);
+  assert.deepEqual(visibleMoments(list,{sort:'time'}).map(x=>x.id),['a','b','c']);
+  assert.deepEqual(visibleMoments(list,{filter:'dismissed'}).map(x=>x.id),['d']);
+});

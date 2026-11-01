@@ -9,7 +9,8 @@
     "check": "node scripts/check.js",
     "test": "node scripts/test.js",
     "test:imports": "node scripts/test.js imports",
-    "setup:imports": "sh scripts/setup-import.sh"
+    "setup:imports": "sh scripts/setup-import.sh",
+    "setup:laughter": "sh scripts/setup-laughter.sh"
   },
   "engines": {
     "node": ">=22.13"

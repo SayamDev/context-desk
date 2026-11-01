@@ -1,12 +1,13 @@
 // Read-only presentation helpers. Project/session modules remain the state owners.
-export function visibleMoments(moments,{query='',filter='all',direction='asc'}={}){
+export function visibleMoments(moments,{query='',filter='all',direction='asc',sort='time'}={}){
   const words=query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
   return moments.filter(m=>{
+    if((filter==='dismissed')!==Boolean(m.dismissed))return false;
     if(filter==='supported'&&m.status!=='suggested'&&!m.approved&&!m.manual)return false;
     if(filter==='attention'&&!['error','interrupted','needs-key','budgeted','stalled'].includes(m.status))return false;
     const text=[m.hook,m.transcript,m.analysis?.evidence,m.analysis?.reason,m.analysis?.beatType].filter(Boolean).join(' ').toLocaleLowerCase();
     return words.every(word=>text.includes(word));
-  }).sort((a,b)=>(a.start-b.start)*(direction==='desc'?-1:1));
+  }).sort((a,b)=>sort==='score'&&(Number.isFinite(a.analysis?.rankingScore)||Number.isFinite(b.analysis?.rankingScore))?(b.analysis?.rankingScore??-1)-(a.analysis?.rankingScore??-1)||a.start-b.start:(a.start-b.start)*(direction==='desc'?-1:1));
 }
 
 export function coverageSummary(moments,duration){

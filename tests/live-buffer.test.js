@@ -24,3 +24,13 @@ test('buffer pruning keeps the rolling window plus one segment of slack',()=>{
   assert.ok(keep[keep.length-1].end-keep[0].start>=liveLimits.bufferSeconds);
   assert.ok(keep[keep.length-1].end-keep[0].start<=liveLimits.bufferSeconds+2*liveLimits.segmentSeconds);
 });
+import {detectPeak} from '../lib/live-buffer.js';
+test('audio peaks need a baseline, a clear rise and an audible level',()=>{
+  const steady=Array(12).fill(-30);
+  assert.equal(detectPeak(steady,-22),true);
+  assert.equal(detectPeak(steady,-27),false);
+  assert.equal(detectPeak(steady.slice(0,5),-10),false);
+  assert.equal(detectPeak(Array(12).fill(-70),-55),false);
+  assert.equal(detectPeak(Array(12).fill(-40),-26),true);
+  assert.equal(detectPeak(steady,NaN),false);
+});

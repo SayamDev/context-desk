@@ -79,3 +79,13 @@ test('provider errors redact response bodies and publishing stays disabled witho
 test('disconnect during token refresh cannot restore credentials or reconnect the account',async()=>fixture(async({store})=>{
  let now=1000,release,started;const gate=new Promise(resolve=>release=resolve),begun=new Promise(resolve=>started=resolve),calls=[],vault=tokenVault(),base=fakeGoogle(calls),fetchImpl=async(url,options)=>{if(url==='https://oauth2.googleapis.com/token'&&options.body.get('grant_type')==='refresh_token'){started();await gate;}return base(url,options);},service=createSocialPublishingService({store,env,tokenStore:vault,fetchImpl,now:()=>now}),account=await connect(service);now+=3600000;const refreshing=service.getCapabilities(account.id);await begun;service.disconnect(account.id);release();await assert.rejects(refreshing,/changed/);assert.equal(service.accounts()[0].status,'disconnected');assert.equal(vault.get('tokens:'+account.id),null);
 }));
+import {lengthAdvice,crossPostTargets,hashtagCount,draftPostCaption} from '../public/social.js';
+test('platform guidance: length advice, cross-post targets and the five-hashtag cap',()=>{
+  assert.match(lengthAdvice('shorts',75),/0\.81x/);
+  assert.match(lengthAdvice('tiktok',22),/typical TikTok length is 16s/);
+  assert.equal(lengthAdvice('youtube',30),'');
+  assert.deepEqual(crossPostTargets('tiktok').map(t=>t.key),['instagram','facebook','shorts']);
+  assert.deepEqual(crossPostTargets('youtube'),[]);
+  assert.equal(hashtagCount('Wow #clip #fyp text#no #über_cool'),3);
+  assert.equal(draftPostCaption('She did not see that coming',['podcast','reveal','a','b','c','d']),'She did not see that coming\n\n#podcast #reveal #a #b #c');
+});

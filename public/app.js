@@ -1,6 +1,8 @@
 import {createConnections} from './connections.js';
 import {createDiscoveryTools} from './discovery-tools.js';
 import {createLiveControls} from './live-controls.js';
+import {badge,scoreMeter,createBulkBar,keepKbd,enhanceSegmented,enhanceCaptionLooks,createCommandPalette,toast,el,formatTime as clock} from './ds.js';
+import {mountShell} from './shell.js';
 import {createLiveBuffer} from './live-buffer.js';
 import {frameFocus} from './reframe-track.js';
 import {createProductionTools} from './production-tools.js';
@@ -13,6 +15,7 @@ import {mountLayout,icon,setButtonLabel} from './layout.js';
 import {visibleMoments,coverageSummary,sourcePosition,clampTrim,momentLanes} from './studio-ui.js';
 import {createHistory,splitEdits} from './history.js';
 import {languageBias,speechLanguages,dialectExamples} from './languages.js';
+import {captionLanguages,captionVariants,romanizations,findVariant} from './locales.js';
 import {createMemoryView} from './story-memory.js';
 import {createJobsView} from './jobs.js';
 import {mergeAnalysisCompletion} from './moment-results.js';
@@ -21,15 +24,16 @@ import {createTranslationCache,translationKey} from './translation-cache.js';
 import {syncedCues,shouldRestart,speechCues,srtDocument} from './timing.js';
 import {assignMediaSource,bindPlayerControls} from './player.js';
 import {captionTarget,inheritCaptionTarget,commitCaptionTranslation,translationQueue,outputLanguages} from './caption-policy.js';
-import {socialPresets,socialExportIssue} from './social.js';
+import {socialPresets,socialExportIssue,lengthAdvice,crossPostTargets,hashtagCount,hashtagLimit,draftPostCaption} from './social.js';
 const $ = id => document.getElementById(id);
 const program=$('program'), clipVideo=$('clipVideo'), stageCanvas=$('stageCanvas');
 const state={sourceLoadToken:0,sourceUploadAbort:null,source:null,sourceName:'',sourceType:null,sourceUrl:null,screenStream:null,stageCrop:null,cropDraft:null,cropPicking:false,resumeAfterCrop:false,autoFrameJob:0,liveEpoch:0,recordStream:null,recording:null,scanning:false,windowTimer:null,frameTimer:null,moments:[],selected:null,cut:[],cutPreviewIndex:-1,cutPreviewBusy:false,lastDraftStart:-1,aspect:'landscape',meta:false,windowCount:0,aiCalls:0,staticSilentWindows:0,captureStalled:false,batchId:null,batchRunning:false,batchCancel:false,batchExporting:false,batchExports:[]};
 let projectSession=null;const activities=new Map();
 function setActivity(id,title,detail){activities.set(id,{title,detail,started:activities.get(id)?.started||Date.now()});renderActivity()}
 function finishActivity(id){activities.delete(id);renderActivity()}
-function renderActivity(){const current=[...activities.values()].at(-1);$('activityPanel').hidden=!current;if(!current)return;$('activityTitle').textContent=current.title;$('activityDetail').textContent=current.detail;$('activityElapsed').textContent=Math.floor((Date.now()-current.started)/1000)+'s'}
+function renderActivity(){const current=[...activities.values()].at(-1);$('activityPanel').hidden=!current;if(!current)return;$('activityTitle').textContent=current.title;$('activityDetail').textContent=current.detail;$('activityElapsed').textContent=clock((Date.now()-current.started)/1000)}
 setInterval(()=>{if(activities.size)renderActivity()},1000);
+let syncCaptionVariant=()=>{};const clipSelection=new Set(),shownScores=new Set();let bulkBar=null,visibleClipIds=[],lastSelected=null,inspectedId=null;
 let layout=null,homeView=null,discoveryTools=null,liveControls=null,liveBuffer=null,connectionsView=null,libraryView='list',startupNavigation=true;const entryWorkspace=workspaceFromHash(location.hash);let requestedWorkspace=entryWorkspace;
 function showWorkspace(view){
   if(startupNavigation&&projectSession?.restoring)view=requestedWorkspace;
@@ -52,6 +56,65 @@ const editorTools=createEditorTools({select:selectMoment,getSelected:()=>state.m
 const brandControls=createBrandControls({getSelected:()=>state.moments.find(m=>m.id===state.selected),edit:performEdit,draw:()=>{editorTools.sync(state.moments.find(m=>m.id===state.selected));drawPreview()}});
 discoveryTools=createDiscoveryTools({requestJson:async(url,options)=>{if(url==='/api/moment-search')await projectSession.flush();return requestJson(url,options)},getProject:()=>projectSession?.current?{...projectSession.current,state:{...projectSession.current.state,aiCalls:state.aiCalls}}:null,getSelected:()=>state.moments.find(m=>m.id===state.selected),getMoments:()=>state.moments,onSelect:selectMoment,onMessage:message,onChanged:()=>projectSession?.changed(),onTranscriptEdit:async(result,source)=>{const before=editSnapshot();for(const segment of result.segments){segment.splitCreated=true;segment.manual=true;segment.status='manual';splitOriginals.set(segment.id,structuredClone(segment));state.moments.push(segment)}const ids=result.segments.map(m=>m.id),position=state.cut.indexOf(source.id);if(position>=0)state.cut.splice(position,1,...ids);else state.cut.push(...ids);state.selected=ids[0];editHistory.record(before,editSnapshot(),'transcript-cut');projectSession.changed();renderQueue();renderBatchResults();renderCut();await selectMoment(ids[0],{scroll:false});message(`${ids.length} editable segment${ids.length===1?'':'s'} added to your Story cut. Original footage and captions are retained.`)}});
 liveBuffer=createLiveBuffer({getUrl:()=>$('streamUrl')?.value,onMessage:message});liveBuffer.sync();
+enhanceSegmented($('aspectSelect'),{label:'Format',hints:{landscape:'16:9',portrait:'9:16',square:'1:1',fourfive:'4:5'}});
+enhanceCaptionLooks($('captionStyle'));
+// Whole-recording subtitles: same languages, regions and romanised scripts as clip captions.
+{const select=$('wholeLanguage');for(const language of captionLanguages)if(![...select.options].some(o=>o.value===language))select.add(new Option(language,language));
+  const variant=Object.assign(document.createElement('select'),{id:'wholeVariant'}),label=Object.assign(document.createElement('label'),{htmlFor:'wholeVariant',textContent:'Region / dialect'});label.append(variant);
+  const romanLabel=Object.assign(document.createElement('label'),{className:'caption-roman'}),roman=Object.assign(document.createElement('input'),{type:'checkbox',id:'wholeRoman'});romanLabel.append(roman,document.createElement('span'));
+  (select.closest('label')||select).after(label,romanLabel);
+  const sync=()=>{const list=captionVariants[select.value]||[];label.hidden=!list.length;variant.replaceChildren(...list.map(v=>new Option(v.label,v.id)));romanLabel.hidden=!romanizations[select.value];romanLabel.querySelector('span').textContent=romanizations[select.value]?`Romanised: ${romanizations[select.value].split(':')[0]}`:'';roman.checked=false};
+  select.addEventListener('change',sync);sync();}
+// Safe-zone overlay: where TikTok, Reels and Shorts draw their caption, buttons and top bar on vertical video.
+{const frame=document.querySelector('.preview-frame'),zones=Object.assign(document.createElement('div'),{className:'safe-zones',hidden:true});zones.setAttribute('aria-hidden','true');
+  zones.innerHTML='<span class="sz-top">Top bar</span><span class="sz-side">Buttons</span><span class="sz-bottom">Caption &amp; profile</span>';frame?.append(zones);
+  const toggle=Object.assign(document.createElement('button'),{type:'button',id:'safeZones',textContent:'Safe zones'});toggle.setAttribute('aria-pressed','false');
+  // Match the drawn picture inside the letterboxed frame (object-fit: contain).
+  const place=()=>{const c=$('previewCanvas');if(zones.hidden||!c||!frame)return;const r=c.getBoundingClientRect(),f=frame.getBoundingClientRect(),k=Math.min(r.width/c.width,r.height/c.height),w=c.width*k,h=c.height*k;Object.assign(zones.style,{inset:'auto',left:`${r.left-f.left+(r.width-w)/2}px`,top:`${r.top-f.top+(r.height-h)/2}px`,width:`${w}px`,height:`${h}px`})};
+  toggle.onclick=()=>{zones.hidden=!zones.hidden;toggle.setAttribute('aria-pressed',String(!zones.hidden));place()};document.querySelector('.transport')?.append(toggle);
+  const canvas=$('previewCanvas');if(canvas){new ResizeObserver(place).observe(canvas);new MutationObserver(place).observe(canvas,{attributes:true,attributeFilter:['width','height']})}}
+// Platform guidance beside the export destination: length advice, cross-posting and the post caption.
+{const hint=$('socialExportHint');const advice=Object.assign(document.createElement('p'),{id:'socialAdvice',className:'social-advice'});const cross=Object.assign(document.createElement('div'),{id:'crossPost',className:'cross-post'});
+  const captionLabel=Object.assign(document.createElement('label'),{htmlFor:'postCaption',className:'post-caption-label',textContent:'Post caption'});const caption=Object.assign(document.createElement('textarea'),{id:'postCaption',rows:3,maxLength:2200,placeholder:'Your hook, then up to five hashtags'});
+  const captionMeta=Object.assign(document.createElement('div'),{className:'post-caption-meta'});const count=Object.assign(document.createElement('span'),{id:'postCaptionCount'});const copy=Object.assign(document.createElement('button'),{type:'button',className:'cd-btn cd-btn-sm cd-btn-secondary',textContent:'Copy caption'});captionMeta.append(count,copy);
+  hint?.after(advice,cross,captionLabel,caption,captionMeta);
+  caption.oninput=()=>{const m=state.moments.find(x=>x.id===state.selected);if(m){m.postCaption=caption.value;projectSession?.changed()}renderSocialGuidance()};
+  copy.onclick=async()=>{try{await navigator.clipboard.writeText(caption.value);toast('Caption copied.')}catch{toast('Copy is blocked here. Select the text and copy it.')}};}
+// Caption languages, regional variants and romanised scripts (locales.js).
+{const select=$('captionLanguage');for(const language of captionLanguages)if(![...select.options].some(o=>o.value===language))select.add(new Option(language,language));
+  const variantLabel=document.createElement('label');variantLabel.htmlFor='captionVariant';variantLabel.textContent='REGION / DIALECT';const variant=document.createElement('select');variant.id='captionVariant';variantLabel.append(variant);
+  const romanLabel=document.createElement('label');romanLabel.className='caption-check caption-roman';const roman=document.createElement('input');roman.type='checkbox';roman.id='captionRoman';romanLabel.append(roman,document.createTextNode(' '),document.createElement('span'));
+  (select.closest('label')||select).after(variantLabel,romanLabel);
+  const current=()=>state.moments.find(x=>x.id===state.selected);
+  const retranslate=m=>{m.translationWarning='';delete m.captionCues[m.captionLanguage];projectSession?.changed();void translateMoment(m,m.captionLanguage,{force:true})};
+  variant.onchange=()=>{const m=current();if(!m||m.captionLanguage==='Original')return;(m.captionVariants??={})[m.captionLanguage]=variant.value;retranslate(m)};
+  roman.onchange=()=>{const m=current();if(!m||m.captionLanguage==='Original')return;(m.captionScripts??={})[m.captionLanguage]=roman.checked?'roman':'native';retranslate(m)};
+  syncCaptionVariant=m=>{const language=m?.captionLanguage,list=captionVariants[language]||[];variantLabel.hidden=!list.length;romanLabel.hidden=!romanizations[language];
+    variant.replaceChildren(...list.map(v=>new Option(v.label,v.id)));if(list.length)variant.value=findVariant(language,m.captionVariants?.[language]).id;
+    romanLabel.querySelector('span').textContent=romanizations[language]?`Romanised: ${romanizations[language].split(':')[0]}`:'';roman.checked=m?.captionScripts?.[language]==='roman';};}
+document.querySelector('.timeline-track')?.append($('timelineSelection'));
+for(const [id,key] of [['openStream','↵'],['playPause','Space'],['restartClip','R'],['addToCut','A']])keepKbd($(id),key);
+for(const [id,key] of [['trimIn','I'],['trimOut','O']]){const label=$(id)?.closest('label');if(label)keepKbd(label,key)}
+const clickIf=id=>()=>{const node=$(id);if(node&&!node.disabled)node.click()};
+const palette=createCommandPalette(()=>[
+  ...[...document.querySelectorAll('.workspace-nav [data-workspace]')].map(b=>({group:'Go to',label:b.textContent.replace(/\d+$/,'').trim(),enabled:()=>!b.disabled,run:()=>b.click()})),
+  {group:'Source',label:'Find clips from the pasted link',shortcut:'↵',enabled:()=>Boolean($('streamUrl')?.value.trim()),run:clickIf('openStream')},
+  {group:'Source',label:'Upload a video file',run:()=>$('fileInput')?.click()},
+  {group:'Live',label:'Start live buffer',hint:'records the pasted live link',run:()=>{document.querySelector('.workspace-nav [data-workspace=source]')?.click();liveBuffer.start()}},
+  {group:'Live',label:'Clip back 15 seconds',shortcut:'1',enabled:()=>liveBuffer.recording(),run:()=>liveBuffer.clip(15)},
+  {group:'Live',label:'Clip back 30 seconds',shortcut:'2',enabled:()=>liveBuffer.recording(),run:()=>liveBuffer.clip(30)},
+  {group:'Live',label:'Clip back 60 seconds',shortcut:'3',enabled:()=>liveBuffer.recording(),run:()=>liveBuffer.clip(60)},
+  {group:'Clip',label:'Play or pause the clip',shortcut:'Space',enabled:()=>!$('playPause')?.disabled,run:clickIf('playPause')},
+  {group:'Clip',label:'Add this clip to the story cut',shortcut:'A',enabled:()=>!$('addToCut')?.disabled,run:clickIf('addToCut')},
+  {group:'Clip',label:'Export this clip',enabled:()=>!$('exportButton')?.disabled,run:clickIf('exportButton')},
+  {group:'Clips',label:'Add selected clips to the story cut',hint:`${clipSelection.size} selected`,enabled:()=>clipSelection.size>0,run:addSelectionToCut},
+  {group:'Clips',label:'Select every visible clip',shortcut:'⌘A',run:selectAllVisible},
+  {group:'Clips',label:'Show discarded clips',run:()=>{$('momentFilter').value='dismissed';renderQueue(false)}},
+  {group:'App',label:'Settings',run:clickIf('openSettings')}
+]);
+mountShell({openPalette:palette.open});
+$('clipSort').onchange=()=>renderQueue(false);
+$('momentFilter').addEventListener('change',()=>renderQueue(false));
 liveControls=createLiveControls({requestJson,getProject:()=>projectSession?.current,onMessage:message,onJobs:()=>jobsView.refresh(),onChanged:async({projectId})=>{if(projectSession.current?.id===projectId){await projectSession.flush();await projectSession.open(projectId)}await homeView.refresh()},onReview:async projectId=>{await projectSession.open(projectId);$('momentFilter').value='all';renderQueue(false);showWorkspace('clips')}});
 const productionTools=createProductionTools({requestJson,getProject:()=>projectSession?.current,getSelected:()=>state.moments.find(m=>m.id===state.selected),getCut:()=>state.cut.length?state.cut:[state.selected].filter(Boolean),getAspect:()=>state.aspect,flush:()=>projectSession.flush(),edit:performEdit,redraw:renderEditor,onJobs:async()=>{await jobsView.refresh();showWorkspace('jobs')},onMessage:message});
 connectionsView=createConnections({requestJson,getProject:()=>projectSession?.current,onMessage:message});
@@ -63,7 +126,7 @@ $('liveCaptionLanguage').value=userCaptionDefault();
 const captionWork=translationQueue(2);let captionWaiting=0,captionFailed=0;
 function projectCaptionTarget(){return $('liveCaptionLanguage').value||'Original'}
 function applySocialPreset(){const preset=socialPresets[$('socialDestination').value];if(!preset?.aspect){$('socialExportHint').textContent='Your current edit and export settings.';return}performEdit('social-preset',()=>{state.aspect=preset.aspect;$('aspectSelect').value=preset.aspect;$('exportQuality').value=String(preset.quality);$('exportFormat').value=preset.format==='mp4'?'auto':preset.format;setPreviewSize();drawPreview()});$('socialExportHint').textContent=preset.hint+' · choose Fit to preserve the whole image or Fill to crop.'}
-$('socialDestination').onchange=applySocialPreset;$('applySocialPreset').onclick=applySocialPreset;
+$('socialDestination').onchange=()=>{applySocialPreset();renderSocialGuidance()};$('applySocialPreset').onclick=applySocialPreset;
 function queueCaptionTarget(m){
   const language=inheritCaptionTarget(m,projectCaptionTarget()),owner=projectSession?.current?.id;
   if(projectSession?.restoring)return;
@@ -473,14 +536,14 @@ async function analyzeItem(item,audio){
 
 const momentTranslationCache=createTranslationCache();
 async function translateCues(item,language,{force=false}={}){
-  const cues=item.captionCues.Original.map(c=>({...c})),dialect=item.dialectNote||'',provider=$('translationProvider').value,sourceLanguage=item.detectedLanguage||speechChoices();
+  const cues=item.captionCues.Original.map(c=>({...c})),variant=findVariant(language,item.captionVariants?.[language])?.id||'',script=item.captionScripts?.[language]==='roman'?'roman':'native',dialect=[item.dialectNote||'',variant,script].join('|'),provider=$('translationProvider').value,sourceLanguage=item.detectedLanguage||speechChoices();
   const originalKey=translationKey(cues,language,dialect,provider,sourceLanguage,item.translationMode||$('translationMode').value,$('glossary').value);if(force)item.translationRevision=(item.translationRevision||0)+1;const key=originalKey+':'+(item.translationRevision||0);
   const result=await momentTranslationCache.get(item,key,async()=>{
-    const response=await fetch('/api/translate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({language,provider,sourceLanguage,dialectNote:dialect,translationMode:item.translationMode||$('translationMode').value,glossary:$('glossary').value,cues,refresh:force})});
+    const response=await fetch('/api/translate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({language,variant,script,provider,sourceLanguage,dialectNote:item.dialectNote||'',translationMode:item.translationMode||$('translationMode').value,glossary:$('glossary').value,cues,refresh:force})});
     const data=await response.json();if(!response.ok)throw Error(data.error||'Translation failed');return data;
   });
-  if(translationKey(item.captionCues.Original,language,item.dialectNote||'',provider,sourceLanguage,item.translationMode||$('translationMode').value,$('glossary').value)!==originalKey)throw Error('The original changed during translation. Select the language again.');
-  item.translationSource=result.provider||'';
+  if(translationKey(item.captionCues.Original,language,dialect,provider,sourceLanguage,item.translationMode||$('translationMode').value,$('glossary').value)!==originalKey)throw Error('The original changed during translation. Select the language again.');
+  item.translationSource=result.provider||'';item.translationWarning=result.warning||'';
   return cues.map((cue,index)=>{const {words,...timed}=cue;return {...timed,text:result.lines[index].text}});
 }
 async function translateMoment(m,language,{force=false}={}){
@@ -550,19 +613,98 @@ function renderQueue(markDirty=true){
   document.querySelector('.workspace-nav [data-workspace="edit"]').disabled=!state.selected;
   document.body.classList.toggle('has-moment',Boolean(state.moments.length));document.body.classList.toggle('has-story',state.moments.length>=3||state.cut.length>0);
   const picks=usableMoments(state.moments);$('queueCount').textContent=picks.length+' clip suggestions · '+state.moments.length+' retained windows';editorTools.collection(state.moments,state.selected);discoveryTools?.sync();
-  const moments=visibleMoments(state.moments,{query:$('momentSearch').value,filter:$('momentFilter').value,direction:$('clipDirection').value});
+  const moments=visibleMoments(state.moments,{query:$('momentSearch').value,filter:$('momentFilter').value,direction:$('clipDirection').value,sort:$('clipSort')?.value||'score'});visibleClipIds=moments.map(m=>m.id);
+  if($('clipHeadline'))$('clipHeadline').textContent=picks.length?`${picks.length} ${picks.length===1?'clip':'clips'} found`:state.moments.length?'No clips suggested yet':'No clips yet';
   $('momentResultCount').textContent=moments.length+' of '+state.moments.length+' windows';
-  $('queue').innerHTML=moments.length?moments.map(m=>`<article class="moment ${m.id===state.selected?'active':''}">
-    ${m.frames?.[0]?`<img class="moment-thumbnail" src="${escapeHtml(m.frames[0])}" alt="Source frame at ${formatTime(m.start)}" loading="lazy">`:'<div class="moment-no-frame">Source frame unavailable</div>'}
-    <div class="moment-content"><div class="moment-head"><span>${escapeHtml(m.analysis?.beatType||'Source window')}</span><span>${formatTime(m.start+m.trimIn)}–${formatTime(m.start+m.trimOut)}</span></div>
-    <h3>${escapeHtml(m.hook||({'analysing':'Reading this moment…','interrupted':'Analysis interrupted','not-selected':'No strong beat found',error:'Analysis needs attention'}[m.status]||'Review this window'))}</h3>
-    <p>${escapeHtml(m.analysis?.reason||m.error||'Watch the original window and decide whether it deserves a clip.')}</p>
-    <div class="moment-foot"><span>${escapeHtml(m.approved?'Producer pick':m.status.replaceAll('-',' '))}</span></div>
-    <div class="moment-actions"><button data-review-source="${m.id}" ${state.sourceType==='file'&&m.blob?.importId===state.source?.importId?'':'disabled'}>Watch source</button><button data-edit-moment="${m.id}" ${m.status==='analysing'?'disabled aria-busy="true"':''}>Edit clip </button></div></div></article>`).join(''):
+  const selectable=new Set(state.moments.map(m=>m.id));for(const id of clipSelection)if(!selectable.has(id))clipSelection.delete(id);
+  $('queue').classList.add('cd-grid');$('queue').classList.toggle('has-selection',clipSelection.size>0);
+  $('queue').innerHTML=moments.length?moments.map(m=>{const chosen=clipSelection.has(m.id),reading=m.status==='analysing',canWatch=state.sourceType==='file'&&m.blob?.importId===state.source?.importId;return `<article class="cd-card moment ${m.id===state.selected?'active':''} ${chosen?'is-selected':''} ${reading?'is-scanning':''}" data-card="${m.id}" tabindex="0" aria-label="${escapeHtml(m.hook||'Source window at '+formatTime(m.start))}">
+    <div class="cd-thumb">${m.frames?.[0]?`<img src="${escapeHtml(m.frames[0])}" alt="Source frame at ${formatTime(m.start)}" loading="lazy">`:'<div class="cd-thumb-fill"></div>'}
+    <div class="cd-thumb-top"><button type="button" class="cd-check" data-select-moment="${m.id}" role="checkbox" aria-checked="${chosen}" aria-label="Select this clip"></button><span class="cd-dur">${formatTime((m.trimOut??m.end-m.start)-(m.trimIn||0))}</span></div>
+    ${reading?'':`<div class="cd-quick"><button type="button" class="cd-btn cd-btn-sm cd-btn-primary" data-edit-moment="${m.id}">Edit clip<kbd class="cd-kbd">↵</kbd></button><button type="button" class="cd-btn cd-btn-sm cd-btn-secondary" data-review-source="${m.id}" ${canWatch?'':'disabled'}>Watch source</button></div>`}</div>
+    <div class="cd-card-body"><div class="cd-card-meta" data-card-status="${m.id}"></div>
+    <h3 class="cd-card-title">${escapeHtml(m.hook||({'analysing':'Reading this moment…','interrupted':'Analysis interrupted','not-selected':'No strong beat found',error:'Analysis needs attention'}[m.status]||'Review this window'))}</h3>
+    <p class="cd-card-why">${escapeHtml(m.analysis?.rankingReason||m.analysis?.reason||m.error||'Watch the original window and decide whether it deserves a clip.')}</p>
+    <div class="cd-card-meta"><span class="cd-tc">${formatTime(m.start+(m.trimIn||0))} → ${formatTime(m.start+(m.trimOut??m.end-m.start))}</span><span>${escapeHtml(m.analysis?.beatType||'Source window')}</span></div></div></article>`}).join(''):
     '<div class="queue-empty"><h3>'+(state.moments.length?'No matching windows':state.source?'Ready to find a story':'Add your first video')+'</h3><p>'+(state.moments.length?'Try another search or show all windows.':state.source?'Choose Find clips below the video. Source-linked results will appear here.':'Choose Add video to load a recording or connect a live tab.')+'</p></div>';
-  $('queue').querySelectorAll('[data-edit-moment]').forEach(b=>b.onclick=()=>selectMoment(b.dataset.editMoment));
-  $('queue').querySelectorAll('[data-review-source]').forEach(b=>b.onclick=()=>reviewSource(b.dataset.reviewSource));updateArcButton();
+  for(const m of moments){const slot=$('queue').querySelector(`[data-card-status="${m.id}"]`);if(!slot)continue;const [tone,text,dot]=clipStatus(m);slot.append(badge(tone,text,dot));const score=m.analysis?.rankingScore;if(Number.isFinite(score))slot.append(scoreMeter(score,{size:'sm',animate:!shownScores.has(m.id)}));shownScores.add(m.id);}
+  $('queue').querySelectorAll('[data-edit-moment]').forEach(b=>b.onclick=event=>{event.stopPropagation();selectMoment(b.dataset.editMoment)});
+  $('queue').querySelectorAll('[data-review-source]').forEach(b=>b.onclick=event=>{event.stopPropagation();reviewSource(b.dataset.reviewSource)});
+  $('queue').querySelectorAll('[data-select-moment]').forEach(b=>b.onclick=event=>{event.stopPropagation();toggleClipSelection(b.dataset.selectMoment)});
+  $('queue').querySelectorAll('[data-card]').forEach(card=>{const id=card.dataset.card,m=state.moments.find(x=>x.id===id);
+    card.onclick=event=>{if(event.shiftKey&&lastSelected){selectRange(lastSelected,id);return}if(clipSelection.size||event.metaKey||event.ctrlKey)toggleClipSelection(id);else inspectClip(id)};
+    card.onkeydown=event=>{if(event.target!==card)return;if(event.key==='Enter'&&m.status!=='analysing'){event.preventDefault();selectMoment(id)}else if(event.key===' '){event.preventDefault();toggleClipSelection(id)}};});
+  renderBulkBar();renderInspector();updateArcButton();
 }
+function clipStatus(m){
+  if(m.status==='analysing')return ['cue','Reading',true];
+  if(m.status==='error'||m.status==='interrupted')return ['danger',m.status==='error'?'Needs attention':'Interrupted'];
+  if(m.approved)return ['volt','Producer pick'];
+  if(state.cut.includes(m.id))return ['neutral','In story cut'];
+  if(m.analysis?.worthClipping)return ['volt','Suggested'];
+  if(m.status==='not-selected')return ['neutral','No strong beat'];
+  return ['neutral','Review'];
+}
+function toggleClipSelection(id){clipSelection.has(id)?clipSelection.delete(id):clipSelection.add(id);lastSelected=id;renderQueue(false);$('queue').querySelector(`[data-card="${id}"]`)?.focus()}
+function renderBulkBar(){
+  bulkBar??=createBulkBar($('queue').parentElement);
+  const chosen=state.moments.filter(m=>clipSelection.has(m.id)),cuttable=chosen.filter(m=>m.status!=='analysing'&&!state.cut.includes(m.id)),pickable=chosen.filter(m=>m.batchId&&!m.approved);
+  bulkBar.render(chosen.length,[
+    {label:`Add ${cuttable.length} to story cut`,shortcut:'A',disabled:!cuttable.length,run:addSelectionToCut},
+    {label:`Discard ${chosen.length}`,variant:'danger',shortcut:'X',run:()=>discardClips(chosen.map(m=>m.id))},
+    ...(pickable.length?[{label:`Mark ${pickable.length} producer ${pickable.length===1?'pick':'picks'}`,variant:'ghost',run:()=>{for(const m of pickable)m.approved=true;clipSelection.clear();renderBatchResults();renderQueue()}}]:[])
+  ],()=>{clipSelection.clear();renderQueue(false)});
+}
+function addSelectionToCut(){
+  const room=100-state.cut.length,ids=state.moments.filter(m=>clipSelection.has(m.id)&&m.status!=='analysing'&&!state.cut.includes(m.id)).map(m=>m.id);
+  if(!ids.length)return;if(ids.length>room){message(`The rough cut holds 100 windows. ${room} more fit.`);return}
+  stopCutPreview();state.cut.push(...ids);clipSelection.clear();renderCut();renderQueue();message(`${ids.length} ${ids.length===1?'clip':'clips'} added to the story cut.`);
+}
+function selectRange(from,to){const a=visibleClipIds.indexOf(from),b=visibleClipIds.indexOf(to);if(a<0||b<0){toggleClipSelection(to);return}for(const id of visibleClipIds.slice(Math.min(a,b),Math.max(a,b)+1))clipSelection.add(id);lastSelected=to;renderQueue(false)}
+function selectAllVisible(){for(const id of visibleClipIds)clipSelection.add(id);renderQueue(false)}
+// Discard hides a clip (kept in the project) and offers Undo instead of a confirm dialog.
+function discardClips(ids){
+  const targets=state.moments.filter(m=>ids.includes(m.id)&&!m.dismissed);if(!targets.length)return;
+  for(const m of targets){m.dismissed=true;clipSelection.delete(m.id)}if(targets.some(m=>m.id===inspectedId))inspectedId=null;renderQueue();
+  toast(`${targets.length} ${targets.length===1?'clip':'clips'} discarded.`,{action:'Undo',run:()=>{for(const m of targets)delete m.dismissed;renderQueue()}});
+}
+function restoreClip(id){const m=state.moments.find(x=>x.id===id);if(!m)return;delete m.dismissed;renderQueue();toast('Clip restored.')}
+function inspectClip(id){inspectedId=id;renderInspector();$('queue').querySelector(`[data-card="${id}"]`)?.focus()}
+// Discover inspector: the clip in focus, its evidence and one-key actions, above the source monitor.
+function renderInspector(){
+  let box=$('clipInspector');const host=document.querySelector('.monitor-panel');if(!host)return;
+  if(!box){box=el('section','ds-inspector');box.id='clipInspector';box.setAttribute('aria-label','Clip inspector');host.prepend(box)}
+  const m=state.moments.find(x=>x.id===inspectedId);box.hidden=!m;box.replaceChildren();if(!m)return;
+  const head=el('div','cd-row ds-inspector-head'),[tone,text,dot]=clipStatus(m);head.append(badge(tone,text,dot));
+  if(Number.isFinite(m.analysis?.rankingScore))head.append(scoreMeter(m.analysis.rankingScore,{size:'sm',animate:false}));
+  const close=el('button','cd-btn cd-btn-sm cd-btn-ghost','Close');close.type='button';close.append(Object.assign(document.createElement('kbd'),{className:'cd-kbd',textContent:'esc'}));close.onclick=()=>{inspectedId=null;renderInspector()};head.append(el('span','lb-grow'),close);
+  const frame=el('div','ds-inspector-frame');if(m.frames?.[0]){const img=el('img');img.src=m.frames[0];img.alt=`Source frame at ${formatTime(m.start)}`;frame.append(img)}
+  frame.append(el('span','cd-dur',formatTime((m.trimOut??m.end-m.start)-(m.trimIn||0))));
+  const title=el('h3','ds-inspector-title',m.hook||'Review this window'),time=el('p','cd-tc ds-inspector-time',`${formatTime(m.start+(m.trimIn||0))} → ${formatTime(m.start+(m.trimOut??m.end-m.start))} · ${m.analysis?.beatType||'source window'}`);
+  const why=el('dl','ds-inspector-evidence');
+  for(const [label,value] of [['Why this moment',m.analysis?.rankingReason||m.analysis?.reason],['Direct evidence',m.analysis?.evidence],['Check before sharing',m.analysis?.riskNote],['Transcript',m.transcript&&m.transcript.slice(0,360)]])if(value){why.append(el('dt','cd-label',label),el('dd',undefined,value))}
+  const actions=el('div','cd-row ds-inspector-actions'),button=(label,cls,key,run,disabled)=>{const b=el('button',`cd-btn cd-btn-sm ${cls}`,label);b.type='button';b.disabled=Boolean(disabled);if(key)b.append(Object.assign(document.createElement('kbd'),{className:'cd-kbd',textContent:key}));b.onclick=run;actions.append(b)};
+  const reading=m.status==='analysing';
+  button('Edit clip','cd-btn-primary','↵',()=>selectMoment(m.id),reading);
+  button('Export','cd-btn-secondary','E',()=>exportClip(m.id),reading);
+  button(state.cut.includes(m.id)?'In story cut':'Add to cut','cd-btn-secondary','A',()=>{clipSelection.clear();clipSelection.add(m.id);addSelectionToCut()},reading||state.cut.includes(m.id));
+  m.dismissed?button('Restore','cd-btn-ghost','',()=>restoreClip(m.id)):button('Discard','cd-btn-danger','X',()=>discardClips([m.id]));
+  box.append(head,frame,title,time,actions,why);
+}
+async function exportClip(id){await selectMoment(id);const b=$('exportButton');if(b&&!b.disabled){document.getElementById('exportTab')?.click();b.click()}else message('Open the clip in Studio to finish its edit before export.')}
+// Discover keyboard map: J/K move, Enter edit, Space select, E export, X discard, A add to cut, ⌘A select all, Esc clear.
+document.addEventListener('keydown',event=>{
+  if(document.body.dataset.workspace!=='clips'||document.querySelector('dialog[open]')||/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName||'')||document.activeElement?.isContentEditable)return;
+  const key=event.key.toLowerCase(),focusId=document.activeElement?.closest?.('[data-card]')?.dataset.card||inspectedId;
+  if((event.metaKey||event.ctrlKey)&&key==='a'){event.preventDefault();selectAllVisible();return}
+  if(event.metaKey||event.ctrlKey||event.altKey)return;
+  if(key==='j'||key==='k'){event.preventDefault();const i=visibleClipIds.indexOf(focusId),n=Math.max(0,Math.min(visibleClipIds.length-1,i<0?0:i+(key==='j'?1:-1)));if(visibleClipIds[n])inspectClip(visibleClipIds[n]);return}
+  if(key==='escape'){if(clipSelection.size){clipSelection.clear();renderQueue(false)}else if(inspectedId){inspectedId=null;renderInspector()}return}
+  if(!focusId)return;const m=state.moments.find(x=>x.id===focusId);if(!m)return;
+  if(key==='x'){event.preventDefault();discardClips(clipSelection.size?[...clipSelection]:[focusId])}
+  else if(key==='e'&&m.status!=='analysing'){event.preventDefault();exportClip(focusId)}
+});
+document.addEventListener('keydown',event=>{if(event.key.toLowerCase()==='a'&&!clipSelection.size&&inspectedId&&document.body.dataset.workspace==='clips'&&!/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName||'')&&!event.metaKey&&!event.ctrlKey){clipSelection.add(inspectedId);addSelectionToCut();return}if(event.key.toLowerCase()==='a'&&clipSelection.size&&!event.metaKey&&!event.ctrlKey&&!event.altKey&&!/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName||'')&&document.body.dataset.workspace!=='edit'){event.preventDefault();addSelectionToCut()}});
 async function reviewSource(id){
   const m=state.moments.find(m=>m.id===id),position=sourcePosition(m,program.duration);
   if(position===null||state.sourceType!=='file'||m.blob.importId!==state.source?.importId){message('This live window has its own recording. Open Edit clip to review it.');return;}
@@ -613,7 +755,7 @@ function drawCaption(context,moment,sourceTime){
   context.save();context.textAlign='center';context.textBaseline='middle';context.direction=rtl?'rtl':'ltr';
   let lines;
   do{context.font=`900 ${fontSize}px ${look.font},sans-serif`;lines=wrapLines(context,cue.text,maxWidth);if(lines.length<=3||fontSize<=21)break;fontSize-=2;}while(true);
-  const lineHeight=fontSize*1.13,blockHeight=lines.length*lineHeight+fontSize*.6,centerY=captionPlacement(look.position,height,blockHeight);
+  const lineHeight=fontSize*1.13,blockHeight=lines.length*lineHeight+fontSize*.6,centerY=captionPlacement(look.position,height,blockHeight,width);
   const pop=moment.captionStyle==='pop'?1+.06*Math.pow(1-Math.min(1,(sourceTime-cue.start)/.2),2):1;
   if(moment.captionStyle==='fade')context.globalAlpha=Math.max(0,Math.min(1,(sourceTime-cue.start)/.15,(cue.end-sourceTime)/.15));
   context.translate(width/2,centerY);context.scale(pop,pop);
@@ -711,6 +853,15 @@ $('frameMode').onchange=e=>{const m=state.moments.find(x=>x.id===state.selected)
 for(const [id,key] of [['zoomRange','zoom'],['focusX','focusX'],['focusY','focusY']])$(id).oninput=e=>{const m=state.moments.find(x=>x.id===state.selected);if(m){m.frameKeyframes=[];m.frameTracking=null;m[key]=Number(e.target.value);drawPreview()}};
 $('showHook').onchange=e=>{const m=state.moments.find(x=>x.id===state.selected);if(m){m.showHook=e.target.checked;drawPreview()}};
 $('focusPlayer').onclick=()=>performEdit('focus-player',()=>{const m=state.moments.find(x=>x.id===state.selected);if(!m)return;m.frameKeyframes=[];m.frameTracking=null;m.frameMode='fill';m.zoom=1.4;m.focusX=0;m.focusY=20;$('frameMode').value='fill';$('zoomRange').value=1.4;$('focusX').value=0;$('focusY').value=20;updateFrameControls();drawPreview();message('Main-video framing applied. Adjust zoom and position if your stream layout differs.');});
+function renderSocialGuidance(){
+  const m=state.moments.find(x=>x.id===state.selected),destination=$('socialDestination')?.value;if(!m||!$('socialAdvice'))return;
+  $('socialAdvice').textContent=lengthAdvice(destination,(m.trimOut??m.end-m.start)-(m.trimIn||0));
+  const targets=crossPostTargets(destination);$('crossPost').replaceChildren();
+  if(targets.length){$('crossPost').append(Object.assign(document.createElement('span'),{className:'cd-label',textContent:'Same file also fits'}));for(const t of targets)$('crossPost').append(Object.assign(document.createElement('a'),{href:t.upload,target:'_blank',rel:'noopener noreferrer',className:'cd-btn cd-btn-sm cd-btn-ghost',textContent:t.label+' ↗'}))}
+  const caption=$('postCaption');if(document.activeElement!==caption)caption.value=m.postCaption??draftPostCaption(m.hook);
+  const tags=hashtagCount(caption.value);$('postCaptionCount').textContent=`${tags} of ${hashtagLimit} hashtags`;$('postCaptionCount').dataset.over=String(tags>hashtagLimit);
+  if(tags>hashtagLimit)$('postCaptionCount').textContent+=' · Instagram allows five; extra tags show no lift in views';
+}
 function renderEditor(){
   projectSession?.changed();
   const m=state.moments.find(x=>x.id===state.selected);if(!m)return;
@@ -750,7 +901,7 @@ function renderEditor(){
   $('translateButton').disabled=Boolean(m.translationPending?.has(m.captionLanguage))||(!state.meta&&!(state.voiceStudio&&$('translationProvider').value==='voicestudio'))||m.captionLanguage==='Original'||!m.captionCues.Original.length;
   $('reanalyseButton').disabled=!state.meta||!m.frames.length||m.status==='analysing';$('captionEmptyActions').hidden=Boolean(m.captionCues?.Original?.length||activeCues(m).length);$('emptyRecheckSpeech').disabled=$('reanalyseButton').disabled;
   $('srtButton').disabled=!activeCues(m).length;
-  $('captionStatus').textContent=m.translationPending?.has(m.captionLanguage)?m.captionLanguage+' subtitles are being prepared…':m.captionError||m.translationError||(!m.captionCues.Original.length?'No timed transcript yet. Add lines manually and check them against the audio.':m.captionLanguage==='Original'?((m.speechSource||'Speech')+' draft. '+(m.timingSource==='word'?'Word timings are available; still check dialect, words and sync.':'Short-line timing is estimated; check dialect, words and timing.')):activeCues(m).length?((m.translationSource||'Translation')+' draft. Compare every line with the original speech.'):m.captionLanguage+' subtitles queued. Original speech is kept in Story & evidence.');
+  syncCaptionVariant(m);renderSocialGuidance();  $('captionStatus').textContent=m.translationPending?.has(m.captionLanguage)?m.captionLanguage+' subtitles are being prepared…':m.captionError||m.translationError||m.translationWarning||(!m.captionCues.Original.length?'No timed transcript yet. Add lines manually and check them against the audio.':m.captionLanguage==='Original'?((m.speechSource||'Speech')+' draft. '+(m.timingSource==='word'?'Word timings are available; still check dialect, words and sync.':'Short-line timing is estimated; check dialect, words and timing.')):activeCues(m).length?((m.translationSource||'Translation')+' draft. Compare every line with the original speech.'):m.captionLanguage+' subtitles queued. Original speech is kept in Story & evidence.');
   layout?.syncTimeline(m,formatTime);setPreviewSize();drawPreview();
 }
 function updateCaptionSyncLabel(m){const offset=m.captionOffset||0;$('captionSyncLabel').textContent=Math.abs(offset)<.01?'Original timing':`${Math.abs(offset).toFixed(1)} seconds ${offset<0?'earlier':'later'}`}
@@ -928,7 +1079,7 @@ async function cacheWholeSource(){
 $('wholeLanguage').onchange=renderWholeSubtitles;
 $('startWholeSubtitles').onclick=async()=>{
   if(wholePreparing)return;wholePreparing=true;$('wholeError').textContent='';renderWholeSubtitles();$('wholeError').hidden=true;
-  try{const sourceId=await cacheWholeSource(),response=await fetch('/api/subtitles',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sourceId,language:$('wholeLanguage').value,speechProvider:$('speechProvider').value,translationProvider:$('translationProvider').value,speechLanguage:speechChoices(),keywords:$('speechKeywords').value.split(',').map(x=>x.trim()).filter(Boolean),dialectNote:$('sourceDialect').value,translationMode:$('translationMode').value,glossary:$('glossary').value})});const job=await response.json();if(!response.ok)throw Error(job.error);wholeJob=job;wholeJobs=wholeJobs.filter(j=>j.id!==job.id);wholeJobs.push(job);void pollWholeJob()}
+  try{const sourceId=await cacheWholeSource(),response=await fetch('/api/subtitles',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sourceId,variant:$('wholeVariant').value,script:$('wholeRoman').checked?'roman':'native',language:$('wholeLanguage').value,speechProvider:$('speechProvider').value,translationProvider:$('translationProvider').value,speechLanguage:speechChoices(),keywords:$('speechKeywords').value.split(',').map(x=>x.trim()).filter(Boolean),dialectNote:$('sourceDialect').value,translationMode:$('translationMode').value,glossary:$('glossary').value})});const job=await response.json();if(!response.ok)throw Error(job.error);wholeJob=job;wholeJobs=wholeJobs.filter(j=>j.id!==job.id);wholeJobs.push(job);void pollWholeJob()}
   catch(error){$('wholeJobStatus').hidden=false;$('wholeError').hidden=false;$('wholeError').textContent=error.message||'Could not start subtitles.'}
   finally{wholePreparing=false;renderWholeSubtitles()}
 };
