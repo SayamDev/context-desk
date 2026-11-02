@@ -1,6 +1,7 @@
 // Review hints for subtitle drafts. Flags never block export or change text: they point a
 // producer at lines worth checking against the audio (ASR loops, stray scripts, gaps).
 import {scripts,expected} from './locales.js';
+import {overlapIndexes} from './caption-display.js';
 const words=text=>String(text||'').toLowerCase().replace(/[^\p{L}\p{N}\s']/gu,' ').split(/\s+/).filter(Boolean);
 // A 2–4 word phrase three times in one line, or a long line that is mostly repeats.
 // Single words repeated ("no, no, no") are normal speech and are not flagged.
@@ -17,15 +18,17 @@ export function strayScript(text,language,{original=false,sourceScript}={}){
   return '';
 }
 export function lineIssues(cues,{language='Original',sourceScript='',originals=[]}={}){
-  const issues=[];
+  const issues=[],overlaps=overlapIndexes(cues);
   cues.forEach((cue,index)=>{
     const reasons=[],text=String(cue.text||'');
+    if(overlaps.has(index))reasons.push('Two people speak at once here: check both lines and who said each.');
+    if(/\[unclear\]/i.test(text))reasons.push('Part of this line was marked unclear: listen to the original before approving.');
     if(repetition(text))reasons.push('Repeated words: check the audio, speech recognition may have looped.');
     const stray=strayScript(text,language,{original:language==='Original',sourceScript});if(stray)reasons.push(`Contains ${stray} letters that do not belong in this track.`);
     if(language!=='Original'&&expected[language]===undefined&&(text.match(scripts.arabic)||[]).length+(text.match(scripts.hebrew)||[]).length>=3)reasons.push('Part of this line was not translated.');
     if(language!=='Original'&&originals[index]&&text.trim()===String(originals[index].text||'').trim()&&words(text).length>2)reasons.push('Identical to the original line: it may be untranslated.');
     const prev=cues[index-1];if(prev&&text.trim()&&text.trim()===String(prev.text||'').trim())reasons.push('Same text as the previous line.');
-    if(prev&&cue.start<prev.end-.05)reasons.push('Overlaps the previous line.');
+    if(prev&&cue.start<prev.end-.05&&(!cue.speaker||cue.speaker===prev.speaker))reasons.push('Overlaps the previous line.');
     if(reasons.length)issues.push({index,reasons});
   });
   return issues;

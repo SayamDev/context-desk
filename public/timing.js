@@ -12,9 +12,14 @@ export function speechCues(data,duration){
   }else for(const turn of data.turns||[]){
     const start=Math.max(0,Number(turn.startMs)/1000),end=Math.min(duration,Number(turn.endMs)/1000),words=String(turn.text||'').trim().split(/\s+/).filter(Boolean);
     if(!words.length||!Number.isFinite(start)||!Number.isFinite(end)||end-start<.1)continue;
-    for(let i=0;i<words.length;i+=6)cues.push({start:start+(end-start)*i/words.length,end:start+(end-start)*Math.min(words.length,i+6)/words.length,text:words.slice(i,i+6).join(' ')});
+    // Keep the diarized speaker on every line: it drives overlap layout and speaker review,
+    // and is never burned into the video unless an editor adds a visible cue.
+    const speaker=/^[A-Z]$/.test(String(turn.speaker||''))?turn.speaker:undefined;
+    for(let i=0;i<words.length;i+=6)cues.push({start:start+(end-start)*i/words.length,end:start+(end-start)*Math.min(words.length,i+6)/words.length,text:words.slice(i,i+6).join(' '),...(speaker?{speaker}:{})});
   }
-  let last=0;return cues.map(c=>{c.start=Math.max(c.start,last);last=c.end;return c}).filter(c=>c.end-c.start>=.1).map(c=>{const words=c.text.normalize('NFKC').replace(/[\p{P}\p{S}]/gu,' ').toLocaleLowerCase().split(/\s+/).filter(Boolean);return words.some((w,i)=>w.length>=3&&w===words[i-1])?{...c,uncertain:true,reviewReason:'Repeated word — listen against the source before approving.'}:c});
+  // Lines from one speaker never overlap; different speakers may (people talk over each other),
+  // so overlap is kept for the display layer instead of pushing or dropping the second line.
+  const last={};return cues.map(c=>{const k=c.speaker||'_';c.start=Math.max(c.start,last[k]??0);last[k]=c.end;return c}).filter(c=>c.end-c.start>=.1).map(c=>{const words=c.text.normalize('NFKC').replace(/[\p{P}\p{S}]/gu,' ').toLocaleLowerCase().split(/\s+/).filter(Boolean);return words.some((w,i)=>w.length>=3&&w===words[i-1])?{...c,uncertain:true,reviewReason:'Repeated word — listen against the source before approving.'}:c});
 }
 export function srtDocument(cues){
   const time=s=>{const ms=Math.max(0,Math.round(s*1000));return [Math.floor(ms/3600000),Math.floor(ms%3600000/60000),Math.floor(ms%60000/1000)].map(n=>String(n).padStart(2,'0')).join(':')+','+String(ms%1000).padStart(3,'0')};
