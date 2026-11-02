@@ -24,7 +24,7 @@ npm run dev
 
 `npm run setup` is safe to run again; it lists anything it could not install with the exact fix. Inside the app, a **Setup check** panel shows the same list (from `GET /api/health`) until everything needed is in place.
 
-Open http://localhost:3001. `FFMPEG_PATH` can point to an existing FFmpeg executable. `npm run check` checks every JavaScript source; `npm test` uses isolated temporary data and includes a real FFmpeg render when FFmpeg is installed. Muse Code login does not configure this application's Model API key.
+Open http://localhost:3001. `FFMPEG_PATH` can point to an existing FFmpeg executable. `npm run check` checks every JavaScript source; `npm test` uses isolated temporary data and includes a real FFmpeg render when FFmpeg is installed. `npm run test:browser` (after `npm install`) starts throwaway servers with no AI key and drives the real page in your installed Chrome: clean first load, setup check, every workspace, phone width, and an upload that must survive a reload. GitHub Actions runs all three on Node 22.13 and 24 for every pull request. Muse Code login does not configure this application's Model API key.
 
 ## Workflow
 

@@ -35,7 +35,8 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
-try { for (const line of (await fs.readFile(path.join(root,'.env'),'utf8')).split('\n')) { const m=line.match(/^([A-Z_]+)=(.*)$/); if(m && !process.env[m[1]]) process.env[m[1]]=m[2].trim(); } } catch {}
+// Tests never read .env, so a real key can't reach paid services from a test run.
+if(process.env.NODE_ENV!=='test')try { for (const line of (await fs.readFile(path.join(root,'.env'),'utf8')).split('\n')) { const m=line.match(/^([A-Z_]+)=(.*)$/); if(m && !process.env[m[1]]) process.env[m[1]]=m[2].trim(); } } catch {}
 const port = Number(process.env.PORT || 3001);
 // Detects when this process runs older code than is on disk (see lib/code-stamp.js).
 const codeStamp=createCodeStamp(path.join(root,'server.js'));
