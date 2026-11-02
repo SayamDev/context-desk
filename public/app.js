@@ -79,7 +79,14 @@ enhanceSegmented($('aspectSelect'),{label:'Format',labels:{portrait:['9:16','Tik
     if(action==='check-subtitles'){$('captionTab')?.click();const w=document.querySelector('.caption-workspace');if(w)w.open=true;if(!$('captionQaNext')?.hidden)$('captionQaNext').click();else $('captionLines')?.scrollIntoView({block:'start',behavior:'smooth'})}
     if(action==='prepare-post'){$('exportTab')?.click();$('socialDestination')?.closest('section,div')?.scrollIntoView({block:'start',behavior:'smooth'})}
   }});
-  const host=document.querySelector('.pagehead')?.parentElement;host?.prepend(guide.element);guide.render();setInterval(guide.render,1000);}
+  const host=document.querySelector('.pagehead')?.parentElement;host?.prepend(guide.element);guide.render();setInterval(guide.render,1000);
+  // Setup check: lists anything missing on this computer, what it blocks, and the exact fix.
+  void requestJson('/api/health').then(({checks})=>{const missing=checks.filter(c=>!c.ok);if(!missing.length)return;
+    const box=Object.assign(document.createElement('section'),{className:'setup-check'});box.setAttribute('aria-label','Setup check');
+    box.append(Object.assign(document.createElement('h3'),{textContent:missing.some(c=>c.needed)?'Finish setting up this computer':'Optional extras you can turn on'}),
+      ...missing.map(c=>{const row=document.createElement('div');row.className='setup-item'+(c.needed?' is-needed':'');row.append(Object.assign(document.createElement('strong'),{textContent:c.label+(c.needed?'':' (optional)')}),Object.assign(document.createElement('span'),{textContent:'Needed for: '+c.blocks}),Object.assign(document.createElement('code'),{textContent:c.fix}));return row}),
+      Object.assign(document.createElement('p'),{textContent:'Tip: run npm run setup in the project folder; it installs what it can and lists the rest.'}));
+    guide.element.after(box)}).catch(()=>{});}
 // Caption style list comes from the shared catalogue (caption-styles.js).
 $('captionStyle').replaceChildren(...captionStyleIds.map(id=>new Option(captionStyles[id].label,id)));
 enhanceCaptionLooks($('captionStyle'),{getLook:()=>state.moments.find(x=>x.id===state.selected)?.captionLook||{}});

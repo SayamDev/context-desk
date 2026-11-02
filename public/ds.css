@@ -652,3 +652,8 @@ body.simple-mode .memory-panel,body.simple-mode .more-exports,body.simple-mode .
 .visual-search{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
 .visual-search h3{margin:0 0 4px;font-size:16px}.visual-status{margin:0 0 8px;font-size:13px;color:var(--muted)}
 .visual-search form{display:flex;gap:8px;margin-top:6px}.visual-search form[hidden]{display:none}.visual-search input{flex:1;min-width:0;height:36px;border-radius:8px;border:1px solid var(--line);background:var(--surface-raised);color:var(--text);padding:0 10px;font:inherit}
+/* Setup check */
+.setup-check{margin:0 0 16px;padding:14px 16px;border:1px solid var(--warning);border-radius:14px;background:var(--surface)}
+.setup-check h3{margin:0 0 8px;font-size:16px}.setup-check p{margin:8px 0 0;font-size:13px;color:var(--muted)}
+.setup-item{display:grid;gap:2px;padding:8px 0;border-top:1px solid var(--line)}.setup-item strong{font-size:14px}.setup-item.is-needed strong{color:var(--warning)}
+.setup-item span{font-size:13px;color:var(--muted)}.setup-item code{font:12px/1.4 'Geist Mono',monospace;color:var(--text);overflow-wrap:anywhere}
