@@ -648,3 +648,7 @@ body.simple-mode .memory-panel,body.simple-mode .more-exports,body.simple-mode .
 .quote-results .cd-tc{grid-row:span 2;color:var(--cue)}.quote-text{font-size:14px}.quote-original{grid-column:2;font-size:12px;color:var(--muted)}
 .quote-results button{grid-row:1/span 2;grid-column:3}
 .quote-results .quote-none{display:block;color:var(--muted);font-size:13px}
+/* Find what's shown */
+.visual-search{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.visual-search h3{margin:0 0 4px;font-size:16px}.visual-status{margin:0 0 8px;font-size:13px;color:var(--muted)}
+.visual-search form{display:flex;gap:8px;margin-top:6px}.visual-search form[hidden]{display:none}.visual-search input{flex:1;min-width:0;height:36px;border-radius:8px;border:1px solid var(--line);background:var(--surface-raised);color:var(--text);padding:0 10px;font:inherit}

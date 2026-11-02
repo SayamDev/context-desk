@@ -27,6 +27,9 @@ import {createDurableTranslationCache} from './lib/translation-store.js';
 import fs from 'node:fs/promises';
 import {createCodeStamp} from './lib/code-stamp.js';
 import {createImpact} from './lib/impact.js';
+import {createVisualIndex} from './lib/visual-index.js';
+import {buildXmeml} from './lib/nle-export.js';
+import {probeMedia as probeMediaFile} from './lib/exports.js';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 
@@ -58,6 +61,7 @@ const reframeApi=createReframeApi({store:studioStore(),claimSource:claimImportSo
 const creativeService=createCreativeAssetService({store:studioStore()});
 const bundleService=createBundleService({store:studioStore()});
 const impact=createImpact(studioStore());
+const visualIndex=createVisualIndex({store:studioStore(),claimSource:claimImportSource});
 const liveBufferService=createLiveBufferService({onShortReady:stat=>impact.recordShort(stat),claimSource:claimImportSource,transcribe:bytes=>process.env.MODEL_API_KEY?transcribe(bytes,'',[]):transcribeVoiceStudio(bytes,'',[]),postKit:({transcript})=>process.env.MODEL_API_KEY?writePostKit({transcript:clean(transcript,2400),hook:'',platform:'TikTok',language:'English'}):null});
 const liveOptions=new Map();let liveAnalysisQueue=Promise.resolve();
 const liveService=createLiveIngestService({store:studioStore(),onWindow:payload=>{const pending=liveAnalysisQueue.then(()=>analyseLiveWindow(payload));liveAnalysisQueue=pending.catch(()=>{});return pending}});
@@ -93,6 +97,21 @@ const server = http.createServer(async (req,res) => {
     }catch(error){return json(res,400,{error:error.message})}
   }
   if(req.url === '/api/impact' && req.method === 'GET') return json(res,200,impact.summary());
+  // Find what's shown: on-device Apple Vision index of a saved recording.
+  {const m=new URL(req.url,'http://localhost').pathname.match(/^\/api\/visual-index\/([a-f0-9-]{36})(\/search)?$/);
+    if(m){try{if(m[2]&&req.method==='GET')return json(res,200,{results:visualIndex.search(m[1],clean(new URL(req.url,'http://localhost').searchParams.get('q')||'',120))});
+      if(!m[2]&&req.method==='GET')return json(res,200,visualIndex.status(m[1]));if(!m[2]&&req.method==='POST')return json(res,202,visualIndex.start(m[1]));return json(res,405,{error:'Method not allowed'})}
+    catch(error){return json(res,400,{error:error.message})}}}
+  // Editor timeline (Final Cut Pro 7 XML) for Premiere Pro and DaVinci Resolve, pointing at the original files.
+  {const url=new URL(req.url,'http://localhost'),m=url.pathname.match(/^\/api\/timeline-xml\/([a-f0-9-]{36})$/);
+    if(m&&req.method==='GET'){const releases=[];try{const project=studioStore().getProject(m[1]),ids=String(url.searchParams.get('moments')||'').split(',').filter(Boolean).slice(0,200);
+      const moments=ids.map(id=>project.state.moments.find(x=>x.id===id)).filter(Boolean);if(!moments.length)throw Error('Choose at least one saved clip.');
+      const info=new Map(),clips=[];for(const x of moments){const imported=String(x.url).match(/^\/api\/import\/([a-f0-9-]{36})\/media$/),asset=String(x.url).match(/^\/api\/assets\/([a-f0-9]{64})$/);let file;
+        if(imported){const src=claimImportSource(imported[1]);releases.push(src.release);file=src.file}else if(asset)file=studioStore().assetPath(asset[1]).file;else throw Error('Save each clip\'s media before exporting a timeline.');
+        if(!info.has(file))info.set(file,await probeMediaFile(file));const base=Number(x.mediaStart)||0;clips.push({name:x.hook||x.sourceName,file,fileDuration:info.get(file).duration,in:base+x.trimIn,out:base+x.trimOut})}
+      const first=info.get(clips[0].file),xml=buildXmeml({name:project.title||'Context Desk timeline',fps:first.fps,width:first.width,height:first.height,clips});
+      res.writeHead(200,{'Content-Type':'application/xml; charset=utf-8','Cache-Control':'no-store','Content-Disposition':'attachment; filename="context-desk-timeline.xml"'});res.end(xml);return}
+    catch(error){return json(res,400,{error:error.message})}finally{for(const release of releases)release()}}}
   if(req.url === '/api/status' && req.method === 'GET') {
     let voiceStudioAvailable=false;
     try {const response=await fetch(`${voiceStudioUrl}/health`,{signal:AbortSignal.timeout(1200)});voiceStudioAvailable=response.ok;} catch {}
