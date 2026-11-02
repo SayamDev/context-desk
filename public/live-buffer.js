@@ -5,8 +5,8 @@ const statusText={connecting:'Connecting to the stream…',live:'Recording the l
 const signalWhy={audio:'Sudden rise in loudness.',laugh:'Laughter heard in the stream audio.',chat:'Chat suddenly got much busier.',chatlaugh:'Lots of viewers laughing in chat.'};
 const clipState={rendering:['cue','Cutting',true],ready:['volt','Ready'],failed:['danger','Failed']};
 
-export function createLiveBuffer({getUrl=()=>'',onMessage=()=>{}}={}){
-  let panel,source,postTop,bufLabel,capText,capBadge,capToggle,status,clock,live,track,span,stop,alert,alertText,signals,monitor,monitorImg,monitorAt=0,auto,autoLevel,autoState,seenAuto=null,clipButtons=[],mark,marks,list,count,session=null,timer=null,busy=false;
+export function createLiveBuffer({getUrl=()=>'',getRecording=()=>null,onMessage=()=>{}}={}){
+  let replayButton=null,panel,source,postTop,bufLabel,capText,capBadge,capToggle,status,clock,live,track,span,stop,alert,alertText,signals,monitor,monitorImg,monitorAt=0,auto,autoLevel,autoState,seenAuto=null,clipButtons=[],mark,marks,list,count,session=null,timer=null,busy=false;
   async function call(url,body){
     const response=await fetch(url,body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     const data=await response.json().catch(()=>({}));if(!response.ok)throw Error(data.error||'Live clipping request failed.');return data;
@@ -81,6 +81,7 @@ export function createLiveBuffer({getUrl=()=>'',onMessage=()=>{}}={}){
     {const ids=(s?.clips||[]).filter(c=>c.auto).map(c=>c.id);if(seenAuto){const fresh=ids.filter(id=>!seenAuto.has(id));if(fresh.length)report(`Autopilot clipped a moment: ${s.clips.find(c=>c.id===fresh.at(-1)).reason}.`)}seenAuto=new Set(ids)}
     renderTrack(s);count.textContent=`Instant clips · ${s?.clips.length||0}`;
     list.replaceChildren(...[...(s?.clips||[])].reverse().map(clipRow));
+    if(replayButton){const r=getRecording();replayButton.hidden=!r?.id||active();replayButton.textContent=r?.title?`Replay “${r.title.slice(0,32)}” as live`:'Replay this recording as live'}
     postTop.disabled=!topReady();source.textContent=s?.source?.label?`${s.source.label}${s.source.height?` · ${s.source.height}p`:''}`:'';
     if(!s?.clips.length)list.append(el('li','lb-empty','Press 1, 2 or 3 while recording. Clips land here in about a second.'));
   }
@@ -94,6 +95,10 @@ export function createLiveBuffer({getUrl=()=>'',onMessage=()=>{}}={}){
     const intro=el('p','depth-help','Paste a live YouTube, Twitch or Kick link in the field above. Context Desk records it on this computer, keeps only the last 5 minutes, and cuts the last 15, 30 or 60 seconds the moment something happens.');
     const start=el('button','cd-btn cd-btn-secondary','Start live buffer');start.type='button';
     start.onclick=()=>{const url=String(getUrl()||'').trim();if(!url){report('Paste the live stream link first.');return}run(()=>call('/api/live-buffer',{url}))};
+    // Demo-safe: play the open saved recording into the desk at real speed, no network needed.
+    const replay=el('button','cd-btn cd-btn-ghost lb-replay','Replay this recording as live');replay.type='button';replay.title='Plays the open recording at real speed through the live desk, autopilot and Shorts. Works offline.';
+    replay.onclick=()=>{const r=getRecording();if(!r?.id){report('Open a saved recording first (Library or New video), then replay it here.');return}run(()=>call('/api/live-buffer',{replay:{sourceId:r.id,from:Math.floor(r.time||0)}}))};
+    replayButton=replay;
     monitor=el('figure','lb-monitor');monitor.hidden=true;monitorImg=el('img');monitorImg.alt='Latest frame from the live stream';capText=el('p','lb-caption');capBadge=el('span','cd-badge cd-badge-cue lb-cap-badge','Caption draft');capBadge.hidden=true;capToggle=el('button','cd-btn cd-btn-sm cd-btn-secondary lb-cap-toggle','Caption draft');capToggle.type='button';capToggle.setAttribute('aria-pressed','false');capToggle.title='Transcribe the newest 6 seconds every few seconds (uses your speech service)';capToggle.onclick=()=>session&&run(()=>call(`/api/live-buffer/${session.id}/captions`,{on:capToggle.getAttribute('aria-pressed')!=='true'}));
     monitor.append(monitorImg,badge('signal','Live',true),capBadge,capToggle,capText,el('figcaption','cd-label','Preview · updates every 2 s'));
     const desk=el('div','lb-desk'),main=el('section','cd-live'),head=el('div','cd-live-head'),left=el('div','cd-row');
@@ -112,7 +117,7 @@ export function createLiveBuffer({getUrl=()=>'',onMessage=()=>{}}={}){
     const queue=el('aside','lb-queue');count=el('span','cd-label','Instant clips · 0');postTop=el('button','cd-btn cd-btn-sm cd-btn-ghost','Post top');postTop.type='button';postTop.append(kbd('P'));postTop.onclick=()=>postClip(topReady());const qhead=el('div','lb-queue-head');qhead.append(count,postTop);list=el('ol','lb-list');queue.append(alert,qhead,list);
     desk.append(main,queue);
     const note=el('p','depth-help','Clips are cut without re-encoding, so they can start up to 2 seconds early. Times count from when you started recording. Use streams you have permission to clip.');
-    panel.append(intro,start,desk,note);
+    const starts=el('div','cd-row lb-starts');starts.append(start,replay);panel.append(intro,starts,desk,note);
     const form=document.getElementById('linkForm');if(form?.parentElement)form.after(panel);else (setup.querySelector('.source-setup-content')||setup).prepend(panel);
     render();resume();return true;
   }

@@ -26,6 +26,7 @@ import {captionLanguages,findVariant,translationGuide,scriptIssue,romanizations}
 import {createDurableTranslationCache} from './lib/translation-store.js';
 import fs from 'node:fs/promises';
 import {createCodeStamp} from './lib/code-stamp.js';
+import {createImpact} from './lib/impact.js';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 
@@ -56,7 +57,8 @@ const timelineApi=createTimelineApi({store:studioStore(),claimSource:claimImport
 const reframeApi=createReframeApi({store:studioStore(),claimSource:claimImportSource});
 const creativeService=createCreativeAssetService({store:studioStore()});
 const bundleService=createBundleService({store:studioStore()});
-const liveBufferService=createLiveBufferService({transcribe:bytes=>process.env.MODEL_API_KEY?transcribe(bytes,'',[]):transcribeVoiceStudio(bytes,'',[]),postKit:({transcript})=>process.env.MODEL_API_KEY?writePostKit({transcript:clean(transcript,2400),hook:'',platform:'TikTok',language:'English'}):null});
+const impact=createImpact(studioStore());
+const liveBufferService=createLiveBufferService({onShortReady:stat=>impact.recordShort(stat),claimSource:claimImportSource,transcribe:bytes=>process.env.MODEL_API_KEY?transcribe(bytes,'',[]):transcribeVoiceStudio(bytes,'',[]),postKit:({transcript})=>process.env.MODEL_API_KEY?writePostKit({transcript:clean(transcript,2400),hook:'',platform:'TikTok',language:'English'}):null});
 const liveOptions=new Map();let liveAnalysisQueue=Promise.resolve();
 const liveService=createLiveIngestService({store:studioStore(),onWindow:payload=>{const pending=liveAnalysisQueue.then(()=>analyseLiveWindow(payload));liveAnalysisQueue=pending.catch(()=>{});return pending}});
 const productApi=createProductApi({store:studioStore(),search:createMomentSearch({store:studioStore()}),live:liveService,social:createSocialPublishingService({store:studioStore()}),onLiveOptions:(projectId,options)=>{liveOptions.set(projectId,{...options,requests:0});studioStore().putRecord('live_options',projectId,{...options,requests:0})}});
@@ -90,6 +92,7 @@ const server = http.createServer(async (req,res) => {
       if(req.method!=='POST')return json(res,405,{error:'Method not allowed'});let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>50000)throw Error('Job request is too large.')}const body=JSON.parse(raw||'{}');return json(res,202,route===base?service.start(body):service.command(route.split('/').at(-1),body.action));
     }catch(error){return json(res,400,{error:error.message})}
   }
+  if(req.url === '/api/impact' && req.method === 'GET') return json(res,200,impact.summary());
   if(req.url === '/api/status' && req.method === 'GET') {
     let voiceStudioAvailable=false;
     try {const response=await fetch(`${voiceStudioUrl}/health`,{signal:AbortSignal.timeout(1200)});voiceStudioAvailable=response.ok;} catch {}
