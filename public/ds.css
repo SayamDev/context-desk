@@ -657,3 +657,15 @@ body.simple-mode .memory-panel,body.simple-mode .more-exports,body.simple-mode .
 .setup-check h3{margin:0 0 8px;font-size:16px}.setup-check p{margin:8px 0 0;font-size:13px;color:var(--muted)}
 .setup-item{display:grid;gap:2px;padding:8px 0;border-top:1px solid var(--line)}.setup-item strong{font-size:14px}.setup-item.is-needed strong{color:var(--warning)}
 .setup-item span{font-size:13px;color:var(--muted)}.setup-item code{font:12px/1.4 'Geist Mono',monospace;color:var(--text);overflow-wrap:anywhere}
+/* Permanent delete (Library > Trash): a destructive action reads as one */
+.project-delete {color:var(--danger);background:transparent;border:1px solid var(--danger);white-space:nowrap}
+.project-delete:hover:not(:disabled) {background:var(--surface-raised)}
+/* Home: clips or subtitles for the whole video */
+.home-intent {display:flex;flex-wrap:wrap;gap:var(--space-2);border:0;padding:0;margin:0 0 var(--space-2);min-width:0}
+.home-intent legend {padding:0;margin-bottom:var(--space-2);font-size:14px;font-weight:600}
+.home-intent label {display:inline-flex!important;flex-direction:row!important;align-items:center;gap:var(--space-2);min-height:40px;padding:0 var(--space-4);border:1px solid var(--line-strong);border-radius:var(--radius-pill);font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap}
+.home-intent label:has(input:checked) {background:var(--surface-3);border-color:var(--text)}
+.home-intent label:has(input:focus-visible) {outline:2px solid var(--focus);outline-offset:2px}
+.home-intent input {margin:0;accent-color:var(--accent)}
+.home-intent-note {margin:0 0 var(--space-3);color:var(--muted);font-size:14px;line-height:1.5}
+body[data-intent=translate] .cd-drop-meta .cd-badge {display:none}

@@ -7,7 +7,7 @@ import {createSocialPublishingService} from './lib/social-publishing.js';
 import {createProductApi} from './lib/product-api.js';
 import {speechCues} from './public/timing.js';
 import http from 'node:http';
-import {handleImport,claimImportSource,extractAudio} from './lib/imports.js';
+import {handleImport,claimImportSource,extractAudio,assertSourceRemovable,removeImportSource,removeOrphanSources} from './lib/imports.js';
 import {createProjectApi} from './lib/projects.js';
 import {studioStore} from './lib/store.js';
 import {createSubtitleService,recoverLegacySubtitles} from './lib/subtitles.js';
@@ -55,7 +55,7 @@ const discoveryService=createDiscoveryService({store:studioStore(),claimSource:c
   transcribe:(bytes,o)=>o.speechProvider==='voicestudio'?transcribeVoiceStudio(bytes,o.speechLanguage,o.keywords):transcribe(bytes,o.speechLanguage,o.keywords),analyse,
   translate:(cues,o)=>o.translationProvider==='voicestudio'?translateVoiceStudio(cues,o.language,o.speechLanguage,o.dialectNote):translate(cues,o.language,o.dialectNote,o.translationMode,o.glossary)});
 const exportService=createExportService({store:studioStore(),claimSource:claimImportSource});
-const projectApi=createProjectApi(undefined,{codeStale:()=>codeStamp.stale()});
+const projectApi=createProjectApi(undefined,{codeStale:()=>codeStamp.stale(),sources:{assertRemovable:assertSourceRemovable,remove:removeImportSource,removeOrphans:removeOrphanSources}});
 const memoryApi=createMemoryApi(studioStore());
 const brandApi=createBrandApi(studioStore());
 const timelineApi=createTimelineApi({store:studioStore(),claimSource:claimImportSource});
