@@ -84,7 +84,7 @@ enhanceSegmented($('aspectSelect'),{label:'Format',labels:{portrait:['9:16','Tik
   // Setup check: lists anything missing on this computer, what it blocks, and the exact fix.
   void requestJson('/api/health').then(({checks})=>{const missing=checks.filter(c=>!c.ok);if(!missing.length)return;
     const box=Object.assign(document.createElement('section'),{className:'setup-check'});box.setAttribute('aria-label','Setup check');
-    box.append(Object.assign(document.createElement('h3'),{textContent:missing.some(c=>c.needed)?'Finish setting up this computer':'Optional extras you can turn on'}),
+    box.append(Object.assign(document.createElement('h2'),{textContent:missing.some(c=>c.needed)?'Finish setting up this computer':'Optional extras you can turn on'}),
       ...missing.map(c=>{const row=document.createElement('div');row.className='setup-item'+(c.needed?' is-needed':'');row.append(Object.assign(document.createElement('strong'),{textContent:c.label+(c.needed?'':' (optional)')}),Object.assign(document.createElement('span'),{textContent:'Needed for: '+c.blocks}),Object.assign(document.createElement('code'),{textContent:c.fix}));return row}),
       Object.assign(document.createElement('p'),{textContent:'Tip: run npm run setup in the project folder; it installs what it can and lists the rest.'}));
     guide.element.after(box)}).catch(()=>{});}
@@ -779,7 +779,7 @@ function renderInspector(){
   box.dataset.clip=m.id;box.dataset.rev=String(m.trimIn)+m.trimOut+m.captionStyle+state.aspect+clipState(m);box.replaceChildren();
   const head=el('div','cd-row ds-inspector-head'),[tone,text,dot]=clipStatus(m);head.append(badge(tone,text,dot));
   if(Number.isFinite(m.analysis?.rankingScore))head.append(scoreMeter(m.analysis.rankingScore,{size:'sm',animate:false}));
-  const title=el('h3','ds-inspector-title',m.hook||'Review this window');
+  const title=el('h2','ds-inspector-title',m.hook||'Review this window');
   // Preview in the project format with the clip's caption look over its hook.
   const frame=el('div','ds-inspector-frame');frame.dataset.aspect=state.aspect;frame.style.aspectRatio={portrait:'9 / 16',square:'1 / 1',fourfive:'4 / 5',landscape:'16 / 9'}[state.aspect]||'9 / 16';
   if(clipThumb(m)){const img=el('img');img.src=clipThumb(m);img.alt=`Source frame at ${formatTime(m.start)}`;frame.append(img)}
