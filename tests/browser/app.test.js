@@ -89,6 +89,55 @@ test('an uploaded video becomes a saved project that survives a reload',async()=
   }finally{await app.stop();await fs.rm(dir,{recursive:true,force:true})}
 });
 
+test('a trashed video is deleted for good, and Empty Trash also clears leftover recordings',async()=>{
+  const dir=await fs.mkdtemp(path.join(os.tmpdir(),'context-sample-')),file=path.join(dir,'sample.mp4');
+  execFileSync(ffmpeg,['-v','error','-y','-f','lavfi','-i','testsrc=size=320x180:rate=25:duration=3','-f','lavfi','-i','sine=frequency=440:duration=3','-c:v','libx264','-pix_fmt','yuv420p','-c:a','aac','-shortest',file]);
+  const app=await startApp({env:{FFMPEG_PATH:ffmpeg}}),api=(url,body)=>fetch(app.url+url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(r=>r.json());
+  const exists=p=>fs.access(p).then(()=>true,()=>false);
+  try{
+    const {page,problems}=await watchedPage(browser,app.url);
+    await page.setInputFiles('#fileInput',file);await page.getByText('All changes saved',{exact:false}).first().waitFor();
+    const [uploaded]=(await (await fetch(app.url+'/api/projects')).json()).projects,sourceDir=path.join(app.dataDir,'sources',uploaded.sourceId);
+    assert.ok(await exists(sourceDir));
+    await api('/api/projects/'+uploaded.id,{action:'trash',trashed:true});
+    await page.locator('.workspace-nav [data-workspace=library]').click();await page.locator('#showProjectTrash').check();
+    page.once('dialog',dialog=>dialog.accept());
+    await page.getByRole('button',{name:'Delete forever'}).click();
+    await page.waitForFunction(()=>location.hash==='#/home');await page.waitForLoadState('networkidle');
+    assert.equal(await exists(sourceDir),false);
+    assert.deepEqual((await (await fetch(app.url+'/api/projects?trash=1')).json()).projects,[]);
+    // A leftover recording folder no project uses, and one more trashed project.
+    const leftover=path.join(app.dataDir,'sources','66666666-6666-4666-8666-666666666666');await fs.mkdir(leftover,{recursive:true});await fs.writeFile(path.join(leftover,'source.mp4'),'x'.repeat(5000));
+    const extra=await api('/api/projects',{title:'Old live session'});await api('/api/projects/'+extra.id,{action:'trash',trashed:true});
+    await page.locator('.workspace-nav [data-workspace=library]').click();await page.locator('#showProjectTrash').check();
+    page.once('dialog',dialog=>dialog.accept());
+    await page.getByRole('button',{name:/Empty Trash/}).click();
+    await page.getByText('Deleted 1 project for good.',{exact:false}).waitFor();
+    assert.equal(await exists(leftover),false);
+    assert.deepEqual(problems,[]);
+  }finally{await app.stop();await fs.rm(dir,{recursive:true,force:true})}
+});
+
+test('Home > Subtitles for the whole video opens the whole-video track instead of a clip scan',async()=>{
+  const dir=await fs.mkdtemp(path.join(os.tmpdir(),'context-sample-')),file=path.join(dir,'talk.mp4');
+  execFileSync(ffmpeg,['-v','error','-y','-f','lavfi','-i','testsrc=size=320x180:rate=25:duration=3','-f','lavfi','-i','sine=frequency=440:duration=3','-c:v','libx264','-pix_fmt','yuv420p','-c:a','aac','-shortest',file]);
+  const app=await startApp({env:{FFMPEG_PATH:ffmpeg}});
+  try{
+    const {page,problems}=await watchedPage(browser,app.url);
+    await page.getByRole('radio',{name:'Subtitles for the whole video'}).check();
+    assert.match(await page.locator('#openStream').innerText(),/Subtitle video/);
+    await page.setInputFiles('#fileInput',file);
+    await page.waitForFunction(()=>document.getElementById('wholeSubtitleDetails')?.open);
+    // No AI key in tests: it explains what is needed instead of starting a clip scan.
+    await page.getByText('Translating the whole recording needs the Meta key',{exact:false}).waitFor();
+    assert.equal(await page.locator('#batchProgress').innerText(),'Video ready. Subtitles for the whole video are below.');
+    await page.reload({waitUntil:'networkidle'});
+    await page.locator('.ds-rail .brand-home, a[aria-label="Context Desk home"]').first().click();
+    assert.equal(await page.getByRole('radio',{name:'Subtitles for the whole video'}).isChecked(),true);
+    assert.deepEqual(problems,[]);
+  }finally{await app.stop();await fs.rm(dir,{recursive:true,force:true})}
+});
+
 test('the Classic look switch turns the restyle off, survives a reload and turns it back on',async()=>{
   const app=await startApp({env:{FFMPEG_PATH:ffmpeg}});
   try{
