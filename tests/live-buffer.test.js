@@ -34,3 +34,10 @@ test('audio peaks need a baseline, a clear rise and an audible level',()=>{
   assert.equal(detectPeak(Array(12).fill(-40),-26),true);
   assert.equal(detectPeak(steady,NaN),false);
 });
+import {planRange} from '../lib/live-buffer.js';
+test('+10s plans an exact earlier range and refuses footage that left the buffer',()=>{
+  const segs=Array.from({length:10},(_,i)=>({file:`seg${String(i).padStart(6,'0')}.ts`,start:1000+i*2,end:1002+i*2}));
+  assert.deepEqual(planRange(segs,1005,1015),{files:['seg000002.ts','seg000003.ts','seg000004.ts','seg000005.ts','seg000006.ts','seg000007.ts'],offset:1,duration:10,start:1005,end:1015});
+  assert.equal(planRange(segs,990,1004).start,1000);
+  assert.throws(()=>planRange(segs,900,950),/left the 5-minute buffer/);
+});

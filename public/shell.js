@@ -15,6 +15,7 @@ export function mountShell({openPalette}){
   const label=el('span','cd-label ds-rail-label','Workspace');
   nav.setAttribute('aria-orientation','vertical');
   const dock=el('div','ds-rail-dock');const activity=$('activityPanel');if(activity)dock.append(activity);
+  if(activity){activity.querySelector('.activity-spinner')?.classList.add('ds-live-badge');const cancel=el('button','cd-btn cd-btn-sm cd-btn-ghost','Cancel');cancel.type='button';cancel.id='activityCancel';cancel.hidden=true;cancel.onclick=()=>$('cancelImport')?.click();activity.append(cancel)}
   const settings=$('openSettings');if(settings)dock.append(settings);
   rail.append(brand,newVideo,label,nav,el('div','ds-rail-grow'),dock);
   app.insertBefore(rail,main);document.body.classList.add('ds-shell');
@@ -22,7 +23,7 @@ export function mountShell({openPalette}){
   // Top bar: paste a link from anywhere (LinkDrop compact) and open ⌘K search.
   const drop=el('form','cd-drop cd-drop-compact ds-topdrop');drop.setAttribute('aria-label','Paste a video link');
   const input=el('input','cd-input');input.type='url';input.placeholder='Paste a YouTube, Twitch or Kick link…';input.setAttribute('aria-label','Video link');input.autocomplete='off';input.required=true;
-  const go=el('button','cd-btn cd-btn-sm cd-btn-primary','Find clips');go.type='submit';
+  const go=el('button','cd-btn cd-btn-sm cd-btn-primary','Make clips →');go.type='submit';
   drop.append(input,go);
   drop.onsubmit=event=>{event.preventDefault();const url=input.value.trim();if(!url)return;$('streamUrl').value=url;$('linkForm').requestSubmit();input.value='';};
   const search=el('button','cd-btn cd-btn-sm cd-btn-secondary ds-search','Search');search.type='button';search.append(kbd('⌘K'));search.onclick=openPalette;

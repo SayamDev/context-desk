@@ -41,3 +41,16 @@ test('Discover sorts by editorial score and keeps discarded clips out of view un
   assert.deepEqual(visibleMoments(list,{sort:'time'}).map(x=>x.id),['a','b','c']);
   assert.deepEqual(visibleMoments(list,{filter:'dismissed'}).map(x=>x.id),['d']);
 });
+test('one clip state drives badges, chips and counts',async()=>{
+  const {clipState,visibleMoments}=await import('../public/studio-ui.js');
+  assert.equal(clipState({status:'analysing'}),'scanning');
+  assert.equal(clipState({status:'error'}),'failed');
+  assert.equal(clipState({status:'suggested',exportedAt:1}),'exported');
+  assert.equal(clipState({status:'suggested',showCaptions:true,captionLanguage:'Arabic',captionReviewed:{}}),'review');
+  assert.equal(clipState({status:'suggested',showCaptions:true,captionLanguage:'Arabic',captionReviewed:{Arabic:true}}),'ready');
+  assert.equal(clipState({status:'not-selected'}),'other');
+  const list=[{id:'a',start:1,status:'suggested'},{id:'b',start:2,status:'suggested',exportedAt:5},{id:'c',start:3,status:'stalled'}];
+  assert.deepEqual(visibleMoments(list,{filter:'ready'}).map(m=>m.id),['a']);
+  assert.deepEqual(visibleMoments(list,{filter:'exported'}).map(m=>m.id),['b']);
+  assert.deepEqual(visibleMoments(list,{filter:'review'}).map(m=>m.id),['c']);
+});

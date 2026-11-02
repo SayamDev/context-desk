@@ -10,7 +10,7 @@ export function mountLayout({navigate,onFilter,onView,onTrim,onSource}){
   one('.rail')?.remove();
   one('.wordmark').innerHTML='<svg class="brand-symbol" viewBox="0 0 40 44" aria-hidden="true"><path d="M6 15 31 3M6 28 34 14M10 40 34 28" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"/></svg><div>Context Desk<small>Every moment has context.</small></div>';
   const homeButton=element('button','','Home');homeButton.dataset.workspace='home';homeButton.type='button';nav.prepend(homeButton);
-  const labels={home:'Home',library:'Projects',clips:'Discover',edit:'Studio',jobs:'Activity',source:'New video'};
+  const labels={home:'Home',library:'Library',clips:'Clips',edit:'Studio',jobs:'Exports',source:'New video'};
   for(const value of ['home','library','clips','edit','jobs','source']){
     const button=nav.querySelector(`[data-workspace="${value}"]`),count=button.querySelector('b');
     button.replaceChildren(document.createTextNode(labels[value]));if(count)button.append(count);nav.append(button);
@@ -36,7 +36,7 @@ export function mountLayout({navigate,onFilter,onView,onTrim,onSource}){
   dialog.addEventListener('close',()=>{$('importPreferences').prepend(one('.language-quick'));settings.focus()});
   const preferences=element('details','import-preferences','<summary id="importPreferencesSummary">Language & clip preferences</summary>');preferences.id='importPreferences';
   for(const selector of ['.language-quick','.link-support','.auto-generate','.link-options','.link-rights']){const node=one(selector);if(node)preferences.append(node)}$('linkForm').append(preferences);
-  $('linkForm').querySelector('label[for=streamUrl]').textContent='Paste a video link';$('openStream').replaceChildren(document.createTextNode('Find clips'));$('screenButton').type='button';$('screenButton').replaceChildren(document.createTextNode('Clip live'));
+  $('linkForm').querySelector('label[for=streamUrl]').textContent='Drop a link. Make a moment.';$('openStream').replaceChildren(document.createTextNode('Make clips →'));$('screenButton').type='button';$('screenButton').replaceChildren(document.createTextNode('Clip live'));
   for(const node of $('fileInput').closest('label').childNodes)if(node.nodeType===Node.TEXT_NODE)node.textContent='Upload video';
   // Quick language choices stay beside import; all advanced inputs live once in Settings.
   const setup=element('details','source-setup','<summary>Source & live controls</summary><div class="source-setup-content"></div>');setup.id='sourceSetup';setup.open=true;
@@ -81,7 +81,7 @@ export function mountLayout({navigate,onFilter,onView,onTrim,onSource}){
   const panels={caption,style:stylePanel,story:storyPanel,export:exportPanel};
   function inspector(active){for(const [name,panel]of Object.entries(panels)){panel.hidden=name!==active;$(name+'Tab').setAttribute('aria-pressed',String(name===active))}}
   for(const name of Object.keys(panels))$(name+'Tab').onclick=()=>inspector(name);inspector('caption');
-  const exportTrigger=element('button','studio-export-trigger',icon('export')+'Export');exportTrigger.id='studioExportTrigger';exportTrigger.type='button';exportTrigger.onclick=()=>{inspector('export');$('socialDestination').focus()};one('.editor-title').append(exportTrigger);
+  const exportTrigger=element('button','studio-export-trigger',icon('export')+'Export clip ↗');exportTrigger.id='studioExportTrigger';exportTrigger.type='button';exportTrigger.onclick=()=>{inspector('export');$('socialDestination').focus()};one('.editor-title').append(exportTrigger);
   const cover=element('button','','Download cover frame');cover.id='saveCoverFrame';cover.type='button';exportPanel.append(cover);
   const navigator=element('aside','studio-clips','<div class="studio-clips-heading"><h3>Clips</h3><span id="studioClipCount"></span></div><div id="studioClipList"></div>');navigator.setAttribute('aria-label','Switch clips');one('.editor-grid').prepend(navigator);
   const advanced=element('details','caption-advanced','<summary>Timing, dialect & advanced tools</summary>');
@@ -95,8 +95,8 @@ export function mountLayout({navigate,onFilter,onView,onTrim,onSource}){
   one('.editor').after($('wholeSubtitles'));
   const originalEvidence=one('.evidence');originalEvidence.querySelector('summary').textContent='Source evidence & story shape';
   one('.more-exports summary').textContent='Other exports';
-  $('backToClips').textContent='Discover';
-  setButtonLabel('backToClips','Discover','back');setButtonLabel('playPause','Play','play');setButtonLabel('restartClip','Restart','restart');setButtonLabel('exportButton','Export clip','export');
+  $('backToClips').textContent='Clips';
+  setButtonLabel('backToClips','Clips','back');setButtonLabel('playPause','Play','play');setButtonLabel('restartClip','Restart','restart');setButtonLabel('exportButton','Export clip','export');
   one('footer').innerHTML='<span>Context Desk · Open-source production studio</span><span>Local projects. Source-linked stories.</span>';
   // Newly mounted navigation uses the same owning workspace controller.
   nav.querySelectorAll('button').forEach(button=>button.onclick=()=>navigate(button.dataset.workspace));

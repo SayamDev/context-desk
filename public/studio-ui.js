@@ -1,8 +1,19 @@
 // Read-only presentation helpers. Project/session modules remain the state owners.
+// One state per clip, shared by badges, filter chips and counts (design-system statuses).
+const attention=['error','interrupted','needs-key','budgeted','stalled'];
+export function clipState(m){
+  if(m.status==='analysing')return 'scanning';
+  if(m.status==='error')return 'failed';
+  if(m.exportedAt)return 'exported';
+  if(attention.includes(m.status)||(m.showCaptions&&!m.captionReviewed?.[m.captionLanguage]&&m.captionLanguage&&m.captionLanguage!=='Original'))return 'review';
+  if(m.status==='suggested'||m.approved||m.manual)return 'ready';
+  return 'other';
+}
 export function visibleMoments(moments,{query='',filter='all',direction='asc',sort='time'}={}){
   const words=query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
   return moments.filter(m=>{
     if((filter==='dismissed')!==Boolean(m.dismissed))return false;
+    if(['ready','review','exported'].includes(filter)&&clipState(m)!==filter)return false;
     if(filter==='supported'&&m.status!=='suggested'&&!m.approved&&!m.manual)return false;
     if(filter==='attention'&&!['error','interrupted','needs-key','budgeted','stalled'].includes(m.status))return false;
     const text=[m.hook,m.transcript,m.analysis?.evidence,m.analysis?.reason,m.analysis?.beatType].filter(Boolean).join(' ').toLocaleLowerCase();

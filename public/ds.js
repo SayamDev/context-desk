@@ -30,11 +30,11 @@ function watchSelect(select,refresh){
 function choose(select,value){if(select.value===value||select.disabled)return;select.value=value;select.dispatchEvent(new Event('input',{bubbles:true}));select.dispatchEvent(new Event('change',{bubbles:true}));}
 
 // One-tap preset picker with a sliding thumb, built from a <select>.
-export function enhanceSegmented(select,{label,hints={}}={}){
+export function enhanceSegmented(select,{label,hints={},labels={},order}={}){
   if(!select||select.dataset.enhanced)return null;select.dataset.enhanced='segmented';
   const root=el('div','cd-seg');root.setAttribute('role','radiogroup');root.setAttribute('aria-label',label||select.labels?.[0]?.textContent?.trim()||'Options');
   const thumb=el('span','cd-seg-thumb');thumb.setAttribute('aria-hidden','true');root.append(thumb);
-  const options=[...select.options],buttons=options.map(option=>{const b=el('button',undefined,option.textContent.replace(/\s*\d+:\d+$/,'').trim());b.type='button';b.setAttribute('role','radio');const hint=hints[option.value]||(option.textContent.match(/\d+:\d+$/)||[])[0];if(hint)b.append(el('small',undefined,hint));b.onclick=()=>choose(select,option.value);root.append(b);return b;});
+  const options=order?order.map(v=>[...select.options].find(o=>o.value===v)).filter(Boolean):[...select.options],buttons=options.map(option=>{const custom=labels[option.value],b=el('button',undefined,custom?custom[0]:option.textContent.replace(/\s*\d+:\d+$/,'').trim());b.type='button';b.setAttribute('role','radio');const hint=custom?custom[1]:hints[option.value]||(option.textContent.match(/\d+:\d+$/)||[])[0];if(hint)b.append(el('small',undefined,hint));b.onclick=()=>choose(select,option.value);root.append(b);return b;});
   thumb.style.width=`calc((100% - 6px) / ${options.length})`;
   const refresh=()=>{const i=Math.max(0,options.findIndex(o=>o.value===select.value));thumb.style.transform=`translateX(${i*100}%)`;buttons.forEach((b,j)=>{b.setAttribute('aria-checked',String(j===i));b.tabIndex=j===i?0:-1;b.disabled=select.disabled||options[j].disabled;});};
   root.addEventListener('keydown',event=>{const d=event.key==='ArrowRight'?1:event.key==='ArrowLeft'?-1:0;if(!d)return;event.preventDefault();const i=Math.max(0,options.findIndex(o=>o.value===select.value)),n=(i+d+options.length)%options.length;choose(select,options[n].value);buttons[n].focus();});
@@ -70,13 +70,13 @@ export function createBulkBar(host){
 export function createCommandPalette(commands){
   const dialog=el('dialog','cd-cmd-dialog');dialog.setAttribute('aria-label','Command palette');
   const box=el('div','cd-cmd'),head=el('div','cd-cmd-input'),input=el('input'),list=el('ul','cd-cmd-list'),foot=el('div','cd-cmd-foot');
-  input.placeholder='Search actions and screens…';input.setAttribute('role','combobox');input.setAttribute('aria-controls','cdCmdList');input.setAttribute('aria-expanded','true');list.id='cdCmdList';list.setAttribute('role','listbox');
+  input.placeholder='Search clips, sources or run an action…';input.setAttribute('role','combobox');input.setAttribute('aria-controls','cdCmdList');input.setAttribute('aria-expanded','true');list.id='cdCmdList';list.setAttribute('role','listbox');
   head.append(el('span','cd-cmd-glyph','⌘'),input,kbd('esc'));
   for(const [keys,text] of [[['↑','↓'],'move'],[['↵'],'run'],[['esc'],'close']]){const s=el('span');keys.forEach(k=>s.append(kbd(k)));s.append(document.createTextNode(' '+text));foot.append(s);}
   box.append(head,list,foot);dialog.append(box);document.body.append(dialog);
   let items=[],current=0;
   function render(){
-    const q=input.value.trim().toLowerCase();items=commands().filter(c=>c.enabled?.()!==false&&(c.label+' '+(c.hint||'')+' '+(c.group||'')).toLowerCase().includes(q));current=Math.min(current,Math.max(0,items.length-1));
+    const q=input.value.trim().toLowerCase(),rank=g=>({Actions:0,Clips:1,'Go to':2}[g]??3);items=commands().sort((a,b)=>rank(a.group)-rank(b.group)).filter(c=>c.enabled?.()!==false&&(c.label+' '+(c.hint||'')+' '+(c.group||'')).toLowerCase().includes(q));current=Math.min(current,Math.max(0,items.length-1));
     list.replaceChildren();let group=null;
     if(!items.length){list.append(el('li','cd-cmd-empty','No matching action.'));return;}
     items.forEach((c,i)=>{if(c.group&&c.group!==group){group=c.group;const g=el('li','cd-cmd-group cd-label',group);g.setAttribute('role','presentation');list.append(g);}
@@ -107,4 +107,37 @@ export function toast(text,{action,run,timeout=6000}={}){
   const close=()=>{clearTimeout(timer);node.classList.add('is-leaving');setTimeout(()=>node.remove(),180);};
   if(action){const b=el('button','cd-btn cd-btn-sm cd-btn-secondary',action);b.type='button';b.onclick=()=>{close();run?.();};node.append(b);}
   toastHost.append(node);timer=setTimeout(close,timeout);return close;
+}
+
+// Real waveform peaks (0-1) for a clip window: short saved clips are decoded directly,
+// imported recordings ask the server for just that section (up to 60 s).
+const peakCache=new Map();
+export async function audioPeaks(m,count=72){
+  const key=`${m.url}|${m.start}|${m.end}|${count}`;if(peakCache.has(key))return peakCache.get(key);
+  const task=(async()=>{
+    let bytes;
+    if(/^\/api\/import\/[\w-]+\/media$/.test(m.url||'')){const id=m.url.split('/')[3],r=await fetch(`/api/import/${id}/audio`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({start:m.start,end:Math.min(m.end,m.start+60)})});if(!r.ok)throw Error('busy');bytes=await (await fetch((await r.json()).data)).arrayBuffer()}
+    else if(/^\/api\/assets\//.test(m.url||'')){bytes=await (await fetch(m.url)).arrayBuffer()}else return null;
+    const ctx=new (window.OfflineAudioContext||window.webkitOfflineAudioContext)(1,1,44100),audio=await ctx.decodeAudioData(bytes),data=audio.getChannelData(0),step=Math.max(1,Math.floor(data.length/count)),peaks=[];
+    for(let i=0;i<count;i++){let sum=0;for(let j=i*step;j<Math.min(data.length,(i+1)*step);j+=4)sum+=data[j]*data[j];peaks.push(Math.sqrt(sum/(step/4)))}
+    const max=Math.max(...peaks,1e-6);return peaks.map(p=>p/max);
+  })().catch(()=>{peakCache.delete(key);return null});
+  peakCache.set(key,task);return task;
+}
+
+// TrimTimeline: waveform track, cue selection with draggable handles, I/O footer.
+export function createTrim({duration,value,peaks,markers=[],playhead,onInput,onCommit}){
+  const root=el('div','cd-trim'),track=el('div','cd-trim-track'),sel=el('div','cd-trim-sel'),inner=el('div'),innerWave=el('div'),hin=el('button','cd-handle cd-handle-in'),hout=el('button','cd-handle cd-handle-out'),foot=el('div','cd-trim-foot');
+  let range=[...value];const wave=()=>{const w=el('div','cd-wave');w.setAttribute('aria-hidden','true');for(const p of peaks||Array(72).fill(.08))w.append(Object.assign(el('i'),{style:`height:${Math.max(8,Math.round(p*100))}%`}));return w};
+  inner.style.cssText='position:absolute;inset:0;overflow:hidden';innerWave.style.cssText='position:absolute;top:0;bottom:0';innerWave.append(wave());inner.append(innerWave);
+  hin.type=hout.type='button';sel.append(inner,hin,hout);track.append(wave());
+  for(const m of markers){const d=el('span','cd-marker');d.title=m.label;d.style.left=`${m.t/duration*100}%`;track.append(d)}
+  track.append(sel);if(Number.isFinite(playhead)){const p=el('span','cd-playhead');p.style.left=`${playhead/duration*100}%`;track.append(p)}
+  const inTime=el('span','cd-tc'),len=el('span','cd-label'),outTime=el('span','cd-tc'),left=el('span','cd-row'),right=el('span','cd-row');left.append(kbd('I'),inTime);right.append(outTime,kbd('O'));foot.append(left,len,right);root.append(track,foot);
+  const draw=()=>{const L=range[0]/duration*100,W=(range[1]-range[0])/duration*100;sel.style.left=`${L}%`;sel.style.width=`${W}%`;innerWave.style.left=`${-L/W*100}%`;innerWave.style.width=`${100/W*100}%`;inTime.textContent=formatTime(range[0]);outTime.textContent=formatTime(range[1]);len.textContent=`${(range[1]-range[0]).toFixed(1)}s clip`;hin.setAttribute('aria-label','Trim in '+formatTime(range[0]));hout.setAttribute('aria-label','Trim out '+formatTime(range[1]))};
+  const set=(which,t)=>{t=Math.round(Math.max(0,Math.min(duration,t))*10)/10;range=which===0?[Math.min(t,range[1]-1),range[1]]:[range[0],Math.max(t,range[0]+1)];draw();onInput?.(range)};
+  const drag=which=>event=>{event.preventDefault();const r=track.getBoundingClientRect(),move=ev=>set(which,(ev.clientX-r.left)/r.width*duration),up=()=>{removeEventListener('pointermove',move);removeEventListener('pointerup',up);onCommit?.(range)};addEventListener('pointermove',move);addEventListener('pointerup',up)};
+  const nudge=which=>event=>{const d=event.key==='ArrowLeft'?-.1:event.key==='ArrowRight'?.1:0;if(!d)return;event.preventDefault();set(which,range[which]+d*(event.shiftKey?10:1));onCommit?.(range)};
+  hin.onpointerdown=drag(0);hout.onpointerdown=drag(1);hin.onkeydown=nudge(0);hout.onkeydown=nudge(1);draw();
+  return {el:root,set(v){range=[...v];draw()},setPeaks(p){peaks=p;track.querySelector('.cd-wave')?.replaceWith(wave());innerWave.replaceChildren(wave());draw()}};
 }
