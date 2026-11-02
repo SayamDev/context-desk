@@ -17,6 +17,8 @@ import {createEditorTools} from './editor-tools.js';
 import {createBrandControls} from './brand-controls.js';
 import {cleanCaptionLook,captionFontSize,captionPlacement} from './brand-kit.js';
 import {workspaceFromHash,workspaceHash,usableMoments} from './workspaces.js';
+import {createGuide} from './guide.js';
+import {enhanceDestinations} from './destinations.js';
 import {mountLayout,icon,setButtonLabel} from './layout.js';
 import {clipState,visibleMoments,coverageSummary,sourcePosition,clampTrim,momentLanes} from './studio-ui.js';
 import {createHistory,splitEdits} from './history.js';
@@ -63,6 +65,20 @@ const brandControls=createBrandControls({getSelected:()=>state.moments.find(m=>m
 discoveryTools=createDiscoveryTools({requestJson:async(url,options)=>{if(url==='/api/moment-search')await projectSession.flush();return requestJson(url,options)},getProject:()=>projectSession?.current?{...projectSession.current,state:{...projectSession.current.state,aiCalls:state.aiCalls}}:null,getSelected:()=>state.moments.find(m=>m.id===state.selected),getMoments:()=>state.moments,onSelect:selectMoment,onMessage:message,onChanged:()=>projectSession?.changed(),onTranscriptEdit:async(result,source)=>{const before=editSnapshot();for(const segment of result.segments){segment.splitCreated=true;segment.manual=true;segment.status='manual';splitOriginals.set(segment.id,structuredClone(segment));state.moments.push(segment)}const ids=result.segments.map(m=>m.id),position=state.cut.indexOf(source.id);if(position>=0)state.cut.splice(position,1,...ids);else state.cut.push(...ids);state.selected=ids[0];editHistory.record(before,editSnapshot(),'transcript-cut');projectSession.changed();renderQueue();renderBatchResults();renderCut();await selectMoment(ids[0],{scroll:false});message(`${ids.length} editable segment${ids.length===1?'':'s'} added to your Story cut. Original footage and captions are retained.`)}});
 liveBuffer=createLiveBuffer({getUrl:()=>$('streamUrl')?.value,getRecording:()=>state.source?.importId?{id:state.source.importId,title:state.sourceName||'',time:program.currentTime}:null,onMessage:message});liveBuffer.sync();
 enhanceSegmented($('aspectSelect'),{label:'Format',labels:{portrait:['9:16','TikTok'],square:'1:1 Feed'.split(' '),fourfive:['4:5','Feed'],landscape:['16:9','YouTube']},order:['portrait','square','fourfive','landscape']});
+// Beginner guide: progress is read from the project; each Next action jumps to the right place.
+{const guide=createGuide({
+  getState:()=>{const m=state.moments.find(x=>x.id===state.selected),clips=usableMoments(state.moments).length;
+    const toCheck=m?activeCues(m).filter(c=>c.uncertain).length+(Number($('captionLineCount')?.textContent.match(/(\d+) to check/)?.[1])||0):0;
+    return {hasSource:Boolean(state.source||state.moments.length),finding:Boolean(state.batchRunning||state.moments.some(x=>x.status==='analysing')),clips,selected:Boolean(m),toCheck,reviewed:Boolean(m?.captionReviewed?.[m.captionLanguage]),exported:Boolean(m?.exportedAt)}},
+  run:async action=>{
+    if(action==='add-video'){showWorkspace('home');$('streamUrl')?.focus();return}
+    if(action==='find-clips'){if(!$('batchButton').disabled)$('batchButton').click();else showWorkspace('clips');return}
+    if(action==='open-clip'){const best=[...usableMoments(state.moments)].sort((a,b)=>(b.analysis?.score||0)-(a.analysis?.score||0))[0];if(best){await selectMoment(best.id);showWorkspace('edit')}return}
+    showWorkspace('edit');
+    if(action==='check-subtitles'){$('captionTab')?.click();const w=document.querySelector('.caption-workspace');if(w)w.open=true;if(!$('captionQaNext')?.hidden)$('captionQaNext').click();else $('captionLines')?.scrollIntoView({block:'start',behavior:'smooth'})}
+    if(action==='prepare-post'){$('exportTab')?.click();$('socialDestination')?.closest('section,div')?.scrollIntoView({block:'start',behavior:'smooth'})}
+  }});
+  const host=document.querySelector('.pagehead')?.parentElement;host?.prepend(guide.element);guide.render();setInterval(guide.render,1000);}
 // Caption style list comes from the shared catalogue (caption-styles.js).
 $('captionStyle').replaceChildren(...captionStyleIds.map(id=>new Option(captionStyles[id].label,id)));
 enhanceCaptionLooks($('captionStyle'),{getLook:()=>state.moments.find(x=>x.id===state.selected)?.captionLook||{}});
@@ -153,7 +169,9 @@ $('liveCaptionLanguage').value=userCaptionDefault();
 const captionWork=translationQueue(2);let captionWaiting=0,captionFailed=0;
 function projectCaptionTarget(){return $('liveCaptionLanguage').value||'Original'}
 function applySocialPreset(){const preset=socialPresets[$('socialDestination').value];if(!preset?.aspect){$('socialExportHint').textContent='Your current edit and export settings.';return}performEdit('social-preset',()=>{state.aspect=preset.aspect;$('aspectSelect').value=preset.aspect;$('exportQuality').value=String(preset.quality);$('exportFormat').value=preset.format==='mp4'?'auto':preset.format;setPreviewSize();drawPreview()});$('socialExportHint').textContent=preset.hint+' · choose Fit to preserve the whole image or Fill to crop.'}
-$('socialDestination').onchange=()=>{applySocialPreset();renderSocialGuidance()};$('applySocialPreset').onclick=applySocialPreset;
+// Destination tiles with a phone-frame preview of the current frame and the post caption.
+const destinations=enhanceDestinations($('socialDestination'),{getFrame:()=>{try{return $('previewCanvas').toDataURL('image/jpeg',.7)}catch{return null}},getCaption:()=>$('postCaption')?.value||''});
+$('socialDestination').onchange=()=>{applySocialPreset();renderSocialGuidance();setTimeout(()=>destinations?.refresh(),300)};$('applySocialPreset').onclick=applySocialPreset;
 function queueCaptionTarget(m){
   const language=inheritCaptionTarget(m,projectCaptionTarget()),owner=projectSession?.current?.id;
   if(projectSession?.restoring)return;
