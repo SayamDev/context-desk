@@ -58,6 +58,8 @@ discoveryTools=createDiscoveryTools({requestJson:async(url,options)=>{if(url==='
 liveBuffer=createLiveBuffer({getUrl:()=>$('streamUrl')?.value,onMessage:message});liveBuffer.sync();
 enhanceSegmented($('aspectSelect'),{label:'Format',labels:{portrait:['9:16','TikTok'],square:'1:1 Feed'.split(' '),fourfive:['4:5','Feed'],landscape:['16:9','YouTube']},order:['portrait','square','fourfive','landscape']});
 enhanceCaptionLooks($('captionStyle'));
+// Clip-length presets (design system SegmentedControl) sized into clip finding.
+{const target=$('clipTarget')?.closest('label');if(target&&!$('clipLength')){const label=Object.assign(document.createElement('label'),{className:'clip-length-label',textContent:'Clip length'}),select=Object.assign(document.createElement('select'),{id:'clipLength'});for(const [v,t] of [['auto','Auto'],['short','<30s'],['medium','30–60s'],['long','60–90s']])select.add(new Option(t,v));label.append(select);target.after(label);enhanceSegmented(select,{label:'Clip length'})}}
 // LinkDrop meta row (auto scan, limits, paste shortcut) and drop-a-file onto the link field.
 {const form=$('linkForm'),meta=el('div','cd-drop-meta'),auto=$('autoGenerate'),chip=el('span');const sync=()=>chip.replaceChildren(badge(auto?.checked?'volt':'neutral',auto?.checked?'Auto scan on':'Auto scan off'));sync();auto?.addEventListener('change',sync);
   meta.append(chip,el('span',undefined,'Up to 6 h · or drop a file'),kbd('⌘V'));form?.querySelector('.link-launch-row')?.after(meta);
@@ -118,7 +120,7 @@ const palette=createCommandPalette(()=>[
   {group:'Clips',label:'Show discarded clips',run:()=>{$('momentFilter').value='dismissed';renderQueue(false)}},
   {group:'Actions',label:'Settings',run:clickIf('openSettings')}
 ]);
-mountShell({openPalette:palette.open});
+mountShell({openPalette:palette.open,openBrandKit:()=>{const m=state.moments.find(x=>x.id===state.selected)||state.moments.find(x=>!x.dismissed&&x.status!=='analysing');if(!m){showWorkspace('library');toast('Open a project with clips to style them with your brand kit.');return}const go=()=>{document.getElementById('styleTab')?.click();document.querySelector('.brand-controls')?.scrollIntoView({block:'start',behavior:'smooth'})};if(state.selected===m.id&&document.body.dataset.workspace==='edit')go();else selectMoment(m.id).then(go)}});
 $('clipSort').onchange=()=>renderQueue(false);
 $('momentFilter').addEventListener('change',()=>renderQueue(false));
 liveControls=createLiveControls({requestJson,getProject:()=>projectSession?.current,onMessage:message,onJobs:()=>jobsView.refresh(),onChanged:async({projectId})=>{if(projectSession.current?.id===projectId){await projectSession.flush();await projectSession.open(projectId)}await homeView.refresh()},onReview:async projectId=>{await projectSession.open(projectId);$('momentFilter').value='all';renderQueue(false);showWorkspace('clips')}});
@@ -478,7 +480,7 @@ $('batchButton').onclick=async()=>{
   const remaining=aiLimit()?Math.max(0,aiLimit()-state.aiCalls):100;
   if(!remaining){batchProgress('Your AI window limit is reached. Raise it in Scan settings or review existing clips.');return}
   const button=$('batchButton');button.disabled=true;setActivity('queue','Saving your discovery job','Your source and language choices are being saved before processing.');
-  try{await projectSession.flush();const j=await requestJson('/api/discovery',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sourceId:state.source.importId,projectId:projectSession.current.id,depth:Number($('scanDepth').value),budget:Math.min(remaining,Number($('clipTarget').value)*3,100),speechProvider:$('speechProvider').value,translationProvider:$('translationProvider').value,speechLanguage:speechChoices(),keywords:$('speechKeywords').value,dialectNote:$('sourceDialect').value,translationMode:$('translationMode').value,glossary:$('glossary').value,memoryId:memoryView.id,context:$('showContext').value,storyLens:$('storyLens').value,language:$('liveCaptionLanguage').value,...(()=>{const options=discoveryTools.discoveryOptions();return {...options,strategy:options.strategy==='sampled'?'fast':options.strategy}})()})});state.batchId=j.id;projectSession.changed();await jobsView.refresh();batchProgress('Discovery queued. Open Jobs for progress; clips appear here as each check finishes.');}
+  try{await projectSession.flush();const j=await requestJson('/api/discovery',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sourceId:state.source.importId,projectId:projectSession.current.id,depth:Number($('scanDepth').value),clipLength:$('clipLength')?.value||'auto',budget:Math.min(remaining,Number($('clipTarget').value)*3,100),speechProvider:$('speechProvider').value,translationProvider:$('translationProvider').value,speechLanguage:speechChoices(),keywords:$('speechKeywords').value,dialectNote:$('sourceDialect').value,translationMode:$('translationMode').value,glossary:$('glossary').value,memoryId:memoryView.id,context:$('showContext').value,storyLens:$('storyLens').value,language:$('liveCaptionLanguage').value,...(()=>{const options=discoveryTools.discoveryOptions();return {...options,strategy:options.strategy==='sampled'?'fast':options.strategy}})()})});state.batchId=j.id;projectSession.changed();await jobsView.refresh();batchProgress('Discovery queued. Open Jobs for progress; clips appear here as each check finishes.');}
   catch(error){batchProgress(error.message)}finally{button.disabled=false;finishActivity('queue')}
 };
 
@@ -792,9 +794,9 @@ function drawCaption(context,moment,sourceTime){
   const pop=moment.captionStyle==='pop'?1+.06*Math.pow(1-Math.min(1,(sourceTime-cue.start)/.2),2):1;
   if(moment.captionStyle==='fade')context.globalAlpha=Math.max(0,Math.min(1,(sourceTime-cue.start)/.15,(cue.end-sourceTime)/.15));
   context.translate(width/2,centerY);context.scale(pop,pop);
-  if(moment.captionStyle==='clean'||moment.captionStyle==='highlight'){context.fillStyle=moment.captionStyle==='highlight'?look.accent:look.background+'df';context.fillRect(-maxWidth/2-fontSize*.16,-blockHeight/2,maxWidth+fontSize*.32,blockHeight);context.fillStyle=look.color;}
+  if(['clean','highlight','boxed'].includes(moment.captionStyle)){context.fillStyle=moment.captionStyle==='highlight'?look.accent:moment.captionStyle==='boxed'?'#000000d9':look.background+'df';context.fillRect(-maxWidth/2-fontSize*.16,-blockHeight/2,maxWidth+fontSize*.32,blockHeight);context.fillStyle=moment.captionStyle==='boxed'?'#ffffff':look.color;}
   else{context.lineWidth=Math.max(5,fontSize*.16);context.lineJoin='round';context.strokeStyle='#111016';context.fillStyle=look.color;}
-  lines.forEach((line,index)=>{const y=(index-(lines.length-1)/2)*lineHeight;if(!['clean','highlight'].includes(moment.captionStyle))context.strokeText(line,0,y,maxWidth);context.fillText(line,0,y,maxWidth)});
+  lines.forEach((line,index)=>{const y=(index-(lines.length-1)/2)*lineHeight;if(!['clean','highlight','boxed'].includes(moment.captionStyle))context.strokeText(line,0,y,maxWidth);context.fillText(line,0,y,maxWidth)});
   if(moment.captionStyle==='karaoke'&&moment.captionLanguage==='Original'&&cue.words?.length){
     const word=cue.words.find(w=>sourceTime>=(w.start+(moment.captionOffset||0))&&sourceTime<(w.end+(moment.captionOffset||0)));
     if(word){for(const [lineIndex,line]of lines.entries()){const wordIndex=line.indexOf(word.text);if(wordIndex<0)continue;const lineWidth=context.measureText(line).width,prefixWidth=context.measureText(line.slice(0,wordIndex)).width,wordWidth=context.measureText(word.text).width;const x=rtl?lineWidth/2-prefixWidth-wordWidth/2:-lineWidth/2+prefixWidth+wordWidth/2,y=(lineIndex-(lines.length-1)/2)*lineHeight;context.fillStyle=look.accent;context.strokeText(word.text,x,y);context.fillText(word.text,x,y);break}}
@@ -899,7 +901,7 @@ function renderSocialGuidance(){
 function renderEditor(){
   projectSession?.changed();
   const m=state.moments.find(x=>x.id===state.selected);if(!m)return;
-  if(!['punch','clean','pop','fade','highlight','karaoke'].includes(m.captionStyle))m.captionStyle='punch';
+  if(!['punch','clean','pop','fade','highlight','karaoke','boxed'].includes(m.captionStyle))m.captionStyle='punch';
   inheritCaptionTarget(m,projectCaptionTarget());
   queueCaptionTarget(m);
   if(state.cutPreviewIndex<0)assignMediaSource(clipVideo,m.url);
@@ -1154,7 +1156,7 @@ let libraryProjects=[],libraryTimer;
 let libraryRequest=0;
 async function renderLibrary(){
   const request=++libraryRequest;$('libraryRows').setAttribute('aria-busy','true');$('libraryStatus').textContent='Loading projects…';
-  try{const query=new URLSearchParams({sort:$('librarySort').value,direction:$('libraryDirection').value,search:$('librarySearch').value,trash:$('showProjectTrash').checked?'1':'0'}),data=await requestJson('/api/projects?'+query);if(request!==libraryRequest)return;libraryProjects=data.projects;layout.setLibraryView(libraryView);
+  try{const query=new URLSearchParams({sort:$('librarySort').value,direction:$('libraryDirection').value,search:$('librarySearch').value,trash:$('showProjectTrash').checked?'1':'0'}),data=await requestJson('/api/projects?'+query);if(request!==libraryRequest)return;libraryProjects=data.projects;{const b=$('navLibraryCount');if(b){b.textContent=String(libraryProjects.length);b.hidden=!libraryProjects.length}}layout.setLibraryView(libraryView);
     const field=$('librarySort').value,dir=$('libraryDirection').value==='asc'?1:-1;if(['duration','size','clips'].includes(field))libraryProjects.sort((a,b)=>(Number(a[field==='clips'?'clipCount':field])-Number(b[field==='clips'?'clipCount':field]))*dir||a.title.localeCompare(b.title));
     $('libraryStatus').textContent=libraryProjects.length+($('librarySearch').value.trim()?' matching ':' saved ')+(libraryProjects.length===1?'project':'projects');
     $('libraryRows').innerHTML=libraryProjects.length?libraryProjects.map(p=>`<article class="library-row"><div class="library-thumb">${p.thumbnail?`<img src="${escapeHtml(p.thumbnail)}" alt="" loading="lazy">`:'<span>Preview unavailable</span>'}</div><div class="library-description"><button class="project-open" data-project-open="${p.id}">${escapeHtml(p.title)}</button><p>${escapeHtml(p.language)}${p.dialect?' · '+escapeHtml(p.dialect):''} · ${formatTime(p.duration)} · ${(p.size/1024/1024).toFixed(1)} MB</p><span class="project-state">${escapeHtml(p.status)} · ${p.windowCount??p.clipCount} retained windows</span></div><div class="library-clips"><strong>${p.clipCount}</strong><span>clips</span></div><time datetime="${new Date(p.updatedAt).toISOString()}">${new Date(p.updatedAt).toLocaleDateString(undefined,{day:'numeric',month:'short'})}</time><div class="library-row-actions">${p.recoveryCount?`<button data-recoveries="${p.id}">Review ${p.recoveryCount} recovery ${p.recoveryCount===1?'copy':'copies'}</button>`:''}${p.status==='missing'?`<button data-relink="${p.sourceId}">Restore source</button>`:''}<button class="project-trash" data-project-trash="${p.id}">${p.trashed?'Restore':'Move to Trash'}</button></div></article>`).join(''):'<div class="library-empty"><h3>'+($('showProjectTrash').checked?'Trash is empty.':$('librarySearch').value.trim()?'No projects match this search.':'Your next production starts here.')+'</h3><p>'+($('showProjectTrash').checked?'Trashed projects keep their media until you choose otherwise.':$('librarySearch').value.trim()?'Try another title, source or language, or clear your search.':'Add a recording. Your clips, captions and edits will be saved on this computer.')+'</p></div>';
@@ -1201,8 +1203,21 @@ for(const type of ['input','change']){document.addEventListener(type,event=>{if(
 $('splitClip').onclick=()=>{const m=state.moments.find(x=>x.id===state.selected);if(!m)return;const before=editSnapshot();try{const [first,second]=splitEdits(m,localTime(m,clipVideo.currentTime),crypto.randomUUID());Object.assign(m,first);second.splitCreated=true;splitOriginals.set(second.id,structuredClone(second));state.moments.push(second);if(state.cut.includes(m.id))state.cut.splice(state.cut.indexOf(m.id)+1,0,second.id);editHistory.record(before,editSnapshot(),'split');renderQueue();renderBatchResults();renderCut();renderEditor();$('historyStatus').textContent='Two editable trims created; source timing is preserved.'}catch(error){$('historyStatus').textContent=error.message}};
 document.addEventListener('keydown',event=>{if(!(event.metaKey||event.ctrlKey)||event.key.toLowerCase()!=='z'||/^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName||''))return;event.preventDefault();event.shiftKey?editHistory.redo():editHistory.undo()});
 
+// JobProgress (design system): the running server job with its real percentage and steps, docked in the rail.
+function renderJobDock(job){
+  let box=$('jobDock');const dock=document.querySelector('.ds-rail-dock');if(!dock)return;
+  if(!box){box=el('section','cd-job ds-job-dock');box.id='jobDock';box.setAttribute('role','status');box.setAttribute('aria-live','polite');dock.prepend(box)}
+  box.hidden=!job;if(!job){box.replaceChildren();return}
+  const total=Number(job.sectionsTotal)||0,done=Math.min(total,Number(job.sectionsDone)||0),pct=Math.round(total?done/total*100:(Number(job.duration)?Math.min(1,(Number(job.completedSeconds)||0)/job.duration)*100:0));
+  const name={discovery:['Finding clips','Scan','Rank & save'],export:['Exporting','Render','Save'],subtitles:['Subtitles','Transcribe','Write SRT']}[job.kind]||['Working','Process','Finish'],queued=job.status==='queued',finishing=!queued&&total&&done>=total;
+  const head=el('div','cd-job-head'),title=el('div');const t=el('p','cd-job-title');t.append(badge('signal','Live',true),document.createTextNode(` ${name[0]}`));title.append(t,el('p','cd-job-detail',`${job.clipTitle||job.sourceName||''}${job.phase?` · ${job.phase}`:''}`.replace(/^ · /,'')));
+  const right=el('div','cd-row');right.append(el('span','cd-tc',clock((Date.now()-(job.createdAt||Date.now()))/1000)));head.append(title,right);
+  const bar=el('div','cd-bar');bar.setAttribute('role','progressbar');bar.setAttribute('aria-valuemin','0');bar.setAttribute('aria-valuemax','100');bar.setAttribute('aria-valuenow',String(pct));const fill=el('span');fill.style.width=`${pct}%`;bar.append(fill);
+  const steps=el('ol','cd-steps');for(const [label,state] of [['Queued',queued?'active':'done'],[total?`${name[1]} ${done}/${total}`:name[1],queued?'':finishing?'done':'active'],[name[2],finishing?'active':'']])steps.append(el('li',state,label));
+  box.replaceChildren(head,el('span','cd-label ds-job-pct',`${pct}%`),bar,steps);
+}
 const jobsView=createJobsView({panel:$('jobRows'),counts:$('jobCounts'),status:$('jobsStatus'),onPlay:video=>claimPlayback(video),onOpen:async id=>{await projectSession.open(id);showWorkspace('clips')},onJobs:async jobs=>{
-  const runningCount=jobs.filter(j=>['queued','running'].includes(j.status)).length;$('navJobCount').textContent=runningCount;$('navJobCount').hidden=!runningCount;
+  const runningCount=jobs.filter(j=>['queued','running'].includes(j.status)).length;$('navJobCount').textContent=runningCount;$('navJobCount').hidden=!runningCount;renderJobDock(jobs.find(j=>['running','queued'].includes(j.status)));
   const active=jobs.filter(j=>j.kind==='discovery'&&j.projectId===projectSession?.current?.id),running=active.find(j=>['queued','running'].includes(j.status));
   state.batchRunning=Boolean(running);if(!running)finishActivity('batch');$('batchButton').textContent=running?'View processing job ':`Find ${$('clipTarget').value} clips across video `;
   if(!active.length||projectSession?.restoring)return;

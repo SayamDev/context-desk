@@ -4,7 +4,7 @@
 import {el,kbd,enhanceSegmented} from './ds.js';
 const mark='<svg class="brand-symbol" viewBox="0 0 28 28" aria-hidden="true" focusable="false"><path d="M3 3h9v7H3zM16 3h9v7h-9zM3 14h9v11H3zM16 14h9v11h-9z" fill="#ff5a1f"/><path d="m9 8 12 6-12 6z" fill="#0b0b0d"/></svg>';
 
-export function mountShell({openPalette}){
+export function mountShell({openPalette,openBrandKit=()=>{}}){
   const $=id=>document.getElementById(id),one=s=>document.querySelector(s);
   const app=one('.app'),main=one('.main'),nav=one('.workspace-nav'),topbar=one('.topbar'),actions=one('.top-actions');
   if(!app||!main||!nav||one('.ds-rail'))return;
@@ -14,6 +14,9 @@ export function mountShell({openPalette}){
   const newVideo=nav.querySelector('[data-workspace=source]');newVideo.classList.add('ds-new');
   const label=el('span','cd-label ds-rail-label','Workspace');
   nav.setAttribute('aria-orientation','vertical');
+  // Design-system rail: Library, Clips, Exports, Brand kit. Home is the logo; Studio opens from a clip.
+  const library=nav.querySelector('[data-workspace=library]');if(library&&!$('navLibraryCount')){const count=el('b');count.id='navLibraryCount';count.hidden=true;library.append(count)}
+  const brandKit=el('button',undefined,'Brand kit');brandKit.type='button';brandKit.id='railBrandKit';brandKit.onclick=openBrandKit;nav.append(brandKit);
   const dock=el('div','ds-rail-dock');const activity=$('activityPanel');if(activity)dock.append(activity);
   if(activity){activity.querySelector('.activity-spinner')?.classList.add('ds-live-badge');const cancel=el('button','cd-btn cd-btn-sm cd-btn-ghost','Cancel');cancel.type='button';cancel.id='activityCancel';cancel.hidden=true;cancel.onclick=()=>$('cancelImport')?.click();activity.append(cancel)}
   const settings=$('openSettings');if(settings)dock.append(settings);

@@ -1,12 +1,12 @@
 // Live buffer: records a live platform link on this computer, keeps the last
 // five minutes and cuts "clip back" MP4s on demand. Mounted in Source & live controls.
-import {el,kbd,badge,formatTime as time} from './ds.js';
+import {el,kbd,badge,scoreMeter,formatTime as time} from './ds.js';
 const statusText={connecting:'Connecting to the stream…',live:'Recording the last 5 minutes',ended:'Stream ended',failed:'Could not record',stopped:'Stopped'};
 const signalWhy={audio:'Sudden rise in loudness.',laugh:'Laughter heard in the stream audio.',chat:'Chat suddenly got much busier.',chatlaugh:'Lots of viewers laughing in chat.'};
 const clipState={rendering:['cue','Cutting',true],ready:['volt','Ready'],failed:['danger','Failed']};
 
 export function createLiveBuffer({getUrl=()=>'',onMessage=()=>{}}={}){
-  let panel,source,postTop,status,clock,live,track,span,stop,alert,alertText,signals,monitor,monitorImg,monitorAt=0,clipButtons=[],mark,marks,list,count,session=null,timer=null,busy=false;
+  let panel,source,postTop,bufLabel,capText,capBadge,capToggle,status,clock,live,track,span,stop,alert,alertText,signals,monitor,monitorImg,monitorAt=0,clipButtons=[],mark,marks,list,count,session=null,timer=null,busy=false;
   async function call(url,body){
     const response=await fetch(url,body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     const data=await response.json().catch(()=>({}));if(!response.ok)throw Error(data.error||'Live clipping request failed.');return data;
@@ -26,7 +26,7 @@ export function createLiveBuffer({getUrl=()=>'',onMessage=()=>{}}={}){
   }
   function clipRow(c){
     const row=el('li',`cd-lclip is-${c.status}`),thumb=el('div','cd-lclip-thumb'),ago=Math.max(0,Math.round((Date.now()-(c.createdAt||Date.now()))/1000)),body=el('div','cd-lclip-body'),meta=el('div','cd-row'),[tone,text,dot]=clipState[c.status]||['neutral',c.status];
-    if(c.thumb){const img=el('img');img.src=c.thumb;img.alt='';thumb.append(img)}thumb.append(el('span','cd-dur',time(c.seconds)));meta.append(badge(tone,text,dot),el('span','cd-tc lb-muted',`${time(c.start)} → ${time(c.end)} · ${ago<60?ago+'s':Math.round(ago/60)+'m'} ago`));
+    if(c.thumb){const img=el('img');img.src=c.thumb;img.alt='';thumb.append(img)}thumb.append(el('span','cd-dur',time(c.seconds)));meta.append(badge(tone,text,dot),...(Number.isFinite(c.score)?[Object.assign(scoreMeter(c.score,{size:'sm',animate:false,label:'Signal score'}),{title:'Signal score from chat, laughter and loudness inside this clip'})]:[]),el('span','cd-tc lb-muted',`${time(c.start)} → ${time(c.end)} · ${ago<60?ago+'s':Math.round(ago/60)+'m'} ago`));
     const sig=(session?.markers||[]).filter(mk=>mk.kind!=='manual'&&mk.t>=c.start&&mk.t<=c.end).at(-1);body.append(meta,el('p','cd-lclip-title',sig?`${sig.label} · ${time(sig.t)}`:`Last ${Math.round(c.seconds)} seconds`));
     if(c.download){const actions=el('div','cd-row'),post=el('button','cd-btn cd-btn-sm cd-btn-primary','Post ↗');post.type='button';post.append(kbd('P'));post.title='Download this clip and open the upload page';post.onclick=()=>postClip(c);const a=el('a','cd-btn cd-btn-sm cd-btn-ghost','Download');a.href=c.download;a.download='';const more=el('button','cd-btn cd-btn-sm cd-btn-ghost','+10s');more.type='button';more.title='Cut this moment again with 10 seconds more before it';more.disabled=session?.status!=='live';more.onclick=()=>session&&run(()=>call(`/api/live-buffer/${session.id}/clip`,{extend:c.id}));actions.append(post,a,more);body.append(actions)}
     else if(c.status==='failed')body.append(el('p','lb-error',c.error));
@@ -44,6 +44,10 @@ export function createLiveBuffer({getUrl=()=>'',onMessage=()=>{}}={}){
     const own=s?.markers.filter(m=>m.kind==='manual')||[];marks.textContent=own.length?`Marked at ${own.slice(-5).map(m=>time(m.t)).join(', ')}`:'';
     const peak=s?.status==='live'&&s.markers.filter(m=>m.kind!=='manual').at(-1);alert.hidden=!(peak&&s.now-peak.t<=20);if(!alert.hidden)alertText.replaceChildren(el('strong',undefined,`${peak.label} at ${time(peak.t)}`),document.createTextNode(signalWhy[peak.kind]||'Worth a look.'));
     signals.textContent=s?`${s.signals?.chat?.state==='connected'?`Chat ${s.signals.chat.perMinute}/min`:(s.signals?.chat?.label||'Chat off')} · ${s.signals?.laughter==='on'?'Laughter detection on':'Laughter detection not installed (npm run setup:laughter)'}`:'';
+    bufLabel.textContent=`Buffer 05:00${Number.isFinite(s?.delay)?` · ≈${s.delay}s behind live`:''}`;
+    const cap=s?.captions||{};capToggle.setAttribute('aria-pressed',String(Boolean(cap.on)));capBadge.hidden=!cap.on;capBadge.textContent=`Caption draft${cap.source?` · ${cap.source}`:''}`;
+    {const words=cap.on?String(cap.text||'').split(/\s+/).filter(Boolean).slice(-8):[],hit=words.reduce((a,w,i)=>w.length>(words[a]||'').length?i:a,0);capText.replaceChildren(...words.flatMap((w,i)=>[i===hit?el('b',undefined,w):document.createTextNode(w),document.createTextNode(' ')]));capText.hidden=!words.length}
+    if(cap.error&&status)status.textContent=cap.error;
     monitor.hidden=!s?.preview;if(s?.preview&&(s.status==='live'||!monitorImg.src)&&Date.now()-monitorAt>=2000){monitorAt=Date.now();monitorImg.src=`${s.preview}?t=${monitorAt}`}
     renderTrack(s);count.textContent=`Instant clips · ${s?.clips.length||0}`;
     list.replaceChildren(...[...(s?.clips||[])].reverse().map(clipRow));
@@ -60,11 +64,12 @@ export function createLiveBuffer({getUrl=()=>'',onMessage=()=>{}}={}){
     const intro=el('p','depth-help','Paste a live YouTube, Twitch or Kick link in the field above. Context Desk records it on this computer, keeps only the last 5 minutes, and cuts the last 15, 30 or 60 seconds the moment something happens.');
     const start=el('button','cd-btn cd-btn-secondary','Start live buffer');start.type='button';
     start.onclick=()=>{const url=String(getUrl()||'').trim();if(!url){report('Paste the live stream link first.');return}run(()=>call('/api/live-buffer',{url}))};
-    monitor=el('figure','lb-monitor');monitor.hidden=true;monitorImg=el('img');monitorImg.alt='Latest frame from the live stream';monitor.append(monitorImg,badge('signal','Live',true),el('figcaption','cd-label','Preview · updates every 2 s'));
+    monitor=el('figure','lb-monitor');monitor.hidden=true;monitorImg=el('img');monitorImg.alt='Latest frame from the live stream';capText=el('p','lb-caption');capBadge=el('span','cd-badge cd-badge-cue lb-cap-badge','Caption draft');capBadge.hidden=true;capToggle=el('button','cd-btn cd-btn-sm cd-btn-secondary lb-cap-toggle','Caption draft');capToggle.type='button';capToggle.setAttribute('aria-pressed','false');capToggle.title='Transcribe the newest 6 seconds every few seconds (uses your speech service)';capToggle.onclick=()=>session&&run(()=>call(`/api/live-buffer/${session.id}/captions`,{on:capToggle.getAttribute('aria-pressed')!=='true'}));
+    monitor.append(monitorImg,badge('signal','Live',true),capBadge,capToggle,capText,el('figcaption','cd-label','Preview · updates every 2 s'));
     const desk=el('div','lb-desk'),main=el('section','cd-live'),head=el('div','cd-live-head'),left=el('div','cd-row');
     live=badge('signal','Live',true);clock=el('span','cd-tc cd-live-now','00:00');status=el('span','lb-status');status.setAttribute('role','status');status.setAttribute('aria-live','polite');
     stop=el('button','cd-btn cd-btn-sm cd-btn-ghost','Stop');stop.type='button';stop.hidden=true;stop.onclick=()=>session&&run(()=>call(`/api/live-buffer/${session.id}/stop`,{}));
-    source=el('span','lb-src');left.append(live,clock,source,status);head.append(left,el('span','cd-label','Buffer 05:00'),stop);
+    source=el('span','lb-src');left.append(live,clock,source,status);bufLabel=el('span','cd-label','Buffer 05:00');head.append(left,bufLabel,stop);
     track=el('div','cd-live-track');track.setAttribute('aria-hidden','true');span=el('span','lb-span');track.append(span,el('span','cd-live-edge'));
     const actions=el('div','cd-live-actions');actions.append(el('span','cd-label','Clip back'));
     clipButtons=[15,30,60].map((seconds,index)=>{const b=el('button',`cd-btn cd-btn-sm ${index===1?'cd-btn-primary':'cd-btn-secondary'}`,`${seconds}s`);b.type='button';b.disabled=true;b.append(kbd(String(index+1)));b.onclick=()=>clip(seconds);return b;});

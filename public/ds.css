@@ -493,3 +493,25 @@ body.ds-shell[data-workspace=clips] .moment-filters,body.ds-shell[data-workspace
 #queue .cd-card.is-selected {border-color:var(--cue);box-shadow:0 0 0 1px var(--cue)}
 .cd-card-meta>span:last-child {white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .cd-badge {white-space:nowrap}
+.ds-job-dock {padding:var(--space-3);gap:var(--space-2)}
+.ds-job-dock[hidden] {display:none}
+.ds-job-dock .cd-job-title {font-size:14px;flex-wrap:wrap}
+.ds-job-dock .cd-job-detail {display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ds-job-dock .cd-steps {gap:6px 10px;font-size:12px}
+.ds-job-pct {align-self:flex-end}
+.lb-caption {position:absolute;left:8%;right:8%;bottom:16%;margin:0;text-align:center;font:900 22px/1.05 var(--font-display);text-transform:uppercase;color:#f3f1ec;text-shadow:0 3px 0 #000}
+.lb-caption b {color:#c9f23b}
+.lb-caption[hidden] {display:none}
+.lb-cap-badge {position:absolute;right:10px;top:10px}
+.lb-cap-badge[hidden] {display:none}
+.lb-cap-toggle {position:absolute;right:10px;top:40px}
+.lb-cap-toggle[aria-pressed=true] {border-color:var(--cue);color:var(--cue-text)}
+.lb-monitor .cd-badge-signal {position:absolute;left:10px;top:10px}
+.lb-cap-badge {left:auto!important}
+/* Rail = design system: Library, Clips, Exports, Brand kit. Home lives on the logo, Studio opens from a clip. */
+.ds-rail .workspace-nav [data-workspace=home],.ds-rail .workspace-nav [data-workspace=edit] {display:none}
+body[data-workspace=edit] .ds-rail .workspace-nav [data-workspace=clips] {color:var(--text);background:var(--surface-raised)}
+body[data-workspace=edit] .ds-rail .workspace-nav [data-workspace=clips]::after {content:"";position:absolute;left:-12px;top:8px;bottom:8px;width:3px;border-radius:2px;background:var(--accent)}
+.ds-rail #railBrandKit {justify-content:flex-start}
+#navLibraryCount[hidden] {display:none}
+.ds-job-dock {padding:var(--space-3);gap:var(--space-2)}

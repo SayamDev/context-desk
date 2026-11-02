@@ -2,7 +2,7 @@ import {usableMoments} from './workspaces.js';
 const escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const time=n=>`${Math.floor((n||0)/60)}:${String(Math.floor((n||0)%60)).padStart(2,'0')}`;
 export function createEditorTools({select,getSelected,edit,draw}){
- const $=id=>document.getElementById(id),styles={punch:'Punch',clean:'Clean',pop:'Pop',fade:'Fade',highlight:'Highlight',karaoke:'Karaoke'};
+ const $=id=>document.getElementById(id),styles={punch:'Punch',clean:'Clean',pop:'Pop',fade:'Fade',highlight:'Highlight',karaoke:'Karaoke',boxed:'Boxed'};
  $('captionTemplates').innerHTML=Object.entries(styles).map(([style,label])=>`<button type="button" class="caption-template" data-style="${style}" aria-pressed="false"><span>${style==='highlight'?'The moment.':'Your words.'}</span><small>${label}</small></button>`).join('');
  $('captionTemplates').onclick=event=>{const button=event.target.closest('[data-style]'),m=getSelected();if(!button||!m||button.disabled)return;edit('caption-template',()=>{m.captionStyle=button.dataset.style;$('captionStyle').value=m.captionStyle;draw();sync(m)})};
  $('studioClipList').onclick=event=>{const button=event.target.closest('[data-studio-clip]');if(button)void select(button.dataset.studioClip)};

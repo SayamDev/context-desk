@@ -41,3 +41,27 @@ test('+10s plans an exact earlier range and refuses footage that left the buffer
   assert.equal(planRange(segs,990,1004).start,1000);
   assert.throws(()=>planRange(segs,900,950),/left the 5-minute buffer/);
 });
+import {discoverySections,mergeSpeech,clipLengthSeconds} from '../lib/discovery.js';
+test('clip-length presets size discovery sections, and long sections merge two speech halves in order',()=>{
+  assert.equal(discoverySections(600,80,'short')[0].end,28);
+  assert.equal(discoverySections(600,80,'long')[0].end,88);
+  assert.equal(discoverySections(600,80)[0].end,45);
+  assert.equal(discoverySections(600,80,'nope')[0].end,clipLengthSeconds.auto);
+  const merged=mergeSpeech([{offset:0,part:{transcript:'one',turns:[{startMs:0,endMs:1000,text:'one'}],words:[]}},{offset:44,part:{transcript:'two',turns:[{startMs:500,endMs:900,text:'two'}],words:[{text:'two',start:.5,end:.9}]}}]);
+  assert.equal(merged.transcript,'one\ntwo');
+  assert.deepEqual(merged.turns.map(t=>t.startMs),[0,44500]);
+  assert.equal(merged.words[0].start,44.5);
+});
+import {playlistDelay,signalScore} from '../lib/live-buffer.js';
+test('delay behind live comes from the playlist program-date-time, or is unknown',()=>{
+  const now=Date.parse('2026-11-02T10:00:10Z');
+  const playlist='#EXTM3U\n#EXT-X-PROGRAM-DATE-TIME:2026-11-02T10:00:02.000Z\n#EXTINF:2.000,\nseg1.ts\n#EXT-X-PROGRAM-DATE-TIME:2026-11-02T10:00:04.000Z\n#EXTINF:2.000,\nseg2.ts\n';
+  assert.equal(playlistDelay(playlist,now),4);
+  assert.equal(playlistDelay('#EXTM3U\n#EXTINF:2,\nseg.ts',now),null);
+});
+test('live clip score counts only signals inside the clip',()=>{
+  const markers=[{t:10,kind:'chat'},{t:12,kind:'chatlaugh'},{t:50,kind:'laugh'},{t:11,kind:'manual'}];
+  assert.equal(signalScore(markers,0,20),80);
+  assert.equal(signalScore(markers,30,40),35);
+  assert.equal(signalScore(markers,0,60,50),99);
+});

@@ -52,7 +52,7 @@ const timelineApi=createTimelineApi({store:studioStore(),claimSource:claimImport
 const reframeApi=createReframeApi({store:studioStore(),claimSource:claimImportSource});
 const creativeService=createCreativeAssetService({store:studioStore()});
 const bundleService=createBundleService({store:studioStore()});
-const liveBufferService=createLiveBufferService();
+const liveBufferService=createLiveBufferService({transcribe:bytes=>process.env.MODEL_API_KEY?transcribe(bytes,'',[]):transcribeVoiceStudio(bytes,'',[])});
 const liveOptions=new Map();let liveAnalysisQueue=Promise.resolve();
 const liveService=createLiveIngestService({store:studioStore(),onWindow:payload=>{const pending=liveAnalysisQueue.then(()=>analyseLiveWindow(payload));liveAnalysisQueue=pending.catch(()=>{});return pending}});
 const productApi=createProductApi({store:studioStore(),search:createMomentSearch({store:studioStore()}),live:liveService,social:createSocialPublishingService({store:studioStore()}),onLiveOptions:(projectId,options)=>{liveOptions.set(projectId,{...options,requests:0});studioStore().putRecord('live_options',projectId,{...options,requests:0})}});
