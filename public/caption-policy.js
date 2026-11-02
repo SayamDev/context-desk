@@ -20,3 +20,10 @@ export function translationQueue(limit=2){
   const drain=()=>{while(active<limit&&waiting.length){const task=waiting.shift();active++;const finish=(callback,value)=>{active--;pending.delete(task.key);callback(value);drain()};Promise.resolve().then(task.work).then(value=>finish(task.resolve,value),error=>finish(task.reject,error))}};
   return {add(key,work){if(pending.has(key))return pending.get(key);let resolve,reject;const promise=new Promise((a,b)=>{resolve=a;reject=b});pending.set(key,promise);waiting.push({key,work,resolve,reject});drain();return promise}};
 }
+
+// Projects a whole-recording track (source seconds) onto one clip's window clock:
+// keeps cues that overlap the window, clips their edges and shifts word timings too.
+export function projectTrack(cues,moment){
+  const base=moment.mediaStart??moment.start,length=moment.end-moment.start;
+  return (cues||[]).filter(c=>c.end>base&&c.start<base+length).map(({boundaryReview,...c})=>({...c,start:Math.max(0,c.start-base),end:Math.min(length,c.end-base),...(c.words?{words:c.words.map(w=>({...w,start:w.start-base,end:w.end-base}))}:{})}));
+}

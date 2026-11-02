@@ -33,3 +33,24 @@ test('coincident source windows get distinct map lanes, while nonoverlapping win
 });
 
 test('producer-created transcript trims remain visible with the supported clip filter',()=>{assert.deepEqual(visibleMoments([{id:'manual',start:0,status:'manual',manual:true},{id:'rejected',start:2,status:'not-selected'}],{filter:'supported'}).map(m=>m.id),['manual'])});
+test('Discover sorts by editorial score and keeps discarded clips out of view until asked',async()=>{
+  const {visibleMoments}=await import('../public/studio-ui.js');
+  const m=(id,start,score,extra={})=>({id,start,status:'suggested',analysis:{rankingScore:score},...extra});
+  const list=[m('a',10,61),m('b',20,92),m('c',30,undefined),m('d',40,80,{dismissed:true})];
+  assert.deepEqual(visibleMoments(list,{sort:'score'}).map(x=>x.id),['b','a','c']);
+  assert.deepEqual(visibleMoments(list,{sort:'time'}).map(x=>x.id),['a','b','c']);
+  assert.deepEqual(visibleMoments(list,{filter:'dismissed'}).map(x=>x.id),['d']);
+});
+test('one clip state drives badges, chips and counts',async()=>{
+  const {clipState,visibleMoments}=await import('../public/studio-ui.js');
+  assert.equal(clipState({status:'analysing'}),'scanning');
+  assert.equal(clipState({status:'error'}),'failed');
+  assert.equal(clipState({status:'suggested',exportedAt:1}),'exported');
+  assert.equal(clipState({status:'suggested',showCaptions:true,captionLanguage:'Arabic',captionReviewed:{}}),'review');
+  assert.equal(clipState({status:'suggested',showCaptions:true,captionLanguage:'Arabic',captionReviewed:{Arabic:true}}),'ready');
+  assert.equal(clipState({status:'not-selected'}),'other');
+  const list=[{id:'a',start:1,status:'suggested'},{id:'b',start:2,status:'suggested',exportedAt:5},{id:'c',start:3,status:'stalled'}];
+  assert.deepEqual(visibleMoments(list,{filter:'ready'}).map(m=>m.id),['a']);
+  assert.deepEqual(visibleMoments(list,{filter:'exported'}).map(m=>m.id),['b']);
+  assert.deepEqual(visibleMoments(list,{filter:'review'}).map(m=>m.id),['c']);
+});

@@ -5,6 +5,7 @@ node_modules/
 
 # Local agent settings, screenshots and private runtime data
 .codex/
+.claude-flow/
 .impeccable/*
 !.impeccable/design.json
 qa-*.jpg
