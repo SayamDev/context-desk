@@ -557,3 +557,27 @@ label.caption-roman[hidden] {display:none!important}
 .cd-looks{grid-template-columns:repeat(auto-fill,minmax(128px,1fr))}
 /* Server older than the code on disk */
 .server-stale{position:sticky;top:0;z-index:100;padding:10px 16px;background:#ffb020;color:#140904;font-size:14px;line-height:1.4}
+/* Live clip to ready-to-post Short */
+.lb-make-short{margin-top:6px}
+.lb-short{margin-top:8px;border:1px solid var(--line);border-radius:12px;padding:10px;background:var(--surface-raised)}
+.lb-short-clock{margin:0 0 6px;font:500 12px/1.4 'Geist Mono',monospace;color:var(--cue)}
+.lb-short-steps{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.lb-short-steps li{font-size:12px;padding:3px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+.lb-short-steps li.is-done{color:var(--success-text);border-color:var(--success)}
+.lb-short-steps li.is-current{color:var(--text);border-color:var(--cue);animation:lb-pulse 1.2s ease-in-out infinite}
+@keyframes lb-pulse{50%{opacity:.55}}
+@media (prefers-reduced-motion:reduce){.lb-short-steps li.is-current{animation:none}}
+.lb-short.is-ready{display:grid;grid-template-columns:132px 1fr;gap:12px;align-items:start;border-color:var(--success)}
+.lb-short-video{width:132px;aspect-ratio:9/16;border-radius:10px;background:#000;object-fit:cover}
+.lb-short-side{display:grid;gap:8px;min-width:0}
+.lb-short-hook{margin:0;font-weight:700;color:var(--text)}
+.lb-short-caption{width:100%;resize:vertical;font:13px/1.4 inherit;background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px}
+.lb-short-notes{font-size:12px;margin:0}
+@media (max-width:520px){.lb-short.is-ready{grid-template-columns:1fr}.lb-short-video{width:100%;max-width:220px}}
+/* Home impact strip */
+.home-impact{display:flex;flex-wrap:wrap;gap:10px 22px;margin-top:18px;padding-top:14px;border-top:1px solid var(--line)}
+.home-impact[hidden]{display:none}
+.home-impact-stat{display:grid;gap:2px}
+.home-impact-stat strong{font:800 24px/1 Archivo,sans-serif;color:var(--text);letter-spacing:-.01em}
+.home-impact-stat span{font:500 11px/1.3 'Geist Mono',monospace;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.home-impact-note{flex-basis:100%;margin:0;font-size:12px;color:var(--muted)}

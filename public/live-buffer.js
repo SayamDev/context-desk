@@ -5,8 +5,8 @@ const statusText={connecting:'Connecting to the stream…',live:'Recording the l
 const signalWhy={audio:'Sudden rise in loudness.',laugh:'Laughter heard in the stream audio.',chat:'Chat suddenly got much busier.',chatlaugh:'Lots of viewers laughing in chat.'};
 const clipState={rendering:['cue','Cutting',true],ready:['volt','Ready'],failed:['danger','Failed']};
 
-export function createLiveBuffer({getUrl=()=>'',onMessage=()=>{}}={}){
-  let panel,source,postTop,bufLabel,capText,capBadge,capToggle,status,clock,live,track,span,stop,alert,alertText,signals,monitor,monitorImg,monitorAt=0,auto,autoLevel,autoState,seenAuto=null,clipButtons=[],mark,marks,list,count,session=null,timer=null,busy=false;
+export function createLiveBuffer({getUrl=()=>'',getRecording=()=>null,onMessage=()=>{}}={}){
+  let replayButton=null,panel,source,postTop,bufLabel,capText,capBadge,capToggle,status,clock,live,track,span,stop,alert,alertText,signals,monitor,monitorImg,monitorAt=0,auto,autoLevel,autoState,seenAuto=null,clipButtons=[],mark,marks,list,count,session=null,timer=null,busy=false;
   async function call(url,body){
     const response=await fetch(url,body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     const data=await response.json().catch(()=>({}));if(!response.ok)throw Error(data.error||'Live clipping request failed.');return data;
@@ -28,13 +28,40 @@ export function createLiveBuffer({getUrl=()=>'',onMessage=()=>{}}={}){
     const row=el('li',`cd-lclip is-${c.status}`),thumb=el('div','cd-lclip-thumb'),ago=Math.max(0,Math.round((Date.now()-(c.createdAt||Date.now()))/1000)),body=el('div','cd-lclip-body'),meta=el('div','cd-row'),[tone,text,dot]=clipState[c.status]||['neutral',c.status];
     if(c.thumb){const img=el('img');img.src=c.thumb;img.alt='';thumb.append(img)}thumb.append(el('span','cd-dur',time(c.seconds)));meta.append(badge(tone,text,dot),...(Number.isFinite(c.score)?[Object.assign(scoreMeter(c.score,{size:'sm',animate:false,label:'Signal score'}),{title:'Signal score from chat, laughter and loudness inside this clip'})]:[]),el('span','cd-tc lb-muted',`${time(c.start)} → ${time(c.end)} · ${ago<60?ago+'s':Math.round(ago/60)+'m'} ago`));
     const sig=(session?.markers||[]).filter(mk=>mk.kind!=='manual'&&mk.t>=c.start&&mk.t<=c.end).at(-1);if(c.auto)meta.prepend(badge('volt','Autopilot'));body.append(meta,el('p','cd-lclip-title',c.hook?`“${c.hook}”`:c.reason?`${c.reason} · ${time(c.start)}`:sig?`${sig.label} · ${time(sig.t)}`:`Last ${Math.round(c.seconds)} seconds`));if(c.transcript){const tx=el('details','lb-transcript');tx.append(el('summary',undefined,'Transcript'),el('p',undefined,c.transcript));body.append(tx)}
-    if(c.download){const actions=el('div','cd-row'),post=el('button','cd-btn cd-btn-sm cd-btn-primary','Post ↗');post.type='button';post.append(kbd('P'));post.title='Download this clip and open the upload page';post.onclick=()=>postClip(c);const a=el('a','cd-btn cd-btn-sm cd-btn-ghost','Download');a.href=c.download;a.download='';const more=el('button','cd-btn cd-btn-sm cd-btn-ghost','+10s');more.type='button';more.title='Cut this moment again with 10 seconds more before it';more.disabled=session?.status!=='live';more.onclick=()=>session&&run(()=>call(`/api/live-buffer/${session.id}/clip`,{extend:c.id}));actions.append(post,a,more);body.append(actions)}
+    if(c.download){const actions=el('div','cd-row'),post=el('button',`cd-btn cd-btn-sm ${c.short?'cd-btn-ghost':'cd-btn-primary'}`,c.short?'Post raw clip ↗':'Post ↗');post.type='button';if(!c.short)post.append(kbd('P'));post.title='Download this clip and open the upload page';post.onclick=()=>postFile(c.download,'Clip');const a=el('a','cd-btn cd-btn-sm cd-btn-ghost','Download');a.href=c.download;a.download='';const more=el('button','cd-btn cd-btn-sm cd-btn-ghost','+10s');more.type='button';more.title='Cut this moment again with 10 seconds more before it';more.disabled=session?.status!=='live';more.onclick=()=>session&&run(()=>call(`/api/live-buffer/${session.id}/clip`,{extend:c.id}));actions.append(post,a,more);body.append(actions)}
     else if(c.status==='failed')body.append(el('p','lb-error',c.error));
     else{const bar=el('div','cd-bar');bar.append(el('span'));body.append(bar)}
+    const short=shortPanel(c);if(short)body.append(short);
     row.append(thumb,body);return row;
   }
+  // Live clip to ready-to-post Short: stage progress, the moment-to-ready timer, then the finished
+  // 9:16 file with its post caption. Ready cards are cached so the preview video does not restart
+  // when the list refreshes every second.
+  const stageNames=[['transcribing','Transcribing'],['framing','Following the speaker'],['writing','Writing the hook'],['rendering','Rendering 9:16']],readyCards=new Map();
+  const secs=ms=>Math.max(0,Math.round(ms/1000));
+  function shortPanel(c){
+    const sh=c.short;
+    if(!sh){if(!c.download)return null;const make=el('button','cd-btn cd-btn-sm cd-btn-secondary lb-make-short','Make Short');make.type='button';make.title='Captions, speaker framing, hook and post copy in 9:16';make.onclick=()=>session&&run(()=>call(`/api/live-buffer/${session.id}/clips/${c.id}/short`,{}));return make}
+    if(sh.status==='failed'){const box=el('div','lb-short is-failed');const retry=el('button','cd-btn cd-btn-sm cd-btn-secondary','Try again');retry.type='button';retry.onclick=()=>session&&run(()=>call(`/api/live-buffer/${session.id}/clips/${c.id}/short`,{}));box.append(el('p','lb-error',sh.error),retry);return box}
+    if(sh.status!=='ready'){
+      const box=el('div','lb-short is-working'),steps=el('ol','lb-short-steps'),at=stageNames.findIndex(([id])=>id===sh.stage);
+      stageNames.forEach(([id,label],i)=>{const step=el('li',i<at?'is-done':i===at?'is-current':'',label);steps.append(step)});
+      box.append(el('p','lb-short-clock',`${sh.status==='queued'?'Queued':'Making the Short'} · moment ${secs(Date.now()-c.momentAt)}s ago`),steps);return box}
+    const key=c.id+sh.url;if(readyCards.get(c.id)?.key===key)return readyCards.get(c.id).node;
+    const card=el('div','lb-short is-ready'),video=el('video','lb-short-video');Object.assign(video,{src:sh.url,poster:sh.cover,muted:true,loop:true,playsInline:true,autoplay:true,controls:true});video.setAttribute('aria-label','Short preview');
+    const side=el('div','lb-short-side'),took=secs(sh.readyAt-c.momentAt);
+    side.append(badge('volt',`Ready ${took}s after the moment`,true),el('p','lb-short-hook',sh.hook?`“${sh.hook}”`:'No hook (no speech found)'));
+    const caption=el('textarea','lb-short-caption');caption.readOnly=true;caption.rows=4;caption.value=sh.postCaption||'';caption.setAttribute('aria-label','Post caption');
+    const actions=el('div','cd-row'),post=el('button','cd-btn cd-btn-sm cd-btn-primary','Post Short ↗');post.type='button';post.onclick=()=>postFile(sh.url+'?download','Short');
+    const copy=el('button','cd-btn cd-btn-sm cd-btn-ghost','Copy caption');copy.type='button';copy.onclick=async()=>{try{await navigator.clipboard.writeText(caption.value);report('Caption copied.')}catch{caption.select();report('Copy is blocked here. The caption is selected; press Cmd+C.')}};
+    const save=el('a','cd-btn cd-btn-sm cd-btn-ghost','Download');save.href=sh.url+'?download';save.download='';
+    actions.append(post,copy,save);side.append(caption,actions);
+    if(sh.notes?.length)side.append(el('p','lb-muted lb-short-notes',sh.notes.join(' ')));
+    card.append(video,side);readyCards.set(c.id,{key,node:card});return card;
+  }
   // Posting is never automatic: download the file, then open the destination's upload page.
-  function postClip(c){if(!c?.download)return;const a=el('a');a.href=c.download;a.download='';document.body.append(a);a.click();a.remove();const dest=document.getElementById('socialDestination')?.value,upload={tiktok:'https://www.tiktok.com/tiktokstudio/upload',instagram:'https://www.instagram.com/',facebook:'https://www.facebook.com/reels/create/',shorts:'https://www.youtube.com/upload',youtube:'https://www.youtube.com/upload'}[dest]||'https://www.tiktok.com/tiktokstudio/upload';window.open(upload,'_blank','noopener,noreferrer');report('Clip downloaded. Upload it on the page that just opened.')}
+  function postClip(c){if(!c)return;if(c.short?.status==='ready'){postFile(c.short.url+'?download','Short');return}if(c.download)postFile(c.download,'Clip')}
+  function postFile(url,what){const a=el('a');a.href=url;a.download='';document.body.append(a);a.click();a.remove();const dest=document.getElementById('socialDestination')?.value,upload={tiktok:'https://www.tiktok.com/tiktokstudio/upload',instagram:'https://www.instagram.com/',facebook:'https://www.facebook.com/reels/create/',shorts:'https://www.youtube.com/upload',youtube:'https://www.youtube.com/upload'}[dest]||'https://www.tiktok.com/tiktokstudio/upload';window.open(upload,'_blank','noopener,noreferrer');report(`${what} downloaded. Upload it on the page that just opened.`)}
   const topReady=()=>[...(session?.clips||[])].reverse().find(c=>c.status==='ready');
   function render(){
     if(!panel)return;const s=session;panel.dataset.status=s?.status||'idle';
@@ -54,6 +81,7 @@ export function createLiveBuffer({getUrl=()=>'',onMessage=()=>{}}={}){
     {const ids=(s?.clips||[]).filter(c=>c.auto).map(c=>c.id);if(seenAuto){const fresh=ids.filter(id=>!seenAuto.has(id));if(fresh.length)report(`Autopilot clipped a moment: ${s.clips.find(c=>c.id===fresh.at(-1)).reason}.`)}seenAuto=new Set(ids)}
     renderTrack(s);count.textContent=`Instant clips · ${s?.clips.length||0}`;
     list.replaceChildren(...[...(s?.clips||[])].reverse().map(clipRow));
+    if(replayButton){const r=getRecording();replayButton.hidden=!r?.id||active();replayButton.textContent=r?.title?`Replay “${r.title.slice(0,32)}” as live`:'Replay this recording as live'}
     postTop.disabled=!topReady();source.textContent=s?.source?.label?`${s.source.label}${s.source.height?` · ${s.source.height}p`:''}`:'';
     if(!s?.clips.length)list.append(el('li','lb-empty','Press 1, 2 or 3 while recording. Clips land here in about a second.'));
   }
@@ -67,6 +95,10 @@ export function createLiveBuffer({getUrl=()=>'',onMessage=()=>{}}={}){
     const intro=el('p','depth-help','Paste a live YouTube, Twitch or Kick link in the field above. Context Desk records it on this computer, keeps only the last 5 minutes, and cuts the last 15, 30 or 60 seconds the moment something happens.');
     const start=el('button','cd-btn cd-btn-secondary','Start live buffer');start.type='button';
     start.onclick=()=>{const url=String(getUrl()||'').trim();if(!url){report('Paste the live stream link first.');return}run(()=>call('/api/live-buffer',{url}))};
+    // Demo-safe: play the open saved recording into the desk at real speed, no network needed.
+    const replay=el('button','cd-btn cd-btn-ghost lb-replay','Replay this recording as live');replay.type='button';replay.title='Plays the open recording at real speed through the live desk, autopilot and Shorts. Works offline.';
+    replay.onclick=()=>{const r=getRecording();if(!r?.id){report('Open a saved recording first (Library or New video), then replay it here.');return}run(()=>call('/api/live-buffer',{replay:{sourceId:r.id,from:Math.floor(r.time||0)}}))};
+    replayButton=replay;
     monitor=el('figure','lb-monitor');monitor.hidden=true;monitorImg=el('img');monitorImg.alt='Latest frame from the live stream';capText=el('p','lb-caption');capBadge=el('span','cd-badge cd-badge-cue lb-cap-badge','Caption draft');capBadge.hidden=true;capToggle=el('button','cd-btn cd-btn-sm cd-btn-secondary lb-cap-toggle','Caption draft');capToggle.type='button';capToggle.setAttribute('aria-pressed','false');capToggle.title='Transcribe the newest 6 seconds every few seconds (uses your speech service)';capToggle.onclick=()=>session&&run(()=>call(`/api/live-buffer/${session.id}/captions`,{on:capToggle.getAttribute('aria-pressed')!=='true'}));
     monitor.append(monitorImg,badge('signal','Live',true),capBadge,capToggle,capText,el('figcaption','cd-label','Preview · updates every 2 s'));
     const desk=el('div','lb-desk'),main=el('section','cd-live'),head=el('div','cd-live-head'),left=el('div','cd-row');
@@ -85,7 +117,7 @@ export function createLiveBuffer({getUrl=()=>'',onMessage=()=>{}}={}){
     const queue=el('aside','lb-queue');count=el('span','cd-label','Instant clips · 0');postTop=el('button','cd-btn cd-btn-sm cd-btn-ghost','Post top');postTop.type='button';postTop.append(kbd('P'));postTop.onclick=()=>postClip(topReady());const qhead=el('div','lb-queue-head');qhead.append(count,postTop);list=el('ol','lb-list');queue.append(alert,qhead,list);
     desk.append(main,queue);
     const note=el('p','depth-help','Clips are cut without re-encoding, so they can start up to 2 seconds early. Times count from when you started recording. Use streams you have permission to clip.');
-    panel.append(intro,start,desk,note);
+    const starts=el('div','cd-row lb-starts');starts.append(start,replay);panel.append(intro,starts,desk,note);
     const form=document.getElementById('linkForm');if(form?.parentElement)form.after(panel);else (setup.querySelector('.source-setup-content')||setup).prepend(panel);
     render();resume();return true;
   }
