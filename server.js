@@ -25,12 +25,15 @@ import {languageBias,normalizeTranslationMode} from './public/languages.js';
 import {captionLanguages,findVariant,translationGuide,scriptIssue,romanizations} from './public/locales.js';
 import {createDurableTranslationCache} from './lib/translation-store.js';
 import fs from 'node:fs/promises';
+import {createCodeStamp} from './lib/code-stamp.js';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 try { for (const line of (await fs.readFile(path.join(root,'.env'),'utf8')).split('\n')) { const m=line.match(/^([A-Z_]+)=(.*)$/); if(m && !process.env[m[1]]) process.env[m[1]]=m[2].trim(); } } catch {}
 const port = Number(process.env.PORT || 3001);
+// Detects when this process runs older code than is on disk (see lib/code-stamp.js).
+const codeStamp=createCodeStamp(path.join(root,'server.js'));
 const voiceStudioUrl = 'http://127.0.0.1:3900';
 const languageCodes = {Arabic:'ar',Bengali:'bn',Dutch:'nl',English:'en',French:'fr',German:'de',Hebrew:'he',Hindi:'hi',Indonesian:'id',Italian:'it',Japanese:'ja',Kannada:'kn',Korean:'ko',Malay:'ms','Mandarin Chinese':'zh',Marathi:'mr',Polish:'pl',Portuguese:'pt',Spanish:'es',Tagalog:'tl',Tamil:'ta',Telugu:'te',Thai:'th',Turkish:'tr',Vietnamese:'vi',Urdu:'ur'};
 const staticFiles = {'/':'index.html','/app.js':'app.js','/player.js':'player.js','/social.js':'social.js','/caption-policy.js':'caption-policy.js','/layout.js':'layout.js','/studio-ui.js':'studio-ui.js','/timing.js':'timing.js','/translation-cache.js':'translation-cache.js','/projects.js':'projects.js','/jobs.js':'jobs.js','/languages.js':'languages.js','/history.js':'history.js','/moment-results.js':'moment-results.js','/story-memory.js':'story-memory.js','/style.css':'style.css','/ds.css':'ds.css','/assets/context-desk-studio.webp':'assets/context-desk-studio.webp','/assets/story-paper.webp':'assets/story-paper.webp','/assets/fonts/Manrope.ttf':'assets/fonts/Manrope.ttf','/assets/fonts/NotoEmoji.ttf':'assets/fonts/NotoEmoji.ttf','/assets/fonts/archivo-latin-wght-normal.woff2':'assets/fonts/archivo-latin-wght-normal.woff2','/assets/fonts/geist-latin-wght-normal.woff2':'assets/fonts/geist-latin-wght-normal.woff2','/assets/fonts/geist-mono-latin-wght-normal.woff2':'assets/fonts/geist-mono-latin-wght-normal.woff2'};
@@ -46,7 +49,7 @@ const discoveryService=createDiscoveryService({store:studioStore(),claimSource:c
   transcribe:(bytes,o)=>o.speechProvider==='voicestudio'?transcribeVoiceStudio(bytes,o.speechLanguage,o.keywords):transcribe(bytes,o.speechLanguage,o.keywords),analyse,
   translate:(cues,o)=>o.translationProvider==='voicestudio'?translateVoiceStudio(cues,o.language,o.speechLanguage,o.dialectNote):translate(cues,o.language,o.dialectNote,o.translationMode,o.glossary)});
 const exportService=createExportService({store:studioStore(),claimSource:claimImportSource});
-const projectApi=createProjectApi();
+const projectApi=createProjectApi(undefined,{codeStale:()=>codeStamp.stale()});
 const memoryApi=createMemoryApi(studioStore());
 const brandApi=createBrandApi(studioStore());
 const timelineApi=createTimelineApi({store:studioStore(),claimSource:claimImportSource});
@@ -90,7 +93,7 @@ const server = http.createServer(async (req,res) => {
   if(req.url === '/api/status' && req.method === 'GET') {
     let voiceStudioAvailable=false;
     try {const response=await fetch(`${voiceStudioUrl}/health`,{signal:AbortSignal.timeout(1200)});voiceStudioAvailable=response.ok;} catch {}
-    return json(res,200,{metaConfigured:Boolean(process.env.MODEL_API_KEY),model:'muse-spark-1.3',voiceStudioAvailable});
+    return json(res,200,{metaConfigured:Boolean(process.env.MODEL_API_KEY),model:'muse-spark-1.3',voiceStudioAvailable,codeStale:codeStamp.stale()});
   }
   if(req.url === '/api/frame' && req.method === 'POST') {
     if(!process.env.MODEL_API_KEY)return json(res,503,{error:'Meta is not configured. Draw the player area instead.'});
