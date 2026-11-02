@@ -18,6 +18,7 @@ import {createBrandControls} from './brand-controls.js';
 import {cleanCaptionLook,captionFontSize,captionPlacement} from './brand-kit.js';
 import {workspaceFromHash,workspaceHash,usableMoments} from './workspaces.js';
 import {createGuide} from './guide.js';
+import {thoughtCheck,findQuotes} from './clip-boundaries.js';
 import {enhanceDestinations} from './destinations.js';
 import {mountLayout,icon,setButtonLabel} from './layout.js';
 import {clipState,visibleMoments,coverageSummary,sourcePosition,clampTrim,momentLanes} from './studio-ui.js';
@@ -874,6 +875,34 @@ function drawCaption(context,moment,sourceTime){
   drawCaptionFrame(context,{cue,time:sourceTime,styleId:moment.captionStyle,look:moment.captionLook,offset:moment.captionOffset||0,accent:accentFor(moment,cue.text)});
 }
 function setPreviewSize(){const [width,height]=outputDimensions(),canvas=$('previewCanvas');if(canvas.width!==width||canvas.height!==height){canvas.width=width;canvas.height=height;}updateFrameControls()}
+// Complete the thought: warns when the cut starts or ends mid-sentence, starts on a connecting
+// word, or stops before the answer to a question, and fixes it in one undoable step.
+{const box=Object.assign(document.createElement('div'),{id:'thoughtCheck',className:'thought-check',hidden:true});box.setAttribute('role','status');$('cutTools').before(box);let shown='';
+  const setTrim=(m,a,b)=>performEdit('complete-thought',()=>{$('trimIn').value=a;$('trimOut').value=b;validateTrim();layout.syncTimeline(m,formatTime)});
+  setInterval(()=>{const m=state.moments.find(x=>x.id===state.selected);if(!m||document.body.dataset.workspace!=='edit'){box.hidden=true;shown='';return}
+    const key=[m.id,m.trimIn,m.trimOut,m.captionLanguage,activeCues(m).length].join('|');if(key===shown)return;shown=key;
+    const r=thoughtCheck(timedCues(m),m.trimIn,m.trimOut,{windowEnd:m.end-m.start});box.hidden=!r.issues.length;if(!r.issues.length)return;
+    const fix=Object.assign(document.createElement('button'),{type:'button',className:'cd-btn cd-btn-sm cd-btn-secondary',textContent:r.suggestion?`Complete the thought (+${r.suggestion.added}s)`:'Review the edges'});
+    fix.onclick=()=>{if(r.suggestion)setTrim(m,r.suggestion.trimIn,r.suggestion.trimOut)};fix.disabled=!r.suggestion;
+    box.replaceChildren(Object.assign(document.createElement('strong'),{textContent:'This clip may lose context. '}),document.createTextNode(r.issues.map(i=>i.text).join(' ')+' '),fix)},700);}
+// Find a quote: search the whole recording's subtitle track (Arabic or English) and turn a line
+// into a clip with complete-the-thought edges and the track's existing captions (no new AI calls).
+{const panel=Object.assign(document.createElement('section'),{className:'quote-search',hidden:true});panel.setAttribute('aria-label','Find a quote');
+  panel.innerHTML='<h3>Find a quote</h3><p>Search everything that was said, in Arabic or English, and make a clip from that moment.</p>';
+  const form=document.createElement('form'),input=Object.assign(document.createElement('input'),{type:'search',placeholder:'A word or phrase you remember…',ariaLabel:'Quote to find'}),go=Object.assign(document.createElement('button'),{type:'submit',className:'cd-btn cd-btn-secondary',textContent:'Search'}),results=Object.assign(document.createElement('ol'),{className:'quote-results'});
+  form.append(input,go);panel.append(form,results);$('queue').before(panel);let track=null,trackFor='';
+  const job=()=>wholeJobs.find(j=>j.sourceId===state.source?.importId&&j.status==='complete'&&j.cueCount>0);
+  setInterval(()=>{panel.hidden=!job()},1500);
+  async function makeClip(hit){const j=job();if(!j||!track)return;const duration=track.duration||j.duration,ws=Math.max(0,hit.start-45),we=Math.min(duration,hit.end+45),win={start:ws,end:we,mediaStart:ws};
+    const cues={Original:projectTrack(track.original,win),...(track.language==='Original'?{}:{[track.language]:projectTrack(track.cues,win)})},local=track.language==='Original'?cues.Original:cues[track.language];
+    let a=Math.max(0,hit.start-ws-.2),b=Math.min(we-ws,hit.end-ws+.3);const quoteIn=a,quoteOut=b;for(let pass=0;pass<3;pass++){const fixed=thoughtCheck(local,a,b,{windowEnd:we-ws}).suggestion;if(!fixed||quoteIn-fixed.trimIn>12||fixed.trimOut-quoteOut>15)break;a=fixed.trimIn;b=fixed.trimOut}
+    const m={id:crypto.randomUUID(),url:state.sourceUrl,blob:state.source,frames:[],start:ws,end:we,mediaStart:ws,batchId:state.batchId,sourceName:state.sourceName,sourceType:'file',sourceLink:state.sourcePageUrl,manual:true,status:'manual',analysis:null,transcript:local.map(c=>c.text).join(' ').slice(0,2000),trimIn:+a.toFixed(2),trimOut:+b.toFixed(2),hook:'',alternateHook:'',frameMode:'fit',zoom:1,focusX:50,focusY:50,showHook:false,captionLanguage:track.language,captionStyle:'clean',dialectNote:$('sourceDialect').value,captionCues:cues,captionReviewed:{},showCaptions:true,captionOffset:0};
+    performEdit('quote-clip',()=>{state.moments.push(m)});await selectMoment(m.id);showWorkspace('edit');toast('Clip made from your quote. Check where it starts and ends, then the subtitles.')}
+  form.onsubmit=async event=>{event.preventDefault();const j=job();if(!j)return;go.disabled=true;
+    try{if(trackFor!==j.id){track=await requestJson('/api/subtitles/'+j.id+'/track');trackFor=j.id}
+      const hits=findQuotes(track,input.value);results.replaceChildren(...(hits.length?hits.map(hit=>{const li=document.createElement('li'),b=Object.assign(document.createElement('button'),{type:'button',className:'cd-btn cd-btn-sm cd-btn-secondary',textContent:'Make a clip'});b.onclick=()=>makeClip(hit);
+        li.append(Object.assign(document.createElement('span'),{className:'cd-tc',textContent:formatTime(hit.start)}),Object.assign(document.createElement('span'),{className:'quote-text',textContent:hit.text}),Object.assign(document.createElement('span'),{className:'quote-original',dir:'auto',textContent:hit.original}),b);return li}):[Object.assign(document.createElement('li'),{className:'quote-none',textContent:'No line contains all of those words. Try fewer or different words, in Arabic or English.'})]))}
+    catch(error){toast(error.message)}finally{go.disabled=false}};}
 // Preview jumps over removed pauses and fillers, so it plays like the export.
 function skipPreviewCut(clock){const m=previewMoment();if(!m?.cuts?.length)return;const next=skipCut(m.cuts,localTime(m,clock));if(next!==null)clipVideo.currentTime=mediaTime(m,next)}
 function renderCutStatus(){const m=state.moments.find(x=>x.id===state.selected),cuts=m?.cuts||[];$('cutRestore').hidden=!cuts.length;for(const id of ['cutPauses','cutFillers'])$(id).disabled=!m;$('cutStatus').textContent=cuts.length?`${cuts.length} cut${cuts.length===1?'':'s'} · ${removedSeconds(cuts).toFixed(1)}s shorter`:''}
