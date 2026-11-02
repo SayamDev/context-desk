@@ -36,6 +36,14 @@ export function mountShell({openPalette,openBrandKit=()=>{}}){
   let saved='studio';try{saved=localStorage.getItem('cd-theme')==='daylight'?'daylight':'studio'}catch{/* Storage can be blocked; Studio stays the default. */}
   applyTheme(saved);theme.onclick=()=>{const next=document.documentElement.dataset.theme==='daylight'?'studio':'daylight';applyTheme(next);try{localStorage.setItem('cd-theme',next)}catch{/* Not remembered when storage is blocked. */}};
   topbar.prepend(drop);actions.prepend(search,theme);
+  // Look: the November restyle (restyle.css) or the classic look, remembered per browser. index.html applies it before paint.
+  const settingsBody=one('#settingsDialog .settings-body'),restyle=$('restyleCss');
+  if(settingsBody&&restyle){
+    const look=el('label','caption-check look-choice');const box=el('input');box.type='checkbox';box.id='classicLook';box.checked=restyle.disabled;
+    look.append(box,document.createTextNode(' Classic look (the design before the November restyle)'));
+    box.onchange=()=>{restyle.disabled=box.checked;try{localStorage.setItem('cd-look',box.checked?'classic':'new')}catch{/* Not remembered when storage is blocked. */}};
+    settingsBody.prepend(look);
+  }
   // Paste a link anywhere (outside a text field) to start finding clips.
   document.addEventListener('paste',event=>{
     const target=event.target;if(/^(INPUT|TEXTAREA|SELECT)$/.test(target?.tagName||'')||target?.isContentEditable||document.querySelector('dialog[open]'))return;
