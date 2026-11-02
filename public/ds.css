@@ -669,3 +669,6 @@ body.simple-mode .memory-panel,body.simple-mode .more-exports,body.simple-mode .
 .home-intent input {margin:0;accent-color:var(--accent)}
 .home-intent-note {margin:0 0 var(--space-3);color:var(--muted);font-size:14px;line-height:1.5}
 body[data-intent=translate] .cd-drop-meta .cd-badge {display:none}
+/* Settings > Classic look switch (works in both looks) */
+.look-choice {display:flex;align-items:center;gap:8px;margin:0 0 16px;font-size:14px}
+.look-choice input {width:24px;height:24px;margin:0;flex:none}
