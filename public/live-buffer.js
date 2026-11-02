@@ -28,13 +28,40 @@ export function createLiveBuffer({getUrl=()=>'',onMessage=()=>{}}={}){
     const row=el('li',`cd-lclip is-${c.status}`),thumb=el('div','cd-lclip-thumb'),ago=Math.max(0,Math.round((Date.now()-(c.createdAt||Date.now()))/1000)),body=el('div','cd-lclip-body'),meta=el('div','cd-row'),[tone,text,dot]=clipState[c.status]||['neutral',c.status];
     if(c.thumb){const img=el('img');img.src=c.thumb;img.alt='';thumb.append(img)}thumb.append(el('span','cd-dur',time(c.seconds)));meta.append(badge(tone,text,dot),...(Number.isFinite(c.score)?[Object.assign(scoreMeter(c.score,{size:'sm',animate:false,label:'Signal score'}),{title:'Signal score from chat, laughter and loudness inside this clip'})]:[]),el('span','cd-tc lb-muted',`${time(c.start)} → ${time(c.end)} · ${ago<60?ago+'s':Math.round(ago/60)+'m'} ago`));
     const sig=(session?.markers||[]).filter(mk=>mk.kind!=='manual'&&mk.t>=c.start&&mk.t<=c.end).at(-1);if(c.auto)meta.prepend(badge('volt','Autopilot'));body.append(meta,el('p','cd-lclip-title',c.hook?`“${c.hook}”`:c.reason?`${c.reason} · ${time(c.start)}`:sig?`${sig.label} · ${time(sig.t)}`:`Last ${Math.round(c.seconds)} seconds`));if(c.transcript){const tx=el('details','lb-transcript');tx.append(el('summary',undefined,'Transcript'),el('p',undefined,c.transcript));body.append(tx)}
-    if(c.download){const actions=el('div','cd-row'),post=el('button','cd-btn cd-btn-sm cd-btn-primary','Post ↗');post.type='button';post.append(kbd('P'));post.title='Download this clip and open the upload page';post.onclick=()=>postClip(c);const a=el('a','cd-btn cd-btn-sm cd-btn-ghost','Download');a.href=c.download;a.download='';const more=el('button','cd-btn cd-btn-sm cd-btn-ghost','+10s');more.type='button';more.title='Cut this moment again with 10 seconds more before it';more.disabled=session?.status!=='live';more.onclick=()=>session&&run(()=>call(`/api/live-buffer/${session.id}/clip`,{extend:c.id}));actions.append(post,a,more);body.append(actions)}
+    if(c.download){const actions=el('div','cd-row'),post=el('button',`cd-btn cd-btn-sm ${c.short?'cd-btn-ghost':'cd-btn-primary'}`,c.short?'Post raw clip ↗':'Post ↗');post.type='button';if(!c.short)post.append(kbd('P'));post.title='Download this clip and open the upload page';post.onclick=()=>postFile(c.download,'Clip');const a=el('a','cd-btn cd-btn-sm cd-btn-ghost','Download');a.href=c.download;a.download='';const more=el('button','cd-btn cd-btn-sm cd-btn-ghost','+10s');more.type='button';more.title='Cut this moment again with 10 seconds more before it';more.disabled=session?.status!=='live';more.onclick=()=>session&&run(()=>call(`/api/live-buffer/${session.id}/clip`,{extend:c.id}));actions.append(post,a,more);body.append(actions)}
     else if(c.status==='failed')body.append(el('p','lb-error',c.error));
     else{const bar=el('div','cd-bar');bar.append(el('span'));body.append(bar)}
+    const short=shortPanel(c);if(short)body.append(short);
     row.append(thumb,body);return row;
   }
+  // Live clip to ready-to-post Short: stage progress, the moment-to-ready timer, then the finished
+  // 9:16 file with its post caption. Ready cards are cached so the preview video does not restart
+  // when the list refreshes every second.
+  const stageNames=[['transcribing','Transcribing'],['framing','Following the speaker'],['writing','Writing the hook'],['rendering','Rendering 9:16']],readyCards=new Map();
+  const secs=ms=>Math.max(0,Math.round(ms/1000));
+  function shortPanel(c){
+    const sh=c.short;
+    if(!sh){if(!c.download)return null;const make=el('button','cd-btn cd-btn-sm cd-btn-secondary lb-make-short','Make Short');make.type='button';make.title='Captions, speaker framing, hook and post copy in 9:16';make.onclick=()=>session&&run(()=>call(`/api/live-buffer/${session.id}/clips/${c.id}/short`,{}));return make}
+    if(sh.status==='failed'){const box=el('div','lb-short is-failed');const retry=el('button','cd-btn cd-btn-sm cd-btn-secondary','Try again');retry.type='button';retry.onclick=()=>session&&run(()=>call(`/api/live-buffer/${session.id}/clips/${c.id}/short`,{}));box.append(el('p','lb-error',sh.error),retry);return box}
+    if(sh.status!=='ready'){
+      const box=el('div','lb-short is-working'),steps=el('ol','lb-short-steps'),at=stageNames.findIndex(([id])=>id===sh.stage);
+      stageNames.forEach(([id,label],i)=>{const step=el('li',i<at?'is-done':i===at?'is-current':'',label);steps.append(step)});
+      box.append(el('p','lb-short-clock',`${sh.status==='queued'?'Queued':'Making the Short'} · moment ${secs(Date.now()-c.momentAt)}s ago`),steps);return box}
+    const key=c.id+sh.url;if(readyCards.get(c.id)?.key===key)return readyCards.get(c.id).node;
+    const card=el('div','lb-short is-ready'),video=el('video','lb-short-video');Object.assign(video,{src:sh.url,poster:sh.cover,muted:true,loop:true,playsInline:true,autoplay:true,controls:true});video.setAttribute('aria-label','Short preview');
+    const side=el('div','lb-short-side'),took=secs(sh.readyAt-c.momentAt);
+    side.append(badge('volt',`Ready ${took}s after the moment`,true),el('p','lb-short-hook',sh.hook?`“${sh.hook}”`:'No hook (no speech found)'));
+    const caption=el('textarea','lb-short-caption');caption.readOnly=true;caption.rows=4;caption.value=sh.postCaption||'';caption.setAttribute('aria-label','Post caption');
+    const actions=el('div','cd-row'),post=el('button','cd-btn cd-btn-sm cd-btn-primary','Post Short ↗');post.type='button';post.onclick=()=>postFile(sh.url+'?download','Short');
+    const copy=el('button','cd-btn cd-btn-sm cd-btn-ghost','Copy caption');copy.type='button';copy.onclick=async()=>{try{await navigator.clipboard.writeText(caption.value);report('Caption copied.')}catch{caption.select();report('Copy is blocked here. The caption is selected; press Cmd+C.')}};
+    const save=el('a','cd-btn cd-btn-sm cd-btn-ghost','Download');save.href=sh.url+'?download';save.download='';
+    actions.append(post,copy,save);side.append(caption,actions);
+    if(sh.notes?.length)side.append(el('p','lb-muted lb-short-notes',sh.notes.join(' ')));
+    card.append(video,side);readyCards.set(c.id,{key,node:card});return card;
+  }
   // Posting is never automatic: download the file, then open the destination's upload page.
-  function postClip(c){if(!c?.download)return;const a=el('a');a.href=c.download;a.download='';document.body.append(a);a.click();a.remove();const dest=document.getElementById('socialDestination')?.value,upload={tiktok:'https://www.tiktok.com/tiktokstudio/upload',instagram:'https://www.instagram.com/',facebook:'https://www.facebook.com/reels/create/',shorts:'https://www.youtube.com/upload',youtube:'https://www.youtube.com/upload'}[dest]||'https://www.tiktok.com/tiktokstudio/upload';window.open(upload,'_blank','noopener,noreferrer');report('Clip downloaded. Upload it on the page that just opened.')}
+  function postClip(c){if(!c)return;if(c.short?.status==='ready'){postFile(c.short.url+'?download','Short');return}if(c.download)postFile(c.download,'Clip')}
+  function postFile(url,what){const a=el('a');a.href=url;a.download='';document.body.append(a);a.click();a.remove();const dest=document.getElementById('socialDestination')?.value,upload={tiktok:'https://www.tiktok.com/tiktokstudio/upload',instagram:'https://www.instagram.com/',facebook:'https://www.facebook.com/reels/create/',shorts:'https://www.youtube.com/upload',youtube:'https://www.youtube.com/upload'}[dest]||'https://www.tiktok.com/tiktokstudio/upload';window.open(upload,'_blank','noopener,noreferrer');report(`${what} downloaded. Upload it on the page that just opened.`)}
   const topReady=()=>[...(session?.clips||[])].reverse().find(c=>c.status==='ready');
   function render(){
     if(!panel)return;const s=session;panel.dataset.status=s?.status||'idle';
