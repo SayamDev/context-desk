@@ -55,13 +55,16 @@ test('every workspace opens without errors, and Studio waits for a clip',async()
   }finally{await app.stop()}
 });
 
-test('the home page fits a phone screen without sideways scrolling',async()=>{
+test('the home page fits phone screens without sideways scrolling',async()=>{
   const app=await startApp({env:{FFMPEG_PATH:ffmpeg}});
   try{
-    const {page,problems}=await watchedPage(browser,app.url,{viewport:{width:390,height:844}});
-    const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth);
-    assert.ok(overflow<=1,`page is ${overflow}px wider than the screen`);
-    assert.deepEqual(problems,[]);
+    for(const width of [320,390]){
+      const {page,problems}=await watchedPage(browser,app.url,{viewport:{width,height:844}});
+      const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth);
+      assert.ok(overflow<=1,`at ${width}px the page is ${overflow}px wider than the screen`);
+      assert.deepEqual(problems,[]);
+      await page.close();
+    }
   }finally{await app.stop()}
 });
 
@@ -147,6 +150,25 @@ test('keyboard and screen readers: skip link, one main region, clip list before 
     await page.locator('.workspace-nav [data-workspace=clips]').click();
     assert.equal(await page.evaluate(()=>Boolean(document.querySelector('.queue-panel').compareDocumentPosition(document.querySelector('.monitor-panel'))&Node.DOCUMENT_POSITION_FOLLOWING)),true);
     assert.equal(await page.evaluate(()=>getComputedStyle(document.getElementById('projectTitle')).unicodeBidi),'plaintext');
+    assert.deepEqual(problems,[]);
+  }finally{await app.stop()}
+});
+
+test('the Classic look switch turns the restyle off, survives a reload and turns it back on',async()=>{
+  const app=await startApp({env:{FFMPEG_PATH:ffmpeg}});
+  try{
+    const {page,problems}=await watchedPage(browser,app.url);
+    const restyleOn=()=>page.evaluate(()=>!document.getElementById('restyleCss').disabled);
+    assert.equal(await restyleOn(),true);
+    await page.locator('#openSettings').click();
+    await page.locator('#classicLook').check();
+    assert.equal(await restyleOn(),false);
+    await page.reload({waitUntil:'networkidle'});
+    assert.equal(await restyleOn(),false);
+    await page.locator('#openSettings').click();
+    assert.equal(await page.locator('#classicLook').isChecked(),true);
+    await page.locator('#classicLook').uncheck();
+    assert.equal(await restyleOn(),true);
     assert.deepEqual(problems,[]);
   }finally{await app.stop()}
 });
