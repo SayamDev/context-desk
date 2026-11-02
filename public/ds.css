@@ -525,3 +525,14 @@ label.caption-roman[hidden] {display:none!important}
 .post-kit-toggle{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
 .post-title{margin:4px 0 0;font-size:13px;color:var(--text)}
 .post-title[hidden]{display:none}
+/* Live autopilot */
+.lb-auto[aria-pressed=true]{background:var(--success);color:var(--accent-ink);border-color:var(--success)}
+.lb-auto-level{height:30px;border-radius:8px;border:1px solid var(--line);background:var(--surface-raised);color:var(--text);font:500 12px/1 Geist,sans-serif;padding:0 8px}
+.lb-auto-state{margin:6px 0 0;font-size:13px;color:var(--success-text)}
+.lb-auto-state:empty{display:none}
+.lb-transcript{margin-top:6px;font-size:12px;color:var(--muted)}
+.lb-transcript summary{cursor:pointer;font:500 11px/1.6 'Geist Mono',monospace;text-transform:uppercase;letter-spacing:.06em}
+.lb-transcript p{margin:4px 0 0;max-height:7em;overflow:auto}
+/* Tighten the clip: pause and filler cuts */
+.cut-tools{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 0}
+.cut-status{font:500 12px/1 'Geist Mono',monospace;color:var(--success-text)}

@@ -5,6 +5,7 @@ import {badge,scoreMeter,createBulkBar,keepKbd,enhanceSegmented,enhanceCaptionLo
 import {mountShell} from './shell.js';
 import {createLiveBuffer} from './live-buffer.js';
 import {frameFocus,splitGeometry} from './reframe-track.js';
+import {cleanCuts,fillerCuts,removedSeconds,skipCut} from './silence.js';
 import {createProductionTools} from './production-tools.js';
 import {createHome} from './home.js';
 import {createEditorTools} from './editor-tools.js';
@@ -832,6 +833,16 @@ function drawCaption(context,moment,sourceTime){
   context.restore();
 }
 function setPreviewSize(){const [width,height]=outputDimensions(),canvas=$('previewCanvas');if(canvas.width!==width||canvas.height!==height){canvas.width=width;canvas.height=height;}updateFrameControls()}
+// Preview jumps over removed pauses and fillers, so it plays like the export.
+function skipPreviewCut(clock){const m=previewMoment();if(!m?.cuts?.length)return;const next=skipCut(m.cuts,localTime(m,clock));if(next!==null)clipVideo.currentTime=mediaTime(m,next)}
+function renderCutStatus(){const m=state.moments.find(x=>x.id===state.selected),cuts=m?.cuts||[];$('cutRestore').hidden=!cuts.length;for(const id of ['cutPauses','cutFillers'])$(id).disabled=!m;$('cutStatus').textContent=cuts.length?`${cuts.length} cut${cuts.length===1?'':'s'} · ${removedSeconds(cuts).toFixed(1)}s shorter`:''}
+function addCuts(m,found,label){const before=m.cuts?.length||0,merged=cleanCuts([...(m.cuts||[]),...found],m.trimIn,m.trimOut);if(merged.length===before&&removedSeconds(merged)===removedSeconds(m.cuts)){toast(`No ${label} found in this clip.`);return false}m.cuts=merged;projectSession?.changed();renderCutStatus();drawPreview();toast(`Removed ${label}. Play the clip to check the cuts.`);return true}
+$('cutPauses').onclick=async()=>{const m=state.moments.find(x=>x.id===state.selected);if(!m)return;const button=$('cutPauses');button.disabled=true;$('cutStatus').textContent='Listening for pauses…';
+  try{await projectSession?.flush?.();const data=await requestJson('/api/silence',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:m.persistedUrl||m.url,mediaStart:m.mediaStart||0,trimIn:m.trimIn,trimOut:m.trimOut})});performEdit('remove-pauses',()=>addCuts(m,data.cuts,'pauses'))}
+  catch(error){toast(error.message)}finally{button.disabled=false;renderCutStatus()}};
+$('cutFillers').onclick=()=>{const m=state.moments.find(x=>x.id===state.selected);if(!m)return;const offset=m.captionOffset||0,words=Object.values(m.captionCues||{}).flat().flatMap(cue=>cue?.words||[]).map(w=>({...w,start:w.start+offset,end:w.end+offset}));
+  if(!words.length){toast('Word timings are needed. Transcribe this clip with word timing first.');return}performEdit('remove-fillers',()=>addCuts(m,fillerCuts(words),'ums and uhs'))};
+$('cutRestore').onclick=()=>performEdit('restore-cuts',()=>{const m=state.moments.find(x=>x.id===state.selected);if(m){m.cuts=[];projectSession?.changed();renderCutStatus();drawPreview()}});
 function updateFrameControls(){const m=state.moments.find(x=>x.id===state.selected),disabled=!m||m.frameMode==='fit',split=m?.frameMode==='split';for(const id of ['zoomRange','focusX','focusY'])$(id).disabled=disabled||(split&&id!=='focusX');$('splitCamControls').hidden=!split;if(split){const c=splitGeometry(1,1,m.splitCam).cam;$('camX').value=c.x;$('camY').value=c.y;$('camSize').value=c.w}}
 for(const [id,key] of [['camX','x'],['camY','y'],['camSize','w']])$(id).oninput=e=>{const m=state.moments.find(x=>x.id===state.selected);if(m){m.splitCam={...splitGeometry(1,1,m.splitCam).cam,[key]:Number(e.target.value)};drawPreview()}};
 function drawComposedFrame(context,video,moment,elapsed,clock=video.currentTime||0){
@@ -880,7 +891,7 @@ let previewFrameHandle=null,previewFrameKind='',replayBusy=false;
 function cancelPreviewFrame(){if(previewFrameHandle===null)return;if(previewFrameKind==='video')clipVideo.cancelVideoFrameCallback(previewFrameHandle);else cancelAnimationFrame(previewFrameHandle);previewFrameHandle=null}
 function previewFrameLoop(){
   cancelPreviewFrame();if(clipVideo.paused)return;
-  const render=(clock)=>{previewFrameHandle=null;drawPreview(clock);highlightCaption(clock);checkPreviewEnd(clock);if(!clipVideo.paused)previewFrameLoop()};
+  const render=(clock)=>{previewFrameHandle=null;skipPreviewCut(clock);drawPreview(clock);highlightCaption(clock);checkPreviewEnd(clock);if(!clipVideo.paused)previewFrameLoop()};
   if(clipVideo.requestVideoFrameCallback){previewFrameKind='video';previewFrameHandle=clipVideo.requestVideoFrameCallback((_,metadata)=>render(metadata.mediaTime))}
   else{previewFrameKind='animation';previewFrameHandle=requestAnimationFrame(()=>render(clipVideo.currentTime))}
 }
@@ -967,7 +978,7 @@ function renderEditor(){
   $('editorStatus').textContent=m.status==='suggested'?'AI suggestion · producer approval required':m.status==='analysing'?'Meta is examining this window.':'Review the source window before exporting.';
   $('addToCut').disabled=state.cut.includes(m.id);
   $('addToCut').innerHTML=state.cut.includes(m.id)?'In story cut <b></b>':'Add this moment to story cut <b></b>';
-  $('audioEnhance').checked=Boolean(m.audioEnhance);$('aspectSelect').value=state.aspect;$('frameMode').value=m.frameMode;$('zoomRange').value=m.zoom;$('focusX').value=m.focusX;$('focusY').value=m.focusY;$('showHook').checked=m.showHook;
+  $('audioEnhance').checked=Boolean(m.audioEnhance);$('aspectSelect').value=state.aspect;$('frameMode').value=m.frameMode;renderCutStatus();$('zoomRange').value=m.zoom;$('focusX').value=m.focusX;$('focusY').value=m.focusY;$('showHook').checked=m.showHook;
   const karaokeAvailable=m.captionLanguage==='Original'&&activeCues(m).length>0&&activeCues(m).every(c=>c.words?.length);$('captionStyle').querySelector('[value=karaoke]').disabled=!karaokeAvailable;if(m.captionStyle==='karaoke'&&!karaokeAvailable)m.captionStyle='punch';
   editorTools.collection(state.moments,state.selected);editorTools.sync(m);brandControls.sync(m);productionTools.sync();discoveryTools?.sync();
   $('captionTranslationMode').disabled=$('translationProvider').value==='voicestudio';$('captionTranslationMode').value=m.translationMode||$('translationMode').value;$('captionLanguage').value=m.captionLanguage;$('captionStyle').value=m.captionStyle;$('dialectNote').value=m.dialectNote;
@@ -1233,7 +1244,7 @@ const memoryView=createMemoryView({trashToggle:$('showMemoryTrash'),trashButton:
 $('createMemory').onclick=()=>memoryView.create($('newMemoryTitle').value||'Story memory');$('addMemoryNote').onclick=()=>memoryView.add();$('addMemoryEvidence').onclick=()=>memoryView.add(true);$('saveMemory').onclick=()=>void memoryView.save().catch(()=>{});$('exportMemory').onclick=()=>memoryView.export();$('trashMemory').onclick=()=>memoryView.trash();
 
 function performEdit(key,mutate){const before=editSnapshot();mutate();editHistory.record(before,editSnapshot(),key);projectSession.changed()}
-const editKeys=['trimIn','trimOut','hook','alternateHook','frameMode','splitCam','zoom','focusX','focusY','showHook','captionLanguage','captionLanguageOverride','translationMode','captionStyle','captionLook','frameKeyframes','frameTracking','transcriptEdit','discoveryStrategy','audioEnhance','dialectNote','captionCues','captionReviewed','showCaptions','captionOffset','sourceCaptionMask','approved'];
+const editKeys=['trimIn','trimOut','hook','alternateHook','frameMode','splitCam','cuts','zoom','focusX','focusY','showHook','captionLanguage','captionLanguageOverride','translationMode','captionStyle','captionLook','frameKeyframes','frameTracking','transcriptEdit','discoveryStrategy','audioEnhance','dialectNote','captionCues','captionReviewed','showCaptions','captionOffset','sourceCaptionMask','approved'];
 function editSnapshot(){return {aspect:state.aspect,targetLanguage:projectCaptionTarget(),cut:[...state.cut],selected:state.selected,moments:state.moments.map(m=>({id:m.id,captionLanguageOverride:m.captionLanguageOverride||null,...Object.fromEntries(editKeys.filter(k=>m[k]!==undefined).map(k=>[k,structuredClone(m[k])]))}))}}
 function applyEditSnapshot(value){const ids=new Set(value.moments.map(m=>m.id));state.moments=state.moments.filter(m=>!m.splitCreated||ids.has(m.id));for(const edit of value.moments){const m=state.moments.find(m=>m.id===edit.id);if(m)Object.assign(m,edit);else if(splitOriginals.has(edit.id))state.moments.push({...structuredClone(splitOriginals.get(edit.id)),...edit})}state.cut=value.cut.filter(id=>state.moments.some(m=>m.id===id));state.aspect=value.aspect;state.selected=value.selected;if(value.targetLanguage)$('liveCaptionLanguage').value=value.targetLanguage;renderQueue();renderCut();renderBatchResults();renderEditor();for(const m of state.moments)queueCaptionTarget(m);projectSession.changed()}
 const splitOriginals=new Map();const editHistory=createHistory({apply:applyEditSnapshot,onChange:()=>{$('undoEdit').disabled=!editHistory.canUndo;$('redoEdit').disabled=!editHistory.canRedo;projectSession?.changed()}});

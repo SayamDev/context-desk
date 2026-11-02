@@ -130,6 +130,12 @@ const server = http.createServer(async (req,res) => {
       return json(res,200,{arc});
     }catch(error){return json(res,502,{error:error.message||'Story arc analysis failed.'});}
   }
+  if(req.url === '/api/silence' && req.method === 'POST') {
+    try {
+      let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>4096)throw new Error('Request is too large.');}
+      const body=JSON.parse(raw);return json(res,200,{cuts:await exportService.silence({url:String(body.url||''),mediaStart:Number(body.mediaStart)||0,trimIn:Number(body.trimIn),trimOut:Number(body.trimOut)})});
+    }catch(error){return json(res,400,{error:error.message||'Silence detection failed.'});}
+  }
   if(req.url === '/api/post-kit' && req.method === 'POST') {
     if(!process.env.MODEL_API_KEY) return json(res,503,{error:'Add MODEL_API_KEY to .env, then restart the server to write post copy with Meta.'});
     try {

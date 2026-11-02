@@ -65,3 +65,15 @@ test('live clip score counts only signals inside the clip',()=>{
   assert.equal(signalScore(markers,30,40),35);
   assert.equal(signalScore(markers,0,60,50),99);
 });
+test('autopilot fires only when signals agree, respects cooldown and sensitivity',async()=>{
+  const {autopilotTrigger,autopilotLevels,hookFrom}=await import('../lib/live-buffer.js');
+  const one=[{t:100,kind:'chat',label:'Chat spike'}],two=[...one,{t:102,kind:'laugh',label:'Laughter'}];
+  assert.equal(autopilotTrigger(one,105),null);
+  assert.deepEqual(autopilotTrigger(two,105),{t:102,reason:'Chat spike + Laughter'});
+  assert.equal(autopilotTrigger(two,105,{lastAt:80}),null);
+  assert.equal(autopilotTrigger(two,105,{threshold:autopilotLevels.strict}),null);
+  assert.equal(autopilotTrigger(two,140),null);
+  assert.equal(autopilotTrigger([{t:100,kind:'manual'},{t:101,kind:'manual'}],105),null);
+  assert.equal(hookFrom('No way he did that! Then everyone left.'),'No way he did that!');
+  assert.ok(hookFrom('word '.repeat(40)).length<=80);
+});

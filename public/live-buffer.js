@@ -6,7 +6,7 @@ const signalWhy={audio:'Sudden rise in loudness.',laugh:'Laughter heard in the s
 const clipState={rendering:['cue','Cutting',true],ready:['volt','Ready'],failed:['danger','Failed']};
 
 export function createLiveBuffer({getUrl=()=>'',onMessage=()=>{}}={}){
-  let panel,source,postTop,bufLabel,capText,capBadge,capToggle,status,clock,live,track,span,stop,alert,alertText,signals,monitor,monitorImg,monitorAt=0,clipButtons=[],mark,marks,list,count,session=null,timer=null,busy=false;
+  let panel,source,postTop,bufLabel,capText,capBadge,capToggle,status,clock,live,track,span,stop,alert,alertText,signals,monitor,monitorImg,monitorAt=0,auto,autoLevel,autoState,seenAuto=null,clipButtons=[],mark,marks,list,count,session=null,timer=null,busy=false;
   async function call(url,body){
     const response=await fetch(url,body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     const data=await response.json().catch(()=>({}));if(!response.ok)throw Error(data.error||'Live clipping request failed.');return data;
@@ -27,7 +27,7 @@ export function createLiveBuffer({getUrl=()=>'',onMessage=()=>{}}={}){
   function clipRow(c){
     const row=el('li',`cd-lclip is-${c.status}`),thumb=el('div','cd-lclip-thumb'),ago=Math.max(0,Math.round((Date.now()-(c.createdAt||Date.now()))/1000)),body=el('div','cd-lclip-body'),meta=el('div','cd-row'),[tone,text,dot]=clipState[c.status]||['neutral',c.status];
     if(c.thumb){const img=el('img');img.src=c.thumb;img.alt='';thumb.append(img)}thumb.append(el('span','cd-dur',time(c.seconds)));meta.append(badge(tone,text,dot),...(Number.isFinite(c.score)?[Object.assign(scoreMeter(c.score,{size:'sm',animate:false,label:'Signal score'}),{title:'Signal score from chat, laughter and loudness inside this clip'})]:[]),el('span','cd-tc lb-muted',`${time(c.start)} → ${time(c.end)} · ${ago<60?ago+'s':Math.round(ago/60)+'m'} ago`));
-    const sig=(session?.markers||[]).filter(mk=>mk.kind!=='manual'&&mk.t>=c.start&&mk.t<=c.end).at(-1);body.append(meta,el('p','cd-lclip-title',sig?`${sig.label} · ${time(sig.t)}`:`Last ${Math.round(c.seconds)} seconds`));
+    const sig=(session?.markers||[]).filter(mk=>mk.kind!=='manual'&&mk.t>=c.start&&mk.t<=c.end).at(-1);if(c.auto)meta.prepend(badge('volt','Autopilot'));body.append(meta,el('p','cd-lclip-title',c.hook?`“${c.hook}”`:c.reason?`${c.reason} · ${time(c.start)}`:sig?`${sig.label} · ${time(sig.t)}`:`Last ${Math.round(c.seconds)} seconds`));if(c.transcript){const tx=el('details','lb-transcript');tx.append(el('summary',undefined,'Transcript'),el('p',undefined,c.transcript));body.append(tx)}
     if(c.download){const actions=el('div','cd-row'),post=el('button','cd-btn cd-btn-sm cd-btn-primary','Post ↗');post.type='button';post.append(kbd('P'));post.title='Download this clip and open the upload page';post.onclick=()=>postClip(c);const a=el('a','cd-btn cd-btn-sm cd-btn-ghost','Download');a.href=c.download;a.download='';const more=el('button','cd-btn cd-btn-sm cd-btn-ghost','+10s');more.type='button';more.title='Cut this moment again with 10 seconds more before it';more.disabled=session?.status!=='live';more.onclick=()=>session&&run(()=>call(`/api/live-buffer/${session.id}/clip`,{extend:c.id}));actions.append(post,a,more);body.append(actions)}
     else if(c.status==='failed')body.append(el('p','lb-error',c.error));
     else{const bar=el('div','cd-bar');bar.append(el('span'));body.append(bar)}
@@ -49,6 +49,9 @@ export function createLiveBuffer({getUrl=()=>'',onMessage=()=>{}}={}){
     {const words=cap.on?String(cap.text||'').split(/\s+/).filter(Boolean).slice(-8):[],hit=words.reduce((a,w,i)=>w.length>(words[a]||'').length?i:a,0);capText.replaceChildren(...words.flatMap((w,i)=>[i===hit?el('b',undefined,w):document.createTextNode(w),document.createTextNode(' ')]));capText.hidden=!words.length}
     if(cap.error&&status)status.textContent=cap.error;
     monitor.hidden=!s?.preview;if(s?.preview&&(s.status==='live'||!monitorImg.src)&&Date.now()-monitorAt>=2000){monitorAt=Date.now();monitorImg.src=`${s.preview}?t=${monitorAt}`}
+    const ap=s?.autopilot||{};auto.setAttribute('aria-pressed',String(Boolean(ap.on)));auto.disabled=!active();autoLevel.value=Object.entries({sensitive:65,balanced:75,strict:85}).find(([,v])=>v===ap.threshold)?.[0]||'balanced';
+    autoState.textContent=ap.on?(ap.waiting?`Autopilot caught ${ap.reason}. Cutting in a few seconds…`:'Autopilot on: clips itself when chat, laughter and loudness agree.'):'';
+    {const ids=(s?.clips||[]).filter(c=>c.auto).map(c=>c.id);if(seenAuto){const fresh=ids.filter(id=>!seenAuto.has(id));if(fresh.length)report(`Autopilot clipped a moment: ${s.clips.find(c=>c.id===fresh.at(-1)).reason}.`)}seenAuto=new Set(ids)}
     renderTrack(s);count.textContent=`Instant clips · ${s?.clips.length||0}`;
     list.replaceChildren(...[...(s?.clips||[])].reverse().map(clipRow));
     postTop.disabled=!topReady();source.textContent=s?.source?.label?`${s.source.label}${s.source.height?` · ${s.source.height}p`:''}`:'';
@@ -74,7 +77,10 @@ export function createLiveBuffer({getUrl=()=>'',onMessage=()=>{}}={}){
     const actions=el('div','cd-live-actions');actions.append(el('span','cd-label','Clip back'));
     clipButtons=[15,30,60].map((seconds,index)=>{const b=el('button',`cd-btn cd-btn-sm ${index===1?'cd-btn-primary':'cd-btn-secondary'}`,`${seconds}s`);b.type='button';b.disabled=true;b.append(kbd(String(index+1)));b.onclick=()=>clip(seconds);return b;});
     mark=el('button','cd-btn cd-btn-sm cd-btn-secondary','Mark');mark.type='button';mark.disabled=true;mark.onclick=()=>session&&run(()=>call(`/api/live-buffer/${session.id}/mark`,{}));
-    actions.append(...clipButtons,el('span','lb-grow'),mark);marks=el('p','lb-marks');signals=el('p','lb-signals');main.append(monitor,head,track,actions,marks,signals);
+    auto=el('button','cd-btn cd-btn-sm cd-btn-secondary lb-auto','Autopilot');auto.type='button';auto.disabled=true;auto.setAttribute('aria-pressed','false');auto.title='Clip automatically when chat, laughter and loudness agree (22 s before, 8 s after)';
+    autoLevel=el('select','lb-auto-level');autoLevel.setAttribute('aria-label','Autopilot sensitivity');for(const [value,label] of [['sensitive','Sensitive'],['balanced','Balanced'],['strict','Strict']])autoLevel.append(Object.assign(document.createElement('option'),{value,textContent:label}));
+    const setAuto=on=>session&&run(()=>call(`/api/live-buffer/${session.id}/autopilot`,{on,level:autoLevel.value}));auto.onclick=()=>setAuto(auto.getAttribute('aria-pressed')!=='true');autoLevel.onchange=()=>setAuto(auto.getAttribute('aria-pressed')==='true');
+    actions.append(...clipButtons,el('span','lb-grow'),auto,autoLevel,mark);marks=el('p','lb-marks');autoState=el('p','lb-auto-state');autoState.setAttribute('role','status');signals=el('p','lb-signals');main.append(monitor,head,track,actions,autoState,marks,signals);
     alert=el('div','lb-alert');alert.setAttribute('role','status');alert.hidden=true;alertText=el('p');const take=el('button','cd-btn cd-btn-sm','Clip 30s');take.type='button';take.append(kbd('2'));take.onclick=()=>clip(30);alert.append(alertText,take);
     const queue=el('aside','lb-queue');count=el('span','cd-label','Instant clips · 0');postTop=el('button','cd-btn cd-btn-sm cd-btn-ghost','Post top');postTop.type='button';postTop.append(kbd('P'));postTop.onclick=()=>postClip(topReady());const qhead=el('div','lb-queue-head');qhead.append(count,postTop);list=el('ol','lb-list');queue.append(alert,qhead,list);
     desk.append(main,queue);
