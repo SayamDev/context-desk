@@ -89,3 +89,4 @@ test('platform guidance: length advice, cross-post targets and the five-hashtag 
   assert.equal(hashtagCount('Wow #clip #fyp text#no #über_cool'),3);
   assert.equal(draftPostCaption('She did not see that coming',['podcast','reveal','a','b','c','d']),'She did not see that coming\n\n#podcast #reveal #a #b #c');
 });
+test('post kit keeps five hashtags, links back to http sources only and adds disclosure',async()=>{const {composePostCaption}=await import('../public/social.js');const text=composePostCaption({caption:' Big reveal ',hashtags:['a1','b2','c3','d4','e5','f6','#$'],link:'https://youtu.be/x',disclose:true});assert.equal((text.match(/#/g)||[]).length,5);assert.match(text,/^Big reveal\n\nFull video: https:\/\/youtu.be\/x\n\nEdited with AI tools\./);assert.doesNotMatch(composePostCaption({caption:'x',link:'javascript:alert(1)'}),/javascript/)});

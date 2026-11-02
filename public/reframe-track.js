@@ -17,3 +17,10 @@ export function frameExpression(moment,key){
  for(let i=track.length-1;i>0;i--){const a=track[i-1],b=track[i],value=b.sceneCut?String(n(a[key]/100)):`(${n(a[key]/100)}+(${n((b[key]-a[key])/100)})*(${clock}-${n(a.time)})/${n(b.time-a.time)})`;expression=`if(lt(${clock},${n(b.time)}),${value},${expression})`}
  return `if(lt(${clock},${n(track[0].time)}),${n(track[0][key]/100)},${expression})`;
 }
+// Streamer split: facecam crop on top (38% of the frame), gameplay fills the rest.
+// cam is {x,y,w} as source fractions; its height follows the top band's aspect.
+export const splitCamDefault={x:.7,y:.04,w:.28};
+export function splitGeometry(width,height,cam){
+ const top=Math.round(height*.38/2)*2,n=(v,lo,hi,d)=>Number.isFinite(Number(v))?Math.min(hi,Math.max(lo,Number(v))):d,c=cam||{};
+ return {top,bottom:height-top,cam:{x:n(c.x,0,.95,splitCamDefault.x),y:n(c.y,0,.95,splitCamDefault.y),w:n(c.w,.08,1,splitCamDefault.w)}};
+}

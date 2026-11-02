@@ -38,3 +38,11 @@ export function crossPostTargets(destination){
 export const hashtagLimit=5;
 export function hashtagCount(text){return (String(text||'').match(/(^|\s)#[\p{L}\p{N}_]+/gu)||[]).length}
 export function draftPostCaption(hook,tags=[]){const clean=String(hook||'').trim().replace(/\s+/g,' ');return [clean,tags.slice(0,hashtagLimit).map(t=>'#'+t.replace(/[^\p{L}\p{N}_]/gu,'')).filter(t=>t.length>1).join(' ')].filter(Boolean).join('\n\n')}
+
+// The finished post: AI caption, up to five hashtags, an optional link back to the full video
+// (clips are a funnel to the long-form) and an optional AI-editing disclosure.
+export function composePostCaption({caption='',hashtags=[],link='',disclose=false}={}){
+  const tags=hashtags.slice(0,hashtagLimit).map(t=>'#'+String(t).replace(/[^\p{L}\p{N}_]/gu,'')).filter(t=>t.length>1).join(' ');
+  const safeLink=/^https?:\/\//i.test(String(link).trim())?String(link).trim():'';
+  return [String(caption).trim(),safeLink&&'Full video: '+safeLink,disclose&&'Edited with AI tools.',tags].filter(Boolean).join('\n\n');
+}

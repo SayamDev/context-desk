@@ -4,7 +4,7 @@ import {createLiveControls} from './live-controls.js';
 import {badge,scoreMeter,createBulkBar,keepKbd,enhanceSegmented,enhanceCaptionLooks,createCommandPalette,toast,el,kbd,createTrim,audioPeaks,formatTime as clock} from './ds.js';
 import {mountShell} from './shell.js';
 import {createLiveBuffer} from './live-buffer.js';
-import {frameFocus} from './reframe-track.js';
+import {frameFocus,splitGeometry} from './reframe-track.js';
 import {createProductionTools} from './production-tools.js';
 import {createHome} from './home.js';
 import {createEditorTools} from './editor-tools.js';
@@ -24,7 +24,7 @@ import {createTranslationCache,translationKey} from './translation-cache.js';
 import {syncedCues,shouldRestart,speechCues,srtDocument} from './timing.js';
 import {assignMediaSource,bindPlayerControls} from './player.js';
 import {captionTarget,inheritCaptionTarget,commitCaptionTranslation,translationQueue,outputLanguages} from './caption-policy.js';
-import {socialPresets,socialExportIssue,lengthAdvice,crossPostTargets,hashtagCount,hashtagLimit,draftPostCaption} from './social.js';
+import {socialPresets,socialExportIssue,lengthAdvice,crossPostTargets,hashtagCount,hashtagLimit,draftPostCaption,composePostCaption} from './social.js';
 const $ = id => document.getElementById(id);
 const program=$('program'), clipVideo=$('clipVideo'), stageCanvas=$('stageCanvas');
 const state={sourceLoadToken:0,sourceUploadAbort:null,source:null,sourceName:'',sourceType:null,sourceUrl:null,screenStream:null,stageCrop:null,cropDraft:null,cropPicking:false,resumeAfterCrop:false,autoFrameJob:0,liveEpoch:0,recordStream:null,recording:null,scanning:false,windowTimer:null,frameTimer:null,moments:[],selected:null,cut:[],cutPreviewIndex:-1,cutPreviewBusy:false,lastDraftStart:-1,aspect:'landscape',meta:false,windowCount:0,aiCalls:0,staticSilentWindows:0,captureStalled:false,batchId:null,batchRunning:false,batchCancel:false,batchExporting:false,batchExports:[]};
@@ -86,7 +86,16 @@ enhanceCaptionLooks($('captionStyle'));
 {const hint=$('socialExportHint');const advice=Object.assign(document.createElement('p'),{id:'socialAdvice',className:'social-advice'});const cross=Object.assign(document.createElement('div'),{id:'crossPost',className:'cross-post'});
   const captionLabel=Object.assign(document.createElement('label'),{htmlFor:'postCaption',className:'post-caption-label',textContent:'Post caption'});const caption=Object.assign(document.createElement('textarea'),{id:'postCaption',rows:3,maxLength:2200,placeholder:'Your hook, then up to five hashtags'});
   const captionMeta=Object.assign(document.createElement('div'),{className:'post-caption-meta'});const count=Object.assign(document.createElement('span'),{id:'postCaptionCount'});const copy=Object.assign(document.createElement('button'),{type:'button',className:'cd-btn cd-btn-sm cd-btn-secondary',textContent:'Copy caption'});captionMeta.append(count,copy);
-  hint?.after(advice,cross,captionLabel,caption,captionMeta);
+  const kit=Object.assign(document.createElement('div'),{className:'post-kit'});const write=Object.assign(document.createElement('button'),{type:'button',id:'writePost',className:'cd-btn cd-btn-sm cd-btn-secondary',textContent:'Write post with AI'});
+  const toggle=(id,text,checked)=>{const label=Object.assign(document.createElement('label'),{className:'post-kit-toggle'});const box=Object.assign(document.createElement('input'),{type:'checkbox',id,checked});label.append(box,' '+text);return label};
+  const postTitle=Object.assign(document.createElement('p'),{id:'postTitle',className:'post-title',hidden:true});
+  kit.append(write,toggle('postLink','Link the full video',true),toggle('postDisclose','Add AI-edited note',true));
+  hint?.after(advice,cross,kit,postTitle,captionLabel,caption,captionMeta);
+  write.onclick=async()=>{const m=state.moments.find(x=>x.id===state.selected);if(!m)return;if(!m.transcript){toast('This clip has no transcript yet. Transcribe it first.');return}
+    write.disabled=true;write.textContent='Writing…';
+    try{const response=await fetch('/api/post-kit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({transcript:m.transcript,hook:m.hook,platform:$('socialDestination')?.selectedOptions?.[0]?.textContent||'',language:m.captionLanguage&&m.captionLanguage!=='Original'?m.captionLanguage:'English'})});const data=await response.json();if(!response.ok)throw Error(data.error||'Post copy failed.');
+      m.postTitle=data.title;m.postCaption=composePostCaption({...data,link:$('postLink').checked?(m.sourceLink||state.sourcePageUrl||''):'',disclose:$('postDisclose').checked});caption.value=m.postCaption;projectSession?.changed();renderSocialGuidance();toast('Post copy ready. Review it before posting.')}
+    catch(error){toast(error.message)}finally{write.disabled=false;write.textContent='Write post with AI'}};
   caption.oninput=()=>{const m=state.moments.find(x=>x.id===state.selected);if(m){m.postCaption=caption.value;projectSession?.changed()}renderSocialGuidance()};
   copy.onclick=async()=>{try{await navigator.clipboard.writeText(caption.value);toast('Caption copied.')}catch{toast('Copy is blocked here. Select the text and copy it.')}};}
 // Caption languages, regional variants and romanised scripts (locales.js).
@@ -823,7 +832,8 @@ function drawCaption(context,moment,sourceTime){
   context.restore();
 }
 function setPreviewSize(){const [width,height]=outputDimensions(),canvas=$('previewCanvas');if(canvas.width!==width||canvas.height!==height){canvas.width=width;canvas.height=height;}updateFrameControls()}
-function updateFrameControls(){const m=state.moments.find(x=>x.id===state.selected),disabled=!m||m.frameMode==='fit';for(const id of ['zoomRange','focusX','focusY'])$(id).disabled=disabled}
+function updateFrameControls(){const m=state.moments.find(x=>x.id===state.selected),disabled=!m||m.frameMode==='fit',split=m?.frameMode==='split';for(const id of ['zoomRange','focusX','focusY'])$(id).disabled=disabled||(split&&id!=='focusX');$('splitCamControls').hidden=!split;if(split){const c=splitGeometry(1,1,m.splitCam).cam;$('camX').value=c.x;$('camY').value=c.y;$('camSize').value=c.w}}
+for(const [id,key] of [['camX','x'],['camY','y'],['camSize','w']])$(id).oninput=e=>{const m=state.moments.find(x=>x.id===state.selected);if(m){m.splitCam={...splitGeometry(1,1,m.splitCam).cam,[key]:Number(e.target.value)};drawPreview()}};
 function drawComposedFrame(context,video,moment,elapsed,clock=video.currentTime||0){
   const width=context.canvas.width,height=context.canvas.height;
   context.fillStyle='#101014';context.fillRect(0,0,width,height);
@@ -831,12 +841,22 @@ function drawComposedFrame(context,video,moment,elapsed,clock=video.currentTime|
     const crop=moment.sourceType==='screen'&&!moment.cleanCapture?moment.sourceCrop:null;
     const sx=crop?crop.x*video.videoWidth:0,sy=crop?crop.y*video.videoHeight:0;
     const sourceWidth=crop?crop.w*video.videoWidth:video.videoWidth,sourceHeight=crop?crop.h*video.videoHeight:video.videoHeight;
+    if(moment.frameMode==='split'){
+      const g=splitGeometry(width,height,moment.splitCam),c=g.cam,focus=frameFocus({...moment,outputAspect:state.aspect},localTime(moment,clock));
+      const camW=sourceWidth*c.w,camH=Math.min(sourceHeight,camW*g.top/width),camX=Math.min(sourceWidth*c.x,sourceWidth-camW),camY=Math.min(sourceHeight*c.y,sourceHeight-camH);
+      context.drawImage(video,sx+camX,sy+camY,camW,camH,0,0,width,g.top);
+      const gameScale=Math.max(width/sourceWidth,g.bottom/sourceHeight),gameW=sourceWidth*gameScale,gameH=sourceHeight*gameScale;
+      context.save();context.beginPath();context.rect(0,g.top,width,g.bottom);context.clip();
+      context.drawImage(video,sx,sy,sourceWidth,sourceHeight,(width-gameW)*focus.focusX/100,g.top+(g.bottom-gameH)/2,gameW,gameH);context.restore();
+      context.fillStyle='#0b0b0d';context.fillRect(0,g.top-1,width,2);
+    }else{
     const scale=(moment.frameMode==='fill'?Math.max(width/sourceWidth,height/sourceHeight)*moment.zoom:Math.min(width/sourceWidth,height/sourceHeight));
     const drawnWidth=sourceWidth*scale,drawnHeight=sourceHeight*scale;
     const focus=frameFocus({...moment,outputAspect:state.aspect},localTime(moment,clock));
     const x=moment.frameMode==='fill'?(width-drawnWidth)*focus.focusX/100:(width-drawnWidth)/2;
     const y=moment.frameMode==='fill'?(height-drawnHeight)*focus.focusY/100:(height-drawnHeight)/2;
     context.drawImage(video,sx,sy,sourceWidth,sourceHeight,x,y,drawnWidth,drawnHeight);
+    }
   }
   if(moment.sourceCaptionMask){
     context.fillStyle='#151419';
@@ -914,6 +934,7 @@ function renderSocialGuidance(){
   const targets=crossPostTargets(destination);$('crossPost').replaceChildren();
   if(targets.length){$('crossPost').append(Object.assign(document.createElement('span'),{className:'cd-label',textContent:'Same file also fits'}));for(const t of targets)$('crossPost').append(Object.assign(document.createElement('a'),{href:t.upload,target:'_blank',rel:'noopener noreferrer',className:'cd-btn cd-btn-sm cd-btn-ghost',textContent:t.label+' ↗'}))}
   const caption=$('postCaption');if(document.activeElement!==caption)caption.value=m.postCaption??draftPostCaption(m.hook);
+  $('postTitle').hidden=!m.postTitle;$('postTitle').textContent=m.postTitle?'Title: '+m.postTitle:'';
   const tags=hashtagCount(caption.value);$('postCaptionCount').textContent=`${tags} of ${hashtagLimit} hashtags`;$('postCaptionCount').dataset.over=String(tags>hashtagLimit);
   if(tags>hashtagLimit)$('postCaptionCount').textContent+=' · Instagram allows five; extra tags show no lift in views';
 }
@@ -1212,7 +1233,7 @@ const memoryView=createMemoryView({trashToggle:$('showMemoryTrash'),trashButton:
 $('createMemory').onclick=()=>memoryView.create($('newMemoryTitle').value||'Story memory');$('addMemoryNote').onclick=()=>memoryView.add();$('addMemoryEvidence').onclick=()=>memoryView.add(true);$('saveMemory').onclick=()=>void memoryView.save().catch(()=>{});$('exportMemory').onclick=()=>memoryView.export();$('trashMemory').onclick=()=>memoryView.trash();
 
 function performEdit(key,mutate){const before=editSnapshot();mutate();editHistory.record(before,editSnapshot(),key);projectSession.changed()}
-const editKeys=['trimIn','trimOut','hook','alternateHook','frameMode','zoom','focusX','focusY','showHook','captionLanguage','captionLanguageOverride','translationMode','captionStyle','captionLook','frameKeyframes','frameTracking','transcriptEdit','discoveryStrategy','audioEnhance','dialectNote','captionCues','captionReviewed','showCaptions','captionOffset','sourceCaptionMask','approved'];
+const editKeys=['trimIn','trimOut','hook','alternateHook','frameMode','splitCam','zoom','focusX','focusY','showHook','captionLanguage','captionLanguageOverride','translationMode','captionStyle','captionLook','frameKeyframes','frameTracking','transcriptEdit','discoveryStrategy','audioEnhance','dialectNote','captionCues','captionReviewed','showCaptions','captionOffset','sourceCaptionMask','approved'];
 function editSnapshot(){return {aspect:state.aspect,targetLanguage:projectCaptionTarget(),cut:[...state.cut],selected:state.selected,moments:state.moments.map(m=>({id:m.id,captionLanguageOverride:m.captionLanguageOverride||null,...Object.fromEntries(editKeys.filter(k=>m[k]!==undefined).map(k=>[k,structuredClone(m[k])]))}))}}
 function applyEditSnapshot(value){const ids=new Set(value.moments.map(m=>m.id));state.moments=state.moments.filter(m=>!m.splitCreated||ids.has(m.id));for(const edit of value.moments){const m=state.moments.find(m=>m.id===edit.id);if(m)Object.assign(m,edit);else if(splitOriginals.has(edit.id))state.moments.push({...structuredClone(splitOriginals.get(edit.id)),...edit})}state.cut=value.cut.filter(id=>state.moments.some(m=>m.id===id));state.aspect=value.aspect;state.selected=value.selected;if(value.targetLanguage)$('liveCaptionLanguage').value=value.targetLanguage;renderQueue();renderCut();renderBatchResults();renderEditor();for(const m of state.moments)queueCaptionTarget(m);projectSession.changed()}
 const splitOriginals=new Map();const editHistory=createHistory({apply:applyEditSnapshot,onChange:()=>{$('undoEdit').disabled=!editHistory.canUndo;$('redoEdit').disabled=!editHistory.canRedo;projectSession?.changed()}});

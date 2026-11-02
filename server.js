@@ -130,6 +130,15 @@ const server = http.createServer(async (req,res) => {
       return json(res,200,{arc});
     }catch(error){return json(res,502,{error:error.message||'Story arc analysis failed.'});}
   }
+  if(req.url === '/api/post-kit' && req.method === 'POST') {
+    if(!process.env.MODEL_API_KEY) return json(res,503,{error:'Add MODEL_API_KEY to .env, then restart the server to write post copy with Meta.'});
+    try {
+      let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>12_000)throw new Error('Post request is too large.');}
+      const body=JSON.parse(raw),transcript=clean(body.transcript,2400);
+      if(!transcript)return json(res,400,{error:'This clip has no transcript yet. Transcribe it first.'});
+      return json(res,200,await writePostKit({transcript,hook:clean(body.hook,150),platform:clean(body.platform,40),language:captionLanguages.includes(body.language)?body.language:'English'}));
+    }catch(error){return json(res,502,{error:error.message||'Post copy failed.'});}
+  }
   if(req.url === '/api/translate' && req.method === 'POST') {
     try {
       let raw=''; for await (const chunk of req) {raw+=chunk; if(raw.length>80_000) throw new Error('Caption request is too large.');}
@@ -236,6 +245,18 @@ async function analyse(frames,transcript,showContext,dialectNote,previousTranscr
   const parsed=JSON.parse(match[0]);
   const beatTypes=new Set(['reveal','reversal','disagreement','reaction','humour','question','other']);
   return {worthClipping:parsed.worthClipping===true,beatType:beatTypes.has(parsed.beatType)?parsed.beatType:'other',reason:clean(parsed.reason,140),hook:clean(parsed.hook,80),alternateHook:clean(parsed.alternateHook,80),contextNote:clean(parsed.contextNote,180),riskNote:clean(parsed.riskNote,180),evidence:clean(parsed.evidence,180),visibleSourceCaptions:parsed.visibleSourceCaptions===true,setup:clean(parsed.setup,160),turn:clean(parsed.turn,160),payoff:clean(parsed.payoff,160),editNote:clean(parsed.editNote,160)};
+}
+// Platform post copy for one clip: a title, a caption that does not oversell, and at most five hashtags.
+async function writePostKit({transcript,hook,platform,language}){
+  const instructions=`You write short-form social posts for clips cut from longer videos. Write in ${language}. Use ONLY what the transcript supports: never invent names, outcomes, quotes, numbers, or drama. Speech recognition is fallible; never assume gender, so use "they" or names unless gender is explicit in the words. No clickbait promises, no emoji walls, no "you won't believe". Title: under 70 characters, curiosity without lying. Caption: one or two plain sentences that make a viewer want to watch, under 220 characters. Hashtags: 3 to 5 specific, searchable tags for this topic (no #fyp, #viral or #foryou), without the # sign.`;
+  const schema={type:'object',properties:{title:{type:'string'},caption:{type:'string'},hashtags:{type:'array',items:{type:'string'}}},required:['title','caption','hashtags'],additionalProperties:false};
+  const response=await fetch('https://api.meta.ai/v1/chat/completions',{method:'POST',headers:{Authorization:`Bearer ${process.env.MODEL_API_KEY}`,'Content-Type':'application/json'},body:JSON.stringify({model:'muse-spark-1.3',reasoning_effort:'minimal',max_completion_tokens:600,response_format:{type:'json_schema',json_schema:{name:'post_kit',schema}},messages:[{role:'developer',content:instructions},{role:'user',content:`Platform: ${platform||'short video'}. Opening hook on screen: ${hook||'none'}. Clip transcript: ${transcript}`}]})});
+  const data=await response.json();if(!response.ok)throw new Error(data?.error?.message||'Muse Spark post copy failed');
+  const content=data?.choices?.[0]?.message?.content,answer=typeof content==='string'?content:Array.isArray(content)?content.map(part=>part.text||'').join(''):'';
+  const match=answer.match(/\{[\s\S]*\}/);if(!match)throw new Error('Post copy response could not be read.');
+  const parsed=JSON.parse(match[0]),banned=/^(fyp|foryou|foryoupage|viral|trending)$/i;
+  const hashtags=[...new Set((Array.isArray(parsed.hashtags)?parsed.hashtags:[]).map(tag=>String(tag).replace(/[^\p{L}\p{N}_]/gu,'')).filter(tag=>tag.length>1&&!banned.test(tag)))].slice(0,5);
+  return {title:clean(parsed.title,90),caption:clean(parsed.caption,400),hashtags};
 }
 async function analyseArc(windows,context){
   const instructions='You are a rigorous unscripted-show story producer. Read three chronological transcript windows. Propose a concise setup, turn and payoff from the supplied windows ONLY if the actual words support a coherent story. Treat speech recognition as fallible, especially for dialects and overlapping speech. Never invent a conflict, romance, accusation, reaction, quote, outcome, speaker identity, or gender. Use speaker labels A/B or gender-neutral wording unless gender is explicit in the source. A compelling hook may ask a real open question, but must not promise a reveal absent from the source. If no coherent arc exists, worthCutting=false and leave hook empty. Do not rearrange chronology. Return JSON with worthCutting boolean and hook, setup, turn, payoff, evidence, risk strings, each under 150 characters. Evidence must cite numbered windows and exact short transcript phrases; risk must flag uncertainty.';

@@ -516,3 +516,12 @@ body[data-workspace=edit] .ds-rail .workspace-nav [data-workspace=clips]::after 
 #navLibraryCount[hidden] {display:none}
 .ds-job-dock {padding:var(--space-3);gap:var(--space-2)}
 label.caption-roman[hidden] {display:none!important}
+/* Streamer split: facecam area controls */
+.split-cam{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:grid;gap:8px;margin:4px 0}
+.split-cam[hidden]{display:none}
+.split-cam legend{font:500 11px/1 'Geist Mono',monospace;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:0 4px}
+/* Post kit: AI post copy with link-back and disclosure toggles */
+.post-kit{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin:10px 0 4px}
+.post-kit-toggle{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+.post-title{margin:4px 0 0;font-size:13px;color:var(--text)}
+.post-title[hidden]{display:none}
