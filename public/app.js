@@ -24,7 +24,7 @@ import {createProjectSession,recoverBrowserMoments,settingIds,savedMomentKeys,re
 import {createTranslationCache,translationKey} from './translation-cache.js';
 import {syncedCues,shouldRestart,speechCues,srtDocument} from './timing.js';
 import {assignMediaSource,bindPlayerControls} from './player.js';
-import {captionTarget,inheritCaptionTarget,commitCaptionTranslation,translationQueue,outputLanguages} from './caption-policy.js';
+import {captionTarget,inheritCaptionTarget,commitCaptionTranslation,translationQueue,outputLanguages,projectTrack} from './caption-policy.js';
 import {socialPresets,socialExportIssue,lengthAdvice,crossPostTargets,hashtagCount,hashtagLimit,draftPostCaption,composePostCaption} from './social.js';
 const $ = id => document.getElementById(id);
 const program=$('program'), clipVideo=$('clipVideo'), stageCanvas=$('stageCanvas');
@@ -105,7 +105,7 @@ enhanceCaptionLooks($('captionStyle'));
   const romanLabel=document.createElement('label');romanLabel.className='caption-check caption-roman';const roman=document.createElement('input');roman.type='checkbox';roman.id='captionRoman';romanLabel.append(roman,document.createTextNode(' '),document.createElement('span'));
   (select.closest('label')||select).after(variantLabel,romanLabel);
   const current=()=>state.moments.find(x=>x.id===state.selected);
-  const retranslate=m=>{m.translationWarning='';delete m.captionCues[m.captionLanguage];projectSession?.changed();void translateMoment(m,m.captionLanguage,{force:true})};
+  const retranslate=m=>{m.translationWarning='';projectSession?.changed();void translateMoment(m,m.captionLanguage,{force:true})};
   variant.onchange=()=>{const m=current();if(!m||m.captionLanguage==='Original')return;(m.captionVariants??={})[m.captionLanguage]=variant.value;retranslate(m)};
   roman.onchange=()=>{const m=current();if(!m||m.captionLanguage==='Original')return;(m.captionScripts??={})[m.captionLanguage]=roman.checked?'roman':'native';retranslate(m)};
   syncCaptionVariant=m=>{const language=m?.captionLanguage,list=captionVariants[language]||[];variantLabel.hidden=!list.length;romanLabel.hidden=!romanizations[language];
@@ -150,7 +150,11 @@ $('socialDestination').onchange=()=>{applySocialPreset();renderSocialGuidance()}
 function queueCaptionTarget(m){
   const language=inheritCaptionTarget(m,projectCaptionTarget()),owner=projectSession?.current?.id;
   if(projectSession?.restoring)return;
+  // A matching whole-recording track repairs a missing clip track for free, even after an earlier failure.
+  if(language!=='Original'&&!m.captionCues?.[language]?.length)void reuseWholeTrack(m,language);
   if(m.translationError)return;
+  // Long tracks (e.g. a full recording) are only translated when the producer asks.
+  if((m.captionCues?.Original?.length||0)>300)return;
   if(!owner||language==='Original'||m.captionCues?.[language]?.length||!m.captionCues?.Original?.length)return;
   const key=owner+':'+m.id+':'+language;
   if(m.captionQueued?.has(language)||m.translationPending?.has(language))return;
@@ -558,23 +562,44 @@ const momentTranslationCache=createTranslationCache();
 async function translateCues(item,language,{force=false}={}){
   const cues=item.captionCues.Original.map(c=>({...c})),variant=findVariant(language,item.captionVariants?.[language])?.id||'',script=item.captionScripts?.[language]==='roman'?'roman':'native',dialect=[item.dialectNote||'',variant,script].join('|'),provider=$('translationProvider').value,sourceLanguage=item.detectedLanguage||speechChoices();
   const originalKey=translationKey(cues,language,dialect,provider,sourceLanguage,item.translationMode||$('translationMode').value,$('glossary').value);if(force)item.translationRevision=(item.translationRevision||0)+1;const key=originalKey+':'+(item.translationRevision||0);
+  // /api/translate takes at most 30 lines, so long clips go in ordered batches (3 at a time).
+  // Each batch is cached on the server, so a retry only pays for batches that failed.
   const result=await momentTranslationCache.get(item,key,async()=>{
-    const response=await fetch('/api/translate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({language,variant,script,provider,sourceLanguage,dialectNote:item.dialectNote||'',translationMode:item.translationMode||$('translationMode').value,glossary:$('glossary').value,cues,refresh:force})});
-    const data=await response.json();if(!response.ok)throw Error(data.error||'Translation failed');return data;
+    const batches=[];for(let i=0;i<cues.length;i+=25)batches.push(cues.slice(i,i+25));const parts=new Array(batches.length);let next=0,warning='',providerName='';
+    const send=async index=>{const response=await fetch('/api/translate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({language,variant,script,provider,sourceLanguage,dialectNote:item.dialectNote||'',translationMode:item.translationMode||$('translationMode').value,glossary:$('glossary').value,cues:batches[index].map(({text})=>({text})),refresh:force})});
+      const data=await response.json();if(!response.ok)throw Error(data.error||'Translation failed');if(data.lines?.length!==batches[index].length)throw Error('Translation returned an incomplete batch. Retry translation.');parts[index]=data.lines;warning||=data.warning||'';providerName||=data.provider||''};
+    await Promise.all(Array.from({length:Math.min(3,batches.length)},async()=>{while(next<batches.length)await send(next++)}));
+    return {lines:parts.flat(),warning,provider:providerName};
   });
   if(translationKey(item.captionCues.Original,language,dialect,provider,sourceLanguage,item.translationMode||$('translationMode').value,$('glossary').value)!==originalKey)throw Error('The original changed during translation. Select the language again.');
   item.translationSource=result.provider||'';item.translationWarning=result.warning||'';
   return cues.map((cue,index)=>{const {words,...timed}=cue;return {...timed,text:result.lines[index].text}});
 }
-async function translateMoment(m,language,{force=false}={}){
+// A clip cut from a recording with a completed whole-recording track uses those lines
+// (no new speech or translation requests). Returns true when it supplied the track.
+async function reuseWholeTrack(m,language){
+  if(m.captionCues?.[language]?.length)return false;
+  const sourceId=m.blob?.importId||String(m.url||'').match(/^\/api\/import\/([a-f0-9-]{36})\/media$/)?.[1];if(!sourceId)return false;
+  const jobs=wholeJobs.length?wholeJobs:await fetch('/api/subtitles').then(r=>r.json()).then(d=>d.jobs||[]).catch(()=>[]);
+  const job=jobs.find(j=>j.sourceId===sourceId&&j.language===language&&j.status==='complete'&&j.cueCount>0);if(!job)return false;
+  try{const response=await fetch('/api/subtitles/'+job.id+'/track'),track=await response.json();if(!response.ok)return false;
+    const local=cues=>projectTrack(cues,m);
+    const cues=local(track.cues);if(!cues.length)return false;m.captionCues[language]=cues;if(!m.captionCues.Original?.length)m.captionCues.Original=local(track.original);
+    m.captionReviewed[language]=false;m.translationError='';m.translationSource='Whole-recording track';if(m.captionLanguage===language)m.showCaptions=true;projectSession?.changed();if(state.selected===m.id)renderEditor();return true}
+  catch{return false}
+}
+async function translateMoment(m,language,{force=false,confirmed=false}={}){
+  if(language!=='Original'&&!force&&await reuseWholeTrack(m,language))return;
   if(language==='Original'||!m.captionCues.Original.length)return;
   if(m.captionCues[language]?.length&&!force){m.showCaptions=true;if(state.selected===m.id&&m.captionLanguage===language)renderEditor();return}
-  if(m.translationPending?.has(language))return;
+  const lines=m.captionCues.Original.length;if(lines>300&&!confirmed&&!confirm(`Translating ${lines} lines takes about ${Math.ceil(lines/25)} translation requests.${m.captionCues[language]?.length?' Your current subtitles stay until it finishes.':''} Continue?`)){if(state.selected===m.id)renderEditor();return}
+  if(m.translationPending?.has(language)&&!force)return;
   const owner=projectSession?.current?.id,original=JSON.stringify(m.captionCues.Original),previous=JSON.stringify(m.captionCues[language]);
+  // The newest request wins: an older response never replaces a newer style or variant choice.
   m.translationPending??=new Map();const token={};m.translationPending.set(language,token);m.translationError='';
   const activity=m.id+':translation:'+language;setActivity(activity,'Translating to '+language,'Keeping the source timing and meaning. You can keep editing.');if(state.selected===m.id)renderEditor();
-  try{const cues=await translateCues(m,language,{force}),result={original,previous,language,cues,provider:m.translationSource};if(!commitCaptionTranslation(m,result))return;const current=owner===projectSession?.current?.id?state.moments.find(item=>item.id===m.id):null;if(current&&(current===m||commitCaptionTranslation(current,result))){projectSession.changed();await projectSession.flush()}}
-  catch(error){if(m.captionLanguage===language)m.translationError=error.message||'Translation failed. Choose Retry translation.'}
+  try{const cues=await translateCues(m,language,{force}),result={original,previous,language,cues,provider:m.translationSource};if(m.translationPending.get(language)!==token||!commitCaptionTranslation(m,result))return;const current=owner===projectSession?.current?.id?state.moments.find(item=>item.id===m.id):null;if(current&&(current===m||commitCaptionTranslation(current,result))){projectSession.changed();await projectSession.flush()}}
+  catch(error){if(m.captionLanguage===language&&m.translationPending.get(language)===token)m.translationError=(error.message||'Translation failed.')+(m.captionCues[language]?.length?' Your previous subtitles are still in use.':' Choose Retry translation.')}
   finally{if(m.translationPending.get(language)===token){m.translationPending.delete(language);finishActivity(activity);}if(owner===projectSession?.current?.id&&state.selected===m.id)renderEditor()}
 }
 function showLiveDraft(item){
@@ -1006,7 +1031,7 @@ function renderCaptionLines(m){
   $('captionLines').innerHTML=cues.length?cues.map((cue,index)=>{
     const timing=timed.find(cue=>cue.index===index),start=timing?.start??0,unavailable=!timing||timing.end<=m.trimIn||start>=m.trimOut;
     return `<div class="caption-line" data-cue="${index}"><button type="button" data-caption-jump="${index}" aria-label="Play from caption ${index+1} at ${start.toFixed(1)} seconds" ${unavailable?'disabled':''}>${start.toFixed(1)}s</button><textarea class="caption-line-text" rows="3" data-cue="${index}" aria-label="Caption ${index+1} text" dir="auto" maxlength="100">${escapeHtml(cue.text)}</textarea><button type="button" class="caption-flag ${cue.uncertain?'is-flagged':''}" data-caption-flag="${index}" aria-label="${cue.uncertain?'Resolve':'Flag'} uncertainty in caption ${index+1}">${cue.uncertain?'Review needed':'Flag'}</button>${cue.uncertain&&cue.reviewReason?`<small class="caption-original">${escapeHtml(cue.reviewReason)}</small>`:''}${m.captionLanguage!=='Original'?`<small class="caption-original" dir="auto">SOURCE · ${escapeHtml(m.captionCues.Original[index]?.text||'Original line unavailable')}</small>`:''}</div>`;
-  }).join(''):'<p class="caption-lines-empty">'+(m.translationPending?.has(m.captionLanguage)?'Preparing '+escapeHtml(m.captionLanguage)+' subtitles…':'No timed captions yet. Recheck the speech or add captions to this clip.')+'</p>';
+  }).join(''):'<p class="caption-lines-empty">'+(m.translationPending?.has(m.captionLanguage)?'Preparing '+escapeHtml(m.captionLanguage)+' subtitles…':m.translationError&&m.captionCues.Original?.length?escapeHtml(m.captionLanguage)+' subtitles are missing: '+escapeHtml(m.translationError)+' The original transcript ('+m.captionCues.Original.length+' lines) is safe.':m.captionCues.Original?.length?'No '+escapeHtml(m.captionLanguage)+' subtitles yet. The original transcript has '+m.captionCues.Original.length+' lines; choose Retry translation.':'No timed captions yet. Recheck the speech or add captions to this clip.')+'</p>';
 }
 function highlightCaption(clock){
   const m=previewMoment();if(!m)return;const time=localTime(m,clock),active=timedCues(m).find(cue=>time>=cue.start&&time<cue.end)?.index;
@@ -1239,7 +1264,10 @@ function renderMomentMap(){
 }
 
 $('clipDirection').onchange=()=>{renderQueue();renderBatchResults()};
-$('captionTranslationMode').onchange=async()=>{const m=state.moments.find(x=>x.id===state.selected);if(!m)return;m.translationMode=$('captionTranslationMode').value;m.captionReviewed={};for(const language of Object.keys(m.captionCues))if(language!=='Original')delete m.captionCues[language];if(m.captionLanguage!=='Original')await translateMoment(m,m.captionLanguage,{force:true});else renderEditor()};
+// Changing translation style keeps the current subtitles on screen until the new version is ready.
+$('captionTranslationMode').onchange=async()=>{const m=state.moments.find(x=>x.id===state.selected);if(!m)return;const lines=m.captionCues.Original?.length||0;
+  if(m.captionLanguage!=='Original'&&lines>300&&!confirm(`Re-translating ${lines} lines in this style takes about ${Math.ceil(lines/25)} translation requests. Your current subtitles stay until it finishes. Continue?`)){$('captionTranslationMode').value=m.translationMode||'faithful';return}
+  m.translationMode=$('captionTranslationMode').value;if(m.captionLanguage!=='Original')await translateMoment(m,m.captionLanguage,{force:true,confirmed:true});else renderEditor()};
 const memoryView=createMemoryView({trashToggle:$('showMemoryTrash'),trashButton:$('trashMemory'),select:$('storyMemorySelect'),rows:$('memoryFacts'),status:$('memoryStatus'),getSelected:()=>{const m=state.moments.find(x=>x.id===state.selected);return m?{...m,projectId:projectSession.current?.id}:null},onSelect:()=>projectSession?.changed()});
 $('createMemory').onclick=()=>memoryView.create($('newMemoryTitle').value||'Story memory');$('addMemoryNote').onclick=()=>memoryView.add();$('addMemoryEvidence').onclick=()=>memoryView.add(true);$('saveMemory').onclick=()=>void memoryView.save().catch(()=>{});$('exportMemory').onclick=()=>memoryView.export();$('trashMemory').onclick=()=>memoryView.trash();
 
