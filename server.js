@@ -27,6 +27,7 @@ import {createDurableTranslationCache} from './lib/translation-store.js';
 import fs from 'node:fs/promises';
 import {createCodeStamp} from './lib/code-stamp.js';
 import {createImpact} from './lib/impact.js';
+import {healthChecks} from './lib/health.js';
 import {createVisualIndex} from './lib/visual-index.js';
 import {buildXmeml} from './lib/nle-export.js';
 import {probeMedia as probeMediaFile} from './lib/exports.js';
@@ -97,6 +98,7 @@ const server = http.createServer(async (req,res) => {
     }catch(error){return json(res,400,{error:error.message})}
   }
   if(req.url === '/api/impact' && req.method === 'GET') return json(res,200,impact.summary());
+  if(req.url === '/api/health' && req.method === 'GET') return json(res,200,await healthChecks({dataDir:studioStore().root}));
   // Find what's shown: on-device Apple Vision index of a saved recording.
   {const m=new URL(req.url,'http://localhost').pathname.match(/^\/api\/visual-index\/([a-f0-9-]{36})(\/search)?$/);
     if(m){try{if(m[2]&&req.method==='GET')return json(res,200,{results:visualIndex.search(m[1],clean(new URL(req.url,'http://localhost').searchParams.get('q')||'',120))});

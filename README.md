@@ -17,11 +17,12 @@ The next expansion adds Home, a clip-switching Studio inspector, opt-in full-tra
 Requires **Node 22.13+**, Python 3.10+ and FFmpeg with libass for subtitle rendering. A current Chromium browser is needed for shared-tab capture.
 
 ```sh
-cp .env.example .env
-# Set MODEL_API_KEY in .env; keep it private.
-npm run setup:imports
+npm run setup   # checks this computer, installs what it can (FFmpeg with subtitles, the link importer), creates .env
+# Then set MODEL_API_KEY in .env (keep it private) and start:
 npm run dev
 ```
+
+`npm run setup` is safe to run again; it lists anything it could not install with the exact fix. Inside the app, a **Setup check** panel shows the same list (from `GET /api/health`) until everything needed is in place.
 
 Open http://localhost:3001. `FFMPEG_PATH` can point to an existing FFmpeg executable. `npm run check` checks every JavaScript source; `npm test` uses isolated temporary data and includes a real FFmpeg render when FFmpeg is installed. Muse Code login does not configure this application's Model API key.
 
