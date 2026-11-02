@@ -536,3 +536,18 @@ label.caption-roman[hidden] {display:none!important}
 /* Tighten the clip: pause and filler cuts */
 .cut-tools{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 0}
 .cut-status{font:500 12px/1 'Geist Mono',monospace;color:var(--success-text)}
+/* Subtitle QA hints: never blocking, point at lines to check against the audio */
+.caption-qa{display:block;grid-column:1/-1;font-size:12px;color:var(--warning);margin-top:2px}
+.caption-line.is-qa-focus{outline:2px solid var(--warning);outline-offset:2px;border-radius:8px}
+#captionQaNext{margin-left:8px}
+/* Hook lab: A/B hooks with their own covers */
+.hook-lab{display:grid;gap:10px;margin:8px 0 12px}
+.hook-lab>button{justify-self:start}
+.hook-variants{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.hook-variant{display:grid;grid-template-columns:112px 1fr;gap:12px;align-items:start;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--surface-raised)}
+.hook-variant.is-active{border-color:var(--cue)}
+.hook-variant img{width:112px;aspect-ratio:9/16;object-fit:contain;border-radius:8px;background:var(--surface-3)}
+.hook-variant strong{font:500 11px/1.4 'Geist Mono',monospace;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.hook-variant p{margin:2px 0 8px;font-weight:600;color:var(--text)}
+@font-face{font-family:"Noto Emoji";src:url('/assets/fonts/NotoEmoji.ttf') format('truetype');font-weight:300 700;font-display:swap}
+.caption-accents{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin:10px 0}

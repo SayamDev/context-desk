@@ -1,3 +1,4 @@
+import {cleanAccents} from './public/caption-accents.js';
 import {randomUUID} from 'node:crypto';
 import {createMomentSearch} from './lib/moment-search.js';
 import {createLiveIngestService} from './lib/live-ingest.js';
@@ -32,7 +33,7 @@ try { for (const line of (await fs.readFile(path.join(root,'.env'),'utf8')).spli
 const port = Number(process.env.PORT || 3001);
 const voiceStudioUrl = 'http://127.0.0.1:3900';
 const languageCodes = {Arabic:'ar',Bengali:'bn',Dutch:'nl',English:'en',French:'fr',German:'de',Hebrew:'he',Hindi:'hi',Indonesian:'id',Italian:'it',Japanese:'ja',Kannada:'kn',Korean:'ko',Malay:'ms','Mandarin Chinese':'zh',Marathi:'mr',Polish:'pl',Portuguese:'pt',Spanish:'es',Tagalog:'tl',Tamil:'ta',Telugu:'te',Thai:'th',Turkish:'tr',Vietnamese:'vi',Urdu:'ur'};
-const staticFiles = {'/':'index.html','/app.js':'app.js','/player.js':'player.js','/social.js':'social.js','/caption-policy.js':'caption-policy.js','/layout.js':'layout.js','/studio-ui.js':'studio-ui.js','/timing.js':'timing.js','/translation-cache.js':'translation-cache.js','/projects.js':'projects.js','/jobs.js':'jobs.js','/languages.js':'languages.js','/history.js':'history.js','/moment-results.js':'moment-results.js','/story-memory.js':'story-memory.js','/style.css':'style.css','/ds.css':'ds.css','/assets/context-desk-studio.webp':'assets/context-desk-studio.webp','/assets/story-paper.webp':'assets/story-paper.webp','/assets/fonts/Manrope.ttf':'assets/fonts/Manrope.ttf','/assets/fonts/archivo-latin-wght-normal.woff2':'assets/fonts/archivo-latin-wght-normal.woff2','/assets/fonts/geist-latin-wght-normal.woff2':'assets/fonts/geist-latin-wght-normal.woff2','/assets/fonts/geist-mono-latin-wght-normal.woff2':'assets/fonts/geist-mono-latin-wght-normal.woff2'};
+const staticFiles = {'/':'index.html','/app.js':'app.js','/player.js':'player.js','/social.js':'social.js','/caption-policy.js':'caption-policy.js','/layout.js':'layout.js','/studio-ui.js':'studio-ui.js','/timing.js':'timing.js','/translation-cache.js':'translation-cache.js','/projects.js':'projects.js','/jobs.js':'jobs.js','/languages.js':'languages.js','/history.js':'history.js','/moment-results.js':'moment-results.js','/story-memory.js':'story-memory.js','/style.css':'style.css','/ds.css':'ds.css','/assets/context-desk-studio.webp':'assets/context-desk-studio.webp','/assets/story-paper.webp':'assets/story-paper.webp','/assets/fonts/Manrope.ttf':'assets/fonts/Manrope.ttf','/assets/fonts/NotoEmoji.ttf':'assets/fonts/NotoEmoji.ttf','/assets/fonts/archivo-latin-wght-normal.woff2':'assets/fonts/archivo-latin-wght-normal.woff2','/assets/fonts/geist-latin-wght-normal.woff2':'assets/fonts/geist-latin-wght-normal.woff2','/assets/fonts/geist-mono-latin-wght-normal.woff2':'assets/fonts/geist-mono-latin-wght-normal.woff2'};
 const mime = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.webp':'image/webp','.ttf':'font/ttf','.woff2':'font/woff2'};
 if(process.env.NODE_ENV!=='test')await recoverLegacySubtitles(studioStore(),path.join(root,'.runtime/subtitle-jobs'));
 const subtitleService=createSubtitleService({claimSource:claimImportSource,extract:extractAudio,store:studioStore(),
@@ -135,6 +136,24 @@ const server = http.createServer(async (req,res) => {
       let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>4096)throw new Error('Request is too large.');}
       const body=JSON.parse(raw);return json(res,200,{cuts:await exportService.silence({url:String(body.url||''),mediaStart:Number(body.mediaStart)||0,trimIn:Number(body.trimIn),trimOut:Number(body.trimOut)})});
     }catch(error){return json(res,400,{error:error.message||'Silence detection failed.'});}
+  }
+  if(req.url === '/api/caption-accents' && req.method === 'POST') {
+    if(!process.env.MODEL_API_KEY) return json(res,503,{error:'Add MODEL_API_KEY to .env, then restart the server to pick caption accents with Meta.'});
+    try {
+      let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>40_000)throw new Error('Accent request is too large.');}
+      const body=JSON.parse(raw),lines=Array.isArray(body.lines)?body.lines.slice(0,100).map(line=>clean(line,200)):[];
+      if(!lines.length)return json(res,400,{error:'This clip has no caption lines yet.'});
+      return json(res,200,{accents:cleanAccents(lines,await pickAccents(lines))});
+    }catch(error){return json(res,502,{error:error.message||'Caption accents failed.'});}
+  }
+  if(req.url === '/api/hooks' && req.method === 'POST') {
+    if(!process.env.MODEL_API_KEY) return json(res,503,{error:'Add MODEL_API_KEY to .env, then restart the server to write hooks with Meta.'});
+    try {
+      let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>12_000)throw new Error('Hook request is too large.');}
+      const body=JSON.parse(raw),transcript=clean(body.transcript,2400);
+      if(!transcript)return json(res,400,{error:'This clip has no transcript yet. Transcribe it first.'});
+      return json(res,200,await writeHooks({transcript,current:clean(body.hook,120),language:captionLanguages.includes(body.language)?body.language:'English'}));
+    }catch(error){return json(res,502,{error:error.message||'Hook writing failed.'});}
   }
   if(req.url === '/api/post-kit' && req.method === 'POST') {
     if(!process.env.MODEL_API_KEY) return json(res,503,{error:'Add MODEL_API_KEY to .env, then restart the server to write post copy with Meta.'});
@@ -251,6 +270,26 @@ async function analyse(frames,transcript,showContext,dialectNote,previousTranscr
   const parsed=JSON.parse(match[0]);
   const beatTypes=new Set(['reveal','reversal','disagreement','reaction','humour','question','other']);
   return {worthClipping:parsed.worthClipping===true,beatType:beatTypes.has(parsed.beatType)?parsed.beatType:'other',reason:clean(parsed.reason,140),hook:clean(parsed.hook,80),alternateHook:clean(parsed.alternateHook,80),contextNote:clean(parsed.contextNote,180),riskNote:clean(parsed.riskNote,180),evidence:clean(parsed.evidence,180),visibleSourceCaptions:parsed.visibleSourceCaptions===true,setup:clean(parsed.setup,160),turn:clean(parsed.turn,160),payoff:clean(parsed.payoff,160),editNote:clean(parsed.editNote,160)};
+}
+// Keyword per caption line (copied exactly from the line) and a sparing, literal emoji.
+async function pickAccents(lines){
+  const instructions='For each numbered subtitle line, choose the single most important word or short phrase to emphasise, copied EXACTLY as it appears in that line (same spelling, script and case). Add an emoji only when a line names something concrete or a clear emotion, at most one emoji every three lines; otherwise leave emoji empty. Never pick filler words. Never add emoji that mocks people, religion, bodies or nationality.';
+  const schema={type:'object',properties:{accents:{type:'array',items:{type:'object',properties:{index:{type:'integer'},keyword:{type:'string'},emoji:{type:'string'}},required:['index','keyword','emoji'],additionalProperties:false}}},required:['accents'],additionalProperties:false};
+  const response=await fetch('https://api.meta.ai/v1/chat/completions',{method:'POST',headers:{Authorization:`Bearer ${process.env.MODEL_API_KEY}`,'Content-Type':'application/json'},body:JSON.stringify({model:'muse-spark-1.3',reasoning_effort:'minimal',max_completion_tokens:3000,response_format:{type:'json_schema',json_schema:{name:'caption_accents',schema}},messages:[{role:'developer',content:instructions},{role:'user',content:lines.map((line,index)=>`${index}: ${line}`).join('\n')}]})});
+  const data=await response.json();if(!response.ok)throw new Error(data?.error?.message||'Muse Spark caption accents failed');
+  const content=data?.choices?.[0]?.message?.content,answer=typeof content==='string'?content:Array.isArray(content)?content.map(part=>part.text||'').join(''):'';
+  const match=answer.match(/\{[\s\S]*\}/);if(!match)throw new Error('Caption accent response could not be read.');return JSON.parse(match[0]).accents||[];
+}
+// Three opening hooks that each take a different angle, for trial posts / A-B tests.
+async function writeHooks({transcript,current,language}){
+  const instructions=`You write the first on-screen line of a short video, shown for the first 2 seconds. Write in ${language}. Give exactly three hooks, each a different angle: (1) curiosity about what happens, (2) the strongest quoted or paraphrased line, (3) the stakes or emotion. Under 60 characters each. Use ONLY what the transcript supports; never invent names, outcomes, numbers or drama. Speech recognition is fallible; never assume gender. No emoji, no hashtags, no "you won't believe".`;
+  const schema={type:'object',properties:{hooks:{type:'array',items:{type:'object',properties:{text:{type:'string'},angle:{type:'string'}},required:['text','angle'],additionalProperties:false}}},required:['hooks'],additionalProperties:false};
+  const response=await fetch('https://api.meta.ai/v1/chat/completions',{method:'POST',headers:{Authorization:`Bearer ${process.env.MODEL_API_KEY}`,'Content-Type':'application/json'},body:JSON.stringify({model:'muse-spark-1.3',reasoning_effort:'minimal',max_completion_tokens:500,response_format:{type:'json_schema',json_schema:{name:'hooks',schema}},messages:[{role:'developer',content:instructions},{role:'user',content:`Current hook: ${current||'none'}. Clip transcript: ${transcript}`}]})});
+  const data=await response.json();if(!response.ok)throw new Error(data?.error?.message||'Muse Spark hook writing failed');
+  const content=data?.choices?.[0]?.message?.content,answer=typeof content==='string'?content:Array.isArray(content)?content.map(part=>part.text||'').join(''):'';
+  const match=answer.match(/\{[\s\S]*\}/);if(!match)throw new Error('Hook response could not be read.');
+  const hooks=(JSON.parse(match[0]).hooks||[]).map(h=>({text:clean(String(h.text||'').trim(),80),angle:clean(String(h.angle||'').trim(),40)})).filter(h=>h.text).slice(0,3);
+  if(!hooks.length)throw new Error('No usable hooks came back. Try again.');return {hooks};
 }
 // Platform post copy for one clip: a title, a caption that does not oversell, and at most five hashtags.
 async function writePostKit({transcript,hook,platform,language}){

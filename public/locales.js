@@ -100,8 +100,8 @@ export function translationGuide(language,variantId,script='native'){
   return `Write for ${variant.label} ${language} audiences. ${variant.guide}${roman?` Write the output in ${romanizations[language]}, not in the native script.`:''} Translate the meaning the way a native subtitle writer from this region would, never word for word, and never mix in conventions from other regions.`;
 }
 
-const scripts={arabic:/[؀-ۿݐ-ݿ]/g,hebrew:/[֐-׿]/g,devanagari:/[ऀ-ॿ]/g,bengali:/[ঀ-৿]/g,tamil:/[஀-௿]/g,telugu:/[ఀ-౿]/g,kannada:/[ಀ-೿]/g,thai:/[฀-๿]/g,hangul:/[가-힯ᄀ-ᇿ]/g,kana:/[぀-ヿ]/g,han:/[一-鿿]/g,latin:/[A-Za-zÀ-ɏ]/g};
-const expected={Arabic:'arabic',Urdu:'arabic',Hebrew:'hebrew',Hindi:'devanagari',Marathi:'devanagari',Bengali:'bengali',Tamil:'tamil',Telugu:'telugu',Kannada:'kannada',Thai:'thai',Korean:'hangul',Japanese:'kana','Mandarin Chinese':'han',Cantonese:'han'};
+export const scripts={arabic:/[؀-ۿݐ-ݿ]/g,hebrew:/[֐-׿]/g,devanagari:/[ऀ-ॿ]/g,bengali:/[ঀ-৿]/g,tamil:/[஀-௿]/g,telugu:/[ఀ-౿]/g,kannada:/[ಀ-೿]/g,thai:/[฀-๿]/g,hangul:/[가-힯ᄀ-ᇿ]/g,kana:/[぀-ヿ]/g,han:/[一-鿿]/g,latin:/[A-Za-zÀ-ɏ]/g};
+export const expected={Arabic:'arabic',Urdu:'arabic',Hebrew:'hebrew',Hindi:'devanagari',Marathi:'devanagari',Bengali:'bengali',Tamil:'tamil',Telugu:'telugu',Kannada:'kannada',Thai:'thai',Korean:'hangul',Japanese:'kana','Mandarin Chinese':'han',Cantonese:'han'};
 // Characters that exist only in one Chinese script; a few of either is enough to tell.
 const simplifiedOnly='们这说时会来对为发经过还见让认间问门马东车长开关头样实现学点话钱电国', traditionalOnly='們這說時會來對為發經過還見讓認間問門馬東車長開關頭樣實現學點話錢電國';
 const count=(text,re)=>(text.match(re)||[]).length;
