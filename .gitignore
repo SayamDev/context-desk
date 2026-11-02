@@ -13,3 +13,6 @@ qa-*.jpg
 
 # Durable private projects, media and SQLite
 .context-desk/
+
+# Hallmark design-lint records and screenshots (local only)
+.hallmark/

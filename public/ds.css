@@ -657,3 +657,6 @@ body.simple-mode .memory-panel,body.simple-mode .more-exports,body.simple-mode .
 .setup-check h3{margin:0 0 8px;font-size:16px}.setup-check p{margin:8px 0 0;font-size:13px;color:var(--muted)}
 .setup-item{display:grid;gap:2px;padding:8px 0;border-top:1px solid var(--line)}.setup-item strong{font-size:14px}.setup-item.is-needed strong{color:var(--warning)}
 .setup-item span{font-size:13px;color:var(--muted)}.setup-item code{font:12px/1.4 'Geist Mono',monospace;color:var(--text);overflow-wrap:anywhere}
+/* Settings > Classic look switch (works in both looks) */
+.look-choice {display:flex;align-items:center;gap:8px;margin:0 0 16px;font-size:14px}
+.look-choice input {width:24px;height:24px;margin:0;flex:none}
