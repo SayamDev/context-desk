@@ -8,6 +8,7 @@
     "start": "node server.js",
     "check": "node scripts/check.js",
     "test": "node scripts/test.js",
+    "test:browser": "node --test --test-concurrency=1 \"tests/browser/*.test.js\"",
     "test:imports": "node scripts/test.js imports",
     "setup": "sh scripts/setup.sh",
     "setup:imports": "sh scripts/setup-import.sh",
@@ -15,5 +16,8 @@
   },
   "engines": {
     "node": ">=22.13"
+  },
+  "devDependencies": {
+    "playwright-core": "1.64.1"
   }
 }
