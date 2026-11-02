@@ -1,0 +1,24 @@
+{
+  "date": "2026-10-31",
+  "route": "GET /api/projects/:id",
+  "fixtures": {
+    "projects": 4,
+    "momentsInRestoredProject": 2,
+    "server": "local Node 26.5.0"
+  },
+  "samplesMs": [
+    2.03,
+    2.09,
+    2.15,
+    2.15,
+    2.18,
+    2.26,
+    2.31,
+    2.33,
+    2.48,
+    35.58
+  ],
+  "medianMs": 2.26,
+  "p95Ms": 35.58,
+  "scope": "Local JSON fetch and parse only; not browser media readiness, long-form throughput or production concurrency."
+}

@@ -1,0 +1,5 @@
+Archivo (variable, latin) - Copyright The Archivo Project Authors (https://github.com/Omnibus-Type/Archivo)
+Geist and Geist Mono (variable, latin) - Copyright Vercel, in collaboration with basement.studio (https://github.com/vercel/geist-font)
+
+All three are licensed under the SIL Open Font License, Version 1.1: https://openfontlicense.org
+Files taken from the Fontsource builds (@fontsource-variable/archivo 5.2.8, @fontsource-variable/geist 5.2.8, @fontsource-variable/geist-mono 5.2.7).

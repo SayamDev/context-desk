@@ -80,3 +80,26 @@ Only sampled portions of the 16:16 supplied video were scanned; the entire show 
 - A 24-second excerpt at source 52:03 from the real Arabic episode was processed by Meta. It generated 14 original-speech caption lines, with mixed Arabic/Latin script. Clicking caption 7 sought to 7.9 seconds, played the clip, and highlighted the matching line. Numeric -0.3 second sync immediately updated the label and cue buttons. No claim of native-speaker-validated dialect accuracy is made.
 - No browser console errors were recorded on either clip editor. The static design detector returned no findings. New editor controls were inspected at a 901-pixel viewport with no horizontal overflow; a fresh mobile pass for these controls remains outstanding.
 - Restart and Loop are clip-preview controls. The live draft rail still arrives after a recorded window and ASR/model processing; it is explicitly labelled Previous window. The revision does not provide instantaneous synchronized live captions or forced word alignment. Local uploads now permit 20 GB with a free-space precheck, but an actual 20 GB upload has not been stress-tested.
+
+## Production build — 31 October 2026
+
+The current build uses persistent SQLite projects, durable backend discovery/subtitle/export workers and stable managed media. `npm test`: **55/55**; `npm run check`: **24 JavaScript files**. New tests cover failed opens, stale/conflicting writes and recovery copies, late model results after project reopening, browser interruption status, split independence, pending memory saves and exact-source relinking. A fresh independent review found seven persistence/ownership issues, all addressed with focused regression evidence in [the ledger](docs/BUILD-LEDGER.md).
+
+Browser evidence on isolated port 3010: three generated source recordings, actual title sorting, recovered captions/trim/offset after refresh and process restart, playable managed source, automatic French translation/original comparison, uncertainty review guard, Undo/Redo, 4:5 queued MP4, and conflict recovery into a separate project. Jobs refresh preserved export playback. At 390px, Library had no document overflow and visible functional text met the 11px size floor. These checks are not a complete WCAG certification.
+
+Media evidence: a two-second requested trim produced 2.02 seconds at 720×900, 12fps, with audio and visibly joined Arabic glyphs. The small local render plus frame capture took roughly 230ms; this does not measure long-form production throughput. A ten-request local JSON project-fetch smoke test recorded median 2.26ms and p95 35.58ms on small fixtures. See docs/evaluation.
+
+A real 8.16-second Google FLEURS Arabic sample was processed through the app's Meta subtitle queue. Its actual repeated-word error and both stated normalization results are recorded in [EVALUATION.md](docs/EVALUATION.md). This is not dialect/translation/alignment quality proof. Sustained live reliability and the full long-form stress test remain open. The old Arabic subtitle checkpoint was recovered as a read-only draft without paid requests; its already-expired temporary recording is represented as missing rather than fabricated as playable.
+
+## Screenshot release blockers and social delivery — 1 November 2026
+
+Diagnosed the relative/absolute source-URL comparison by reproducing a playing clip pausing/resetting during a provider setting update. After the fix, real browser volume/mute/provider/style interactions preserved source and advancing playback. Space on the focused mute button no longer invokes global pause. Volume, mute, speed and project English survived refresh without autoplay.
+
+Two synthetic subtitle tracks established that old Arabic/Original active values now inherit English, with explicit persisted overrides and no source-language fallback while a target is pending. One new real Muse Spark Arabic-to-French translation completed through the UI. These fixtures test state/pipeline behavior, not dialect accuracy or useful-story selection.
+
+A browser-generated 8.02-second social MP4 was downloaded, fully decoded and frame-inspected: 1080×1920 H.264 24fps, AAC stereo 48kHz, visible English line, mean audio −25.5dB / peak −5.4dB. Automated render tests separately cover project-English resolution across two segments and rejection of missing/unreviewed tracks. Mobile export selector overflow was corrected; actual 390px and 768px viewport widths matched document widths. No platform post was made. Details and evidence paths: [release verification](docs/PLAYER-LANGUAGE-SOCIAL-RELEASE.md).
+
+
+## 2026-11-01 production feature expansion
+
+See [actual feature expansion checks](docs/FEATURE-EXPANSION-RELEASE.md). Default gate: 194 tests / 192 pass / 0 fail / 2 opt-in skips; 53 JavaScript syntax checks. Short real Meta speech/ranking/artwork, local native tracking, integrated 14-second RTMP capture, 1080×1920 branded/audio export, XML and downloaded ZIP are distinguished from fake social-provider tests. Whole-episode quality and actual OAuth/NLE app acceptance remain open.

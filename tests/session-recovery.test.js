@@ -1,0 +1,12 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {createProjectSession} from '../public/projects.js';
+const originalFetch=globalThis.fetch;
+function setup(){globalThis.sessionStorage={getItem:()=>null,setItem(){}};globalThis.window={addEventListener(){}};globalThis.document={addEventListener(){}};globalThis.BroadcastChannel=undefined;}
+const project=(id,title)=>({id,title,revision:1,sourceId:null,state:{moments:[]}});
+test('failed project restoration cannot make another editor save into the failed target',async()=>{
+  setup();const requests=[],a=project('a','A'),b=project('b','B');let captured={title:'A',state:{moments:[]}};globalThis.fetch=async(url,options={})=>{requests.push({url,options});if(url==='/api/preferences')return Response.json({});if(options.method==='PUT')return Response.json({...a,...JSON.parse(options.body),revision:2});return Response.json(url.endsWith('/b')?b:a)};
+  const session=createProjectSession({capture:()=>captured,restore:async p=>{if(p.id==='b')throw Error('Corrupt video');captured={title:p.title,state:p.state}},onStatus(){},onSaved(){},onProject(){}});await session.open('a');await assert.rejects(session.open('b'),/Corrupt/);assert.equal(session.current.id,'a');captured.title='A edited';session.changed();await session.flush();assert.equal(requests.filter(r=>r.options.method==='PUT'&&r.url.startsWith('/api/projects/')).at(-1).url,'/api/projects/a');globalThis.fetch=originalFetch;
+});
+test('conflicted edits are saved as a recovery before reopening the winning revision',async()=>{
+  setup();const requests=[],a=project('a','Remote');let captured={title:'Remote',state:{moments:[]}};globalThis.fetch=async(url,options={})=>{requests.push({url,options});if(url==='/api/preferences')return Response.json({});if(options.method==='PUT')return Response.json({error:'Conflict'},{status:409});if(options.method==='POST')return Response.json({saved:true,id:'recovery'});return Response.json(a)};
+  const session=createProjectSession({capture:()=>captured,restore:async p=>{captured={title:p.title,state:p.state}},onStatus(){},onSaved(){},onProject(){}});await session.open('a');captured.title='Losing edit';session.changed();await assert.rejects(session.flush());await session.open('a');const recovery=requests.find(r=>r.options.method==='POST'&&JSON.parse(r.options.body).action==='recovery');assert.ok(recovery,'the losing snapshot must be durably copied before the editor is replaced');assert.equal(JSON.parse(recovery.options.body).title,'Losing edit');globalThis.fetch=originalFetch;
+});

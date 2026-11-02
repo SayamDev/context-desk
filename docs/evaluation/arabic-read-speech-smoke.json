@@ -1,0 +1,48 @@
+{
+  "dataset": "google/fleurs",
+  "config": "ar_eg",
+  "split": "test",
+  "row": 0,
+  "id": 1993,
+  "source": "https://huggingface.co/datasets/google/fleurs",
+  "license": "CC-BY-4.0",
+  "model": "muse-voice-transcribe-1.0",
+  "speechLanguageBias": [
+    "Arabic"
+  ],
+  "requests": 1,
+  "duration": 8.16,
+  "strict": {
+    "referenceWords": 15,
+    "hypothesisWords": 16,
+    "wordErrors": 5,
+    "wer": 0.3333333333333333,
+    "characterErrors": 9,
+    "referenceCharacters": 85,
+    "cer": 0.10588235294117647,
+    "normalization": {
+      "unicode": "NFC",
+      "case": "lower",
+      "punctuation": "removed",
+      "diacritics": "retained"
+    }
+  },
+  "withoutDiacritics": {
+    "referenceWords": 15,
+    "hypothesisWords": 16,
+    "wordErrors": 1,
+    "wer": 0.06666666666666667,
+    "characterErrors": 5,
+    "referenceCharacters": 84,
+    "cer": 0.05952380952380952,
+    "normalization": {
+      "unicode": "NFC",
+      "case": "lower",
+      "punctuation": "removed",
+      "diacritics": "all Unicode combining marks removed, including decomposed hamza"
+    }
+  },
+  "limitations": "One clean read-speech sample; not a dialect, overlap, timing or translation benchmark.",
+  "date": "2026-10-31",
+  "finding": "One repeated opening word; additional strict errors include orthographic/combining-mark differences. No claim of general accuracy."
+}

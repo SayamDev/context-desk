@@ -1,0 +1,26 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import {execFileSync} from 'node:child_process';
+const source=process.env.CONTEXT_TEST_BASELINE?execFileSync('git',['show','0971751:public/app.js'],{encoding:'utf8'}):fs.readFileSync('public/app.js','utf8');
+for(const id of ['focusPlayer','captionsEarlier','captionsLater','resetCaptionSync','applyCaptionLook'])test(id+' marks its button mutation dirty before immediate export or refresh',()=>{
+  const controls={},$=id=>controls[id]??={value:'0'},moment={id:'m',captionOffset:0,captionStyle:'pop'},state={selected:'m',moments:[moment,{id:'other',captionStyle:'clean'}]};let dirty=0;const performEdit=(_,fn)=>{fn();dirty++};const line=source.split('\n').find(line=>line.startsWith("$('"+id+"').onclick="));assert.ok(line);
+  new Function('$','state','performEdit','updateFrameControls','drawPreview','message','changeCaptionSync',line)($,state,performEdit,()=>{},()=>{},()=>{},n=>moment.captionOffset=n);$(id).onclick();assert.equal(dirty,1);
+});
+test('caption uncertainty toggle participates in history and autosave before refresh',async()=>{
+ const start=source.indexOf("$('captionLines').onclick="),end=source.indexOf('  const button=event.target.closest',start),binding=source.slice(start,end)+'};';
+ const control={},$=()=>control,moment={id:'m',captionLanguage:'Original',captionReviewed:{Original:true}},cue={text:'A name',uncertain:false},state={selected:'m',moments:[moment]};let dirty=0;
+ new Function('$','state','activeCues','renderEditor','performEdit',binding)($,state,()=>[cue],()=>{},(_,fn)=>{fn();dirty++});
+ await control.onclick({target:{closest:()=>({dataset:{captionFlag:'0'}})}});
+ assert.equal(cue.uncertain,true);assert.equal(moment.captionReviewed.Original,false);assert.equal(dirty,1);
+});
+test('Studio navigation reopens the selected media after restoring another workspace',()=>{
+ const binding=source.split('\n').find(line=>line.startsWith('function navigateWorkspace('));assert.ok(binding);
+ let opened=null,view=null;const state={selected:'persisted-moment'};
+ new Function('state','document','selectMoment','showWorkspace','startupNavigation','requestedWorkspace',binding+';navigateWorkspace("edit")')(state,{body:{dataset:{workspace:'library'}}},id=>{opened=id},name=>{view=name},false,'library');
+ assert.equal(opened,'persisted-moment');assert.equal(view,null);
+});
+test('pressing the current Studio navigation does not pause or reselect the playing clip',()=>{
+ const binding=source.split('\n').find(line=>line.startsWith('function navigateWorkspace('));let reselected=false;
+ new Function('state','document','selectMoment','showWorkspace','startupNavigation','requestedWorkspace',binding+';navigateWorkspace("edit")')({selected:'playing'},{body:{dataset:{workspace:'edit'}}},()=>{reselected=true},()=>{},false,'edit');
+ assert.equal(reselected,false);
+});
+
+test('navigation requested during startup survives the restore gate',()=>{const binding=source.split('\n').find(line=>line.startsWith('function navigateWorkspace('));let view;const requested=new Function('state','document','selectMoment','showWorkspace','startupNavigation','requestedWorkspace',binding+';navigateWorkspace("library");return requestedWorkspace')({selected:'old'}, {body:{dataset:{workspace:'home'}}},()=>{throw Error('Startup must not reselect stale media')},value=>{view=value},true,'home');assert.equal(view,'library');assert.equal(requested,'library')});

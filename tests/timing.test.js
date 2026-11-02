@@ -20,3 +20,4 @@ test('speaker-turn captions remain bounded and do not invent word timestamps',()
   const cues=speechCues({turns:[{startMs:1000,endMs:4000,text:'one two three four five six seven'}]},3);assert.equal(cues.length,2);assert.equal(cues.at(-1).end,3);assert.equal(cues[0].words,undefined);
 });
 test('full-recording SRT retains hours, unicode and millisecond times',()=>{assert.match(srtDocument([{start:7200.3,end:7201.6,text:'أهلاً — hello'}]),/02:00:00,300 --> 02:00:01,600\nأهلاً — hello/)});
+test('repeated source words are flagged for review without deleting or rewriting speech',()=>{const cues=speechCues({turns:[{startMs:0,endMs:3000,text:'تشكلت تشكلت في المحيط'}]},3);assert.equal(cues[0].uncertain,true);assert.equal(cues[0].text,'تشكلت تشكلت في المحيط');assert.match(cues[0].reviewReason,/Repeated word/)});

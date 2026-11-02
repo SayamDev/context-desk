@@ -34,7 +34,7 @@ Dependency-free Node server with browser HTML/CSS/JavaScript. Meta API credentia
 
 Supported recording imports select quality up to 1080p within a 4 GB final working-file budget. Local uploads permit up to 20 GB; duration validation permits six hours. Byte-range playback avoids loading an entire imported recording into a browser Blob. These are implemented limits, not proof of a complete six-hour/20 GB stress test.
 
-The app includes three workspaces, original brand artwork, sampled multi-clip discovery, evidence-backed suggestions, editable framing and subtitles, restart/loop controls, source-linked notes, and browser-rendered exports. Language selection now starts clip translation automatically. Whole-recording subtitle jobs process 45-second sections with overlap, checkpoint completed sections locally, reuse speech results, and offer draft SRT downloads and a native subtitle preview. Fade/highlight styles are added; karaoke is restricted to original tracks with supplied word timestamps.
+The app includes Library and Jobs alongside three production workspaces, original brand artwork, sampled multi-clip discovery, evidence-backed suggestions, editable framing and subtitles, restart/loop controls, source-linked notes, and durable FFmpeg-rendered exports. Language selection now starts clip translation automatically. Whole-recording subtitle jobs process 45-second sections with overlap, checkpoint completed sections locally, reuse speech results, and offer draft SRT downloads and a native subtitle preview. Fade/highlight styles are added; karaoke is restricted to original tracks with supplied word timestamps.
 
 ## Evidence and important limits
 
@@ -42,9 +42,9 @@ The supplied two-hour episode was imported at 1080p into a 3.44 GB final file af
 
 Automated tests cover imports, metadata projection, size-aware format selection, media ranges, timing, translation caching, subtitle chunking, pause/resume and retry without repeated speech processing. Consult QA.md for exact evidence. Recognition and translations remain drafts: incorrect words and awkward translations have been observed. Human review remains necessary.
 
-Discovery samples portions of recordings within an AI budget; it is not exhaustive semantic understanding of every sentence. Live draft captions have processing latency. Truly live capture has previously frozen or recorded silence and remains a significant unresolved reliability area. Universal platform support, robust speaker tracking, professional colour/audio tools, multicamera editing, persistent full projects, dubbing, social scheduling and guaranteed virality are not completed features.
+Discovery samples portions of recordings within an AI budget; it is not exhaustive semantic understanding of every sentence. Live draft captions have processing latency. Truly live capture has previously frozen or recorded silence and remains a significant unresolved reliability area. Universal platform support, robust speaker tracking, professional colour/audio tools, multicamera editing, dubbing, social scheduling and guaranteed virality are not completed features.
 
-Whole-video translation currently creates subtitle tracks and previews; it does not dub voices or automatically render a complete captioned feature-length MP4. Jobs can survive a page refresh while the local server runs. Server restart recovery and long idle cache expiry require further work. Checkpoint files are local; do not commit transcripts or cached footage.
+Whole-video translation creates subtitle tracks and previews, with a review path into a captioned whole-recording export; it does not dub voices. Full feature-length export still needs stress testing. SQLite projects, stable source media, jobs, caches and finished exports now survive browser and server restart. Interrupted provider requests require explicit retry. See STATUS.md and docs/BUILD-LEDGER.md for verified evidence; do not commit transcripts or cached footage.
 
 ## Inspiration and resources supplied by the user
 
@@ -83,3 +83,7 @@ These links are test references, not redistribution licences. Use owned or appro
 ## Development references
 
 README.md covers setup. STATUS.md records capability boundaries. QA.md records tests and limitations. RESEARCH.md and EDITORIAL-FOUNDATIONS.md retain research and editorial context. DESIGN.md describes the visual system. Original artwork provenance and prompt are in public/assets/ARTWORK.md.
+
+## Adopted production build brief
+
+The user explicitly adopted https://chatgpt.com/share/6ae65f90-6c74-83eb-99f0-96e0c7cefcb8. The implementation keeps the existing product and adds durable SQLite projects/media, a real Library, server-side recoverable queues, upfront language choices, optional confirmed Story Memory, Moment Map, subtitle comparison/review flags, undo/split/4:5 and deterministic local rendering. See docs/superpowers/specs/2026-10-31-production-studio-design.md and docs/BUILD-LEDGER.md for scope, decisions and evidence. Remaining native-dialect, sustained-live, long-form and final-rules gates are explicit in STATUS.md.

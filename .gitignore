@@ -5,6 +5,11 @@ node_modules/
 
 # Local agent settings, screenshots and private runtime data
 .codex/
-.impeccable/
+.claude-flow/
+.impeccable/*
+!.impeccable/design.json
 qa-*.jpg
 .DS_Store
+
+# Durable private projects, media and SQLite
+.context-desk/

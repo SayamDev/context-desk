@@ -1,0 +1,3 @@
+import fs from 'node:fs/promises';import os from 'node:os';import path from 'node:path';import {spawn} from 'node:child_process';
+const root=await fs.mkdtemp(path.join(os.tmpdir(),'context-tests-'));const files=(await fs.readdir('tests')).filter(f=>f.endsWith('.test.js')&&(!process.argv[2]||f.includes(process.argv[2]))).map(f=>'tests/'+f);
+const child=spawn(process.execPath,['--import',path.resolve('scripts/test-environment.js'),'--test',...files],{stdio:'inherit',env:{...process.env,CONTEXT_DESK_DATA_DIR:root,NODE_ENV:'test'}});child.on('exit',async code=>{await fs.rm(root,{recursive:true,force:true});process.exitCode=code||0});
