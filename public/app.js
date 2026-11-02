@@ -6,7 +6,9 @@ import {mountShell} from './shell.js';
 import {createLiveBuffer} from './live-buffer.js';
 import {frameFocus,splitGeometry} from './reframe-track.js';
 import {lineIssues,dominantScript} from './subtitle-qa.js';
-import {accentFor,splitKeyword} from './caption-accents.js';
+import {accentFor} from './caption-accents.js';
+import {drawCaptionFrame} from './caption-render.js';
+import {captionStyles,captionStyleIds} from './caption-styles.js';
 import {cleanCuts,fillerCuts,removedSeconds,skipCut} from './silence.js';
 import {createProductionTools} from './production-tools.js';
 import {createHome} from './home.js';
@@ -60,7 +62,9 @@ const brandControls=createBrandControls({getSelected:()=>state.moments.find(m=>m
 discoveryTools=createDiscoveryTools({requestJson:async(url,options)=>{if(url==='/api/moment-search')await projectSession.flush();return requestJson(url,options)},getProject:()=>projectSession?.current?{...projectSession.current,state:{...projectSession.current.state,aiCalls:state.aiCalls}}:null,getSelected:()=>state.moments.find(m=>m.id===state.selected),getMoments:()=>state.moments,onSelect:selectMoment,onMessage:message,onChanged:()=>projectSession?.changed(),onTranscriptEdit:async(result,source)=>{const before=editSnapshot();for(const segment of result.segments){segment.splitCreated=true;segment.manual=true;segment.status='manual';splitOriginals.set(segment.id,structuredClone(segment));state.moments.push(segment)}const ids=result.segments.map(m=>m.id),position=state.cut.indexOf(source.id);if(position>=0)state.cut.splice(position,1,...ids);else state.cut.push(...ids);state.selected=ids[0];editHistory.record(before,editSnapshot(),'transcript-cut');projectSession.changed();renderQueue();renderBatchResults();renderCut();await selectMoment(ids[0],{scroll:false});message(`${ids.length} editable segment${ids.length===1?'':'s'} added to your Story cut. Original footage and captions are retained.`)}});
 liveBuffer=createLiveBuffer({getUrl:()=>$('streamUrl')?.value,onMessage:message});liveBuffer.sync();
 enhanceSegmented($('aspectSelect'),{label:'Format',labels:{portrait:['9:16','TikTok'],square:'1:1 Feed'.split(' '),fourfive:['4:5','Feed'],landscape:['16:9','YouTube']},order:['portrait','square','fourfive','landscape']});
-enhanceCaptionLooks($('captionStyle'));
+// Caption style list comes from the shared catalogue (caption-styles.js).
+$('captionStyle').replaceChildren(...captionStyleIds.map(id=>new Option(captionStyles[id].label,id)));
+enhanceCaptionLooks($('captionStyle'),{getLook:()=>state.moments.find(x=>x.id===state.selected)?.captionLook||{}});
 {const pick=$('liveCaptionLanguage');for(const language of captionLanguages)if(![...pick.options].some(o=>o.value===language||o.textContent===language))pick.add(new Option(language,language));
   const auto=$('autoGenerate')?.closest('label');if(auto&&!$('autoWholeSubtitles')){const label=Object.assign(document.createElement('label'),{className:'auto-generate'}),box=Object.assign(document.createElement('input'),{type:'checkbox',id:'autoWholeSubtitles',checked:true});label.append(box,document.createTextNode(' Translate the whole recording into my subtitle language'));auto.after(label)}}
 // Clip-length presets (design system SegmentedControl) sized into clip finding.
@@ -840,30 +844,8 @@ function parseCues(raw,duration){
 function wrapLines(context,text,maxWidth){let words=text.split(/\s+/),lines=[],line='';for(const word of words){const trial=line?`${line} ${word}`:word;if(context.measureText(trial).width>maxWidth&&line){lines.push(line);line=word;}else line=trial;}if(line)lines.push(line);return lines}
 function drawCaption(context,moment,sourceTime){
   if(!moment.showCaptions)return;
-  const cue=timedCues(moment).find(c=>sourceTime>=c.start&&sourceTime<c.end);
-  if(!cue)return;
-  const width=context.canvas.width,height=context.canvas.height;
-  const rtl=/[\u0590-\u08ff]/.test(cue.text),maxWidth=width*.86;
-  const look=cleanCaptionLook(moment.captionLook,moment.captionStyle);let fontSize=captionFontSize(width,height,look);
-  context.save();context.textAlign='center';context.textBaseline='middle';context.direction=rtl?'rtl':'ltr';
-  let lines;
-  do{context.font=`900 ${fontSize}px ${look.font},sans-serif`;lines=wrapLines(context,cue.text,maxWidth);if(lines.length<=3||fontSize<=21)break;fontSize-=2;}while(true);
-  const lineHeight=fontSize*1.13,blockHeight=lines.length*lineHeight+fontSize*.6,centerY=captionPlacement(look.position,height,blockHeight,width);
-  const pop=moment.captionStyle==='pop'?1+.06*Math.pow(1-Math.min(1,(sourceTime-cue.start)/.2),2):1;
-  if(moment.captionStyle==='fade')context.globalAlpha=Math.max(0,Math.min(1,(sourceTime-cue.start)/.15,(cue.end-sourceTime)/.15));
-  context.translate(width/2,centerY);context.scale(pop,pop);
-  if(['clean','highlight','boxed'].includes(moment.captionStyle)){context.fillStyle=moment.captionStyle==='highlight'?look.accent:moment.captionStyle==='boxed'?'#000000d9':look.background+'df';context.fillRect(-maxWidth/2-fontSize*.16,-blockHeight/2,maxWidth+fontSize*.32,blockHeight);context.fillStyle=moment.captionStyle==='boxed'?'#ffffff':look.color;}
-  else{context.lineWidth=Math.max(5,fontSize*.16);context.lineJoin='round';context.strokeStyle='#111016';context.fillStyle=look.color;}
-  lines.forEach((line,index)=>{const y=(index-(lines.length-1)/2)*lineHeight;if(!['clean','highlight','boxed'].includes(moment.captionStyle))context.strokeText(line,0,y,maxWidth);context.fillText(line,0,y,maxWidth)});
-  // Accent: recolour the keyword in place and set the emoji above the block (same font as export).
-  const accent=accentFor(moment,cue.text),accentColour=moment.captionStyle==='highlight'?'#ffffff':look.accent;
-  if(accent?.keyword&&moment.captionStyle!=='karaoke')for(const [lineIndex,line]of lines.entries()){const parts=splitKeyword(line,accent.keyword);if(!parts)continue;const lineWidth=context.measureText(line).width,prefix=context.measureText(parts[0]).width,word=context.measureText(parts[1]).width,x=rtl?lineWidth/2-prefix-word/2:-lineWidth/2+prefix+word/2,y=(lineIndex-(lines.length-1)/2)*lineHeight;context.save();context.textAlign='center';context.fillStyle=accentColour;if(!['clean','highlight','boxed'].includes(moment.captionStyle))context.strokeText(parts[1],x,y);context.fillText(parts[1],x,y);context.restore();break}
-  if(accent?.emoji){context.save();context.font=`${Math.round(fontSize*1.25)}px "Noto Emoji"`;context.fillStyle=accentColour;context.fillText(accent.emoji,0,-blockHeight/2-fontSize*.75);context.restore()}
-  if(moment.captionStyle==='karaoke'&&moment.captionLanguage==='Original'&&cue.words?.length){
-    const word=cue.words.find(w=>sourceTime>=(w.start+(moment.captionOffset||0))&&sourceTime<(w.end+(moment.captionOffset||0)));
-    if(word){for(const [lineIndex,line]of lines.entries()){const wordIndex=line.indexOf(word.text);if(wordIndex<0)continue;const lineWidth=context.measureText(line).width,prefixWidth=context.measureText(line.slice(0,wordIndex)).width,wordWidth=context.measureText(word.text).width;const x=rtl?lineWidth/2-prefixWidth-wordWidth/2:-lineWidth/2+prefixWidth+wordWidth/2,y=(lineIndex-(lines.length-1)/2)*lineHeight;context.fillStyle=look.accent;context.strokeText(word.text,x,y);context.fillText(word.text,x,y);break}}
-  }
-  context.restore();
+  const cue=timedCues(moment).find(c=>sourceTime>=c.start&&sourceTime<c.end);if(!cue)return;
+  drawCaptionFrame(context,{cue,time:sourceTime,styleId:moment.captionStyle,look:moment.captionLook,offset:moment.captionOffset||0,accent:accentFor(moment,cue.text)});
 }
 function setPreviewSize(){const [width,height]=outputDimensions(),canvas=$('previewCanvas');if(canvas.width!==width||canvas.height!==height){canvas.width=width;canvas.height=height;}updateFrameControls()}
 // Preview jumps over removed pauses and fillers, so it plays like the export.
@@ -985,7 +967,7 @@ function renderSocialGuidance(){
 function renderEditor(){
   projectSession?.changed();
   const m=state.moments.find(x=>x.id===state.selected);if(!m)return;
-  if(!['punch','clean','pop','fade','highlight','karaoke','boxed'].includes(m.captionStyle))m.captionStyle='punch';
+  if(!captionStyleIds.includes(m.captionStyle))m.captionStyle='punch';
   inheritCaptionTarget(m,projectCaptionTarget());
   queueCaptionTarget(m);
   if(state.cutPreviewIndex<0)assignMediaSource(clipVideo,m.url);
@@ -1012,7 +994,7 @@ function renderEditor(){
   $('addToCut').disabled=state.cut.includes(m.id);
   $('addToCut').innerHTML=state.cut.includes(m.id)?'In story cut <b></b>':'Add this moment to story cut <b></b>';
   $('audioEnhance').checked=Boolean(m.audioEnhance);$('aspectSelect').value=state.aspect;$('frameMode').value=m.frameMode;renderCutStatus();$('zoomRange').value=m.zoom;$('focusX').value=m.focusX;$('focusY').value=m.focusY;$('showHook').checked=m.showHook;
-  const karaokeAvailable=m.captionLanguage==='Original'&&activeCues(m).length>0&&activeCues(m).every(c=>c.words?.length);$('captionStyle').querySelector('[value=karaoke]').disabled=!karaokeAvailable;if(m.captionStyle==='karaoke'&&!karaokeAvailable)m.captionStyle='punch';
+
   editorTools.collection(state.moments,state.selected);editorTools.sync(m);brandControls.sync(m);productionTools.sync();discoveryTools?.sync();
   $('captionTranslationMode').disabled=$('translationProvider').value==='voicestudio';$('captionTranslationMode').value=m.translationMode||$('translationMode').value;$('captionLanguage').value=m.captionLanguage;$('captionStyle').value=m.captionStyle;$('dialectNote').value=m.dialectNote;
   $('captionOverride').checked=Boolean(m.captionLanguageOverride);$('captionScopeStatus').textContent=m.captionLanguageOverride?`Clip override: ${m.captionLanguage}. Project output: ${projectCaptionTarget()}.`:`Project output: ${projectCaptionTarget()} · language changes apply to every clip.`;
@@ -1063,7 +1045,8 @@ $('captionLines').oninput=event=>{
 };
 $('captionLanguage').onchange=e=>{const m=state.moments.find(x=>x.id===state.selected);if(!m)return;if(!m.captionLanguageOverride){setProjectCaptionTarget(e.target.value);return}m.captionLanguageOverride=e.target.value;inheritCaptionTarget(m,projectCaptionTarget());m.captionError='';m.translationError='';if(activeCues(m).length)m.showCaptions=true;renderEditor();queueCaptionTarget(m)};
 $('captionOverride').onchange=e=>{const m=state.moments.find(x=>x.id===state.selected);if(!m)return;m.captionLanguageOverride=e.target.checked?m.captionLanguage:null;inheritCaptionTarget(m,projectCaptionTarget());queueCaptionTarget(m);renderEditor()};
-$('captionStyle').onchange=e=>{const m=state.moments.find(x=>x.id===state.selected);if(m){m.captionStyle=e.target.value;editorTools.sync(m);drawPreview()}};
+// Style switches only change how cues are drawn: no reload, seek or re-render of the video.
+$('captionStyle').onchange=e=>{const m=state.moments.find(x=>x.id===state.selected);if(m&&m.captionStyle!==e.target.value)performEdit('caption-style',()=>{m.captionStyle=e.target.value;editorTools.sync(m);drawPreview()})};
 // Keyword highlights + emoji, picked by Meta per line; works on the clip's visible lines only.
 {const box=Object.assign(document.createElement('div'),{className:'caption-accents'}),make=Object.assign(document.createElement('button'),{type:'button',id:'makeAccents',className:'cd-btn cd-btn-sm cd-btn-secondary',textContent:'Highlight keywords + emoji'}),label=document.createElement('label'),toggle=Object.assign(document.createElement('input'),{type:'checkbox',id:'showAccents'});
   label.append(toggle,' Show accents');box.append(make,label);$('applyCaptionLook').before(box);

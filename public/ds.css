@@ -551,3 +551,7 @@ label.caption-roman[hidden] {display:none!important}
 .hook-variant p{margin:2px 0 8px;font-weight:600;color:var(--text)}
 @font-face{font-family:"Noto Emoji";src:url('/assets/fonts/NotoEmoji.ttf') format('truetype');font-weight:300 700;font-display:swap}
 .caption-accents{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin:10px 0}
+/* Style tiles draw with the real caption renderer */
+.cd-look{padding:0;height:auto;aspect-ratio:2/1.15;place-items:stretch}
+.cd-look-canvas{width:100%;height:100%;object-fit:contain;display:block;margin-top:-8px}
+.cd-looks{grid-template-columns:repeat(auto-fill,minmax(128px,1fr))}

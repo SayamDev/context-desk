@@ -1,3 +1,5 @@
+import {drawCaptionFrame} from './caption-render.js';
+import {captionStyles} from './caption-styles.js';
 // Context Desk design-system components for the studio's vanilla DOM.
 // Markup and class names match the published system (cd-*), styled by ds.css.
 const reduced=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -41,17 +43,24 @@ export function enhanceSegmented(select,{label,hints={},labels={},order}={}){
   select.after(root);watchSelect(select,refresh);refresh();return root;
 }
 
-const lookSamples={punch:['NOBODY ','SAW',' IT'],pop:['Wait ','what','?!'],karaoke:['','And then',' she left'],clean:['','','That was the moment.'],fade:['','','Fading in, line by line.'],highlight:['They ','actually',' said it'],boxed:['','','Speaker 2: no way']};
 // Caption style tiles with a live animated sample, built from a <select>.
-export function enhanceCaptionLooks(select){
+// Caption style tiles: each tile is drawn by the real caption renderer on a short loop,
+// so it shows exactly what the preview and export will do. Loops run only while visible.
+export function enhanceCaptionLooks(select,{getLook=()=>({})}={}){
   if(!select||select.dataset.enhanced)return null;select.dataset.enhanced='looks';
   const root=el('div','cd-looks');root.setAttribute('role','radiogroup');root.setAttribute('aria-label','Caption look');
+  const still=matchMedia('(prefers-reduced-motion: reduce)').matches,visible=new Set();let frame=null;
   const tiles=[...select.options].map(option=>{
-    const tile=el('button',`cd-look cd-look-${option.value}`);tile.type='button';tile.setAttribute('role','radio');
-    const [before,hit,after]=lookSamples[option.value]||['','',option.textContent],sample=el('span','cd-look-sample',before);if(hit)sample.append(el('b',undefined,hit));if(after)sample.append(document.createTextNode(after));
-    tile.append(sample,el('span','cd-look-name',option.textContent.split('·')[0].trim()));tile.onclick=()=>choose(select,option.value);root.append(tile);return [option.value,tile];
+    const tile=el('button',`cd-look cd-look-${option.value}`);tile.type='button';tile.setAttribute('role','radio');tile.dataset.style=option.value;
+    const canvas=el('canvas','cd-look-canvas');canvas.width=240;canvas.height=120;canvas.setAttribute('aria-hidden','true');
+    tile.append(canvas,el('span','cd-look-name',option.textContent.split('·')[0].trim()));tile.onclick=()=>choose(select,option.value);root.append(tile);return [option.value,tile,canvas];
   });
-  const refresh=()=>tiles.forEach(([value,tile])=>{tile.setAttribute('aria-checked',String(value===select.value));tile.disabled=select.disabled||Boolean(select.querySelector(`option[value="${value}"]`)?.disabled);tile.title=tile.disabled&&value==='karaoke'?'Karaoke needs word-timed original captions':'';});
+  const draw=t=>{for(const [value,,canvas] of tiles){if(!visible.has(canvas))continue;const c=canvas.getContext('2d'),style=captionStyles[value];c.fillStyle='#0b0b0d';c.fillRect(0,0,canvas.width,canvas.height);
+    drawCaptionFrame(c,{cue:{start:0,end:2.8,text:style?.sample||value},time:still?1.4:t%2.8,styleId:value,look:{...getLook(),position:'middle',scale:1},fontSize:Math.round(23*(style?.size||1))})}};
+  const loop=now=>{draw(now/1000);frame=visible.size&&!still?requestAnimationFrame(loop):null};
+  const observer=new IntersectionObserver(entries=>{for(const e of entries)e.isIntersecting?visible.add(e.target):visible.delete(e.target);if(!frame)frame=requestAnimationFrame(loop)});
+  for(const [,,canvas] of tiles)observer.observe(canvas);
+  const refresh=()=>{tiles.forEach(([value,tile])=>{tile.setAttribute('aria-checked',String(value===select.value));tile.disabled=select.disabled||Boolean(select.querySelector(`option[value="${value}"]`)?.disabled)});if(!frame)frame=requestAnimationFrame(loop)};
   select.after(root);watchSelect(select,refresh);refresh();return root;
 }
 

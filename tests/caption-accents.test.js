@@ -12,5 +12,5 @@ test('accents keep exact keywords, sparse real emoji, and drop edited lines',()=
 });
 test('export colours the keyword and sets the emoji above in the emoji font',()=>{
   const m={start:0,end:5,trimIn:0,trimOut:4,showCaptions:true,captionLanguage:'English',captionStyle:'punch',captionLook:{},captionCues:{Original:[{start:0,end:3,text:'x'}],English:[{start:0,end:3,text:'We bought the car'}]},showAccents:true,captionAccents:{English:[{text:'We bought the car',keyword:'car',emoji:'🚗'}]},captionOffset:0};
-  assert.match(assDocument(m,720,1280),/\{\\fnNoto Emoji\\c&H[0-9a-f]{6}&\}🚗\{\\r\}\\NWe bought the \{\\c&H[0-9a-f]{6}&\}car\{\\r\}/i);
+  const ass=assDocument(m,720,1280);assert.match(ass,/\{\\fnNoto Emoji\\c&H[0-9a-f]{6}&\}🚗\{\\fnArial\\c&H[0-9a-f]{6}&\}\\N/i);assert.match(ass,/\{\\c&H[0-9a-f]{6}&\}CAR\{\\c&H[0-9a-f]{6}&\}/i);
 });
