@@ -55,7 +55,7 @@ const subtitleService=createSubtitleService({claimSource:claimImportSource,extra
   transcribe:(bytes,j)=>j.speechProvider==='voicestudio'?transcribeVoiceStudio(bytes,j.speechLanguage,j.keywords):transcribe(bytes,j.speechLanguage,j.keywords),
   translate:(cues,j,context=[])=>j.translationProvider==='voicestudio'?translateVoiceStudio(cues,j.language,j.speechLanguage,j.dialectNote):translate(cues,j.language,j.dialectNote,j.translationMode,j.glossary,{variant:j.variant,script:j.script,context})});
 const chapterService=createChapterService({store:studioStore(),subtitles:subtitleService});
-const trailerService=createTrailerService({store:studioStore(),subtitles:subtitleService}),askService=createAskService({store:studioStore(),subtitles:subtitleService}),cultureService=createCultureService({store:studioStore()}),dubService=createDubService({store:studioStore(),claimSource:claimImportSource});
+const trailerService=createTrailerService({store:studioStore(),subtitles:subtitleService,claimSource:claimImportSource}),askService=createAskService({store:studioStore(),subtitles:subtitleService}),cultureService=createCultureService({store:studioStore()}),dubService=createDubService({store:studioStore(),claimSource:claimImportSource});
 
 const discoveryService=createDiscoveryService({store:studioStore(),claimSource:claimImportSource,frame:captureFrame,extract:extractAudio,rankStories:createMetaStoryRanker(),
   validate:()=>{if(!process.env.MODEL_API_KEY)throw Error('Configure Meta before starting story discovery.');},
