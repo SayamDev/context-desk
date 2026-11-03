@@ -135,18 +135,28 @@ export async function audioPeaks(m,count=72){
 }
 
 // TrimTimeline: waveform track, cue selection with draggable handles, I/O footer.
+// A long window (a whole recording) zooms to the selection plus the same length of context on each
+// side, so the clip is always a third of the bar; the view re-centres after each change.
 export function createTrim({duration,value,peaks,markers=[],playhead,onInput,onCommit}){
   const root=el('div','cd-trim'),track=el('div','cd-trim-track'),sel=el('div','cd-trim-sel'),inner=el('div'),innerWave=el('div'),hin=el('button','cd-handle cd-handle-in'),hout=el('button','cd-handle cd-handle-out'),foot=el('div','cd-trim-foot');
-  let range=[...value];const wave=()=>{const w=el('div','cd-wave');w.setAttribute('aria-hidden','true');for(const p of peaks||Array(72).fill(.08))w.append(Object.assign(el('i'),{style:`height:${Math.max(8,Math.round(p*100))}%`}));return w};
-  inner.style.cssText='position:absolute;inset:0;overflow:hidden';innerWave.style.cssText='position:absolute;top:0;bottom:0';innerWave.append(wave());inner.append(innerWave);
-  hin.type=hout.type='button';sel.append(inner,hin,hout);track.append(wave());
-  for(const m of markers){const d=el('span','cd-marker');d.title=m.label;d.style.left=`${m.t/duration*100}%`;track.append(d)}
-  track.append(sel);if(Number.isFinite(playhead)){const p=el('span','cd-playhead');p.style.left=`${playhead/duration*100}%`;track.append(p)}
+  let range=[...value],view=[0,duration];
+  const fit=()=>{const len=range[1]-range[0];view=duration>len*3?[Math.max(0,range[0]-len),Math.min(duration,range[1]+len)]:[0,duration];track.title=`Showing ${formatTime(view[0])}–${formatTime(view[1])}`};
+  const pos=t=>(t-view[0])/(view[1]-view[0])*100;
+  // Peaks cover the whole window; show the slice in view, resampled to a steady bar count.
+  const wave=()=>{const w=el('div','cd-wave');w.setAttribute('aria-hidden','true');const all=peaks||Array(72).fill(.08),from=view[0]/duration*all.length,span=(view[1]-view[0])/duration*all.length,count=Math.min(72,Math.max(24,Math.round(span)));
+    for(let i=0;i<count;i++){const p=all[Math.min(all.length-1,Math.floor(from+i/count*span))]??.08;w.append(Object.assign(el('i'),{style:`height:${Math.max(8,Math.round(p*100))}%`}))}return w};
+  inner.style.cssText='position:absolute;inset:0;overflow:hidden';innerWave.style.cssText='position:absolute;top:0;bottom:0';
+  hin.type=hout.type='button';sel.append(inner,hin,hout);
+  const marks=markers.map(m=>{const d=el('span','cd-marker');d.title=m.label;return [m.t,d]}),head=Number.isFinite(playhead)?el('span','cd-playhead'):null;
+  const place=()=>{for(const [t,d] of marks){d.hidden=t<view[0]||t>view[1];d.style.left=`${pos(t)}%`}if(head){head.hidden=playhead<view[0]||playhead>view[1];head.style.left=`${pos(playhead)}%`}};
+  fit();track.append(wave(),...marks.map(([,d])=>d),sel);if(head)track.append(head);innerWave.append(wave());inner.append(innerWave);
   const inTime=el('span','cd-tc'),len=el('span','cd-label'),outTime=el('span','cd-tc'),left=el('span','cd-row'),right=el('span','cd-row');left.append(kbd('I'),inTime);right.append(outTime,kbd('O'));foot.append(left,len,right);root.append(track,foot);
-  const draw=()=>{const L=range[0]/duration*100,W=(range[1]-range[0])/duration*100;sel.style.left=`${L}%`;sel.style.width=`${W}%`;innerWave.style.left=`${-L/W*100}%`;innerWave.style.width=`${100/W*100}%`;inTime.textContent=formatTime(range[0]);outTime.textContent=formatTime(range[1]);len.textContent=`${(range[1]-range[0]).toFixed(1)}s clip`;hin.setAttribute('aria-label','Trim in '+formatTime(range[0]));hout.setAttribute('aria-label','Trim out '+formatTime(range[1]))};
+  const draw=()=>{const L=pos(range[0]),W=pos(range[1])-L;sel.style.left=`${L}%`;sel.style.width=`${W}%`;innerWave.style.left=`${-L/W*100}%`;innerWave.style.width=`${100/W*100}%`;inTime.textContent=formatTime(range[0]);outTime.textContent=formatTime(range[1]);len.textContent=`${(range[1]-range[0]).toFixed(1)}s clip`;hin.setAttribute('aria-label','Trim in '+formatTime(range[0]));hout.setAttribute('aria-label','Trim out '+formatTime(range[1]))};
+  const refit=()=>{const before=view.join();fit();if(view.join()!==before){track.querySelector('.cd-wave')?.replaceWith(wave());innerWave.replaceChildren(wave())}place();draw()};
   const set=(which,t)=>{t=Math.round(Math.max(0,Math.min(duration,t))*10)/10;range=which===0?[Math.min(t,range[1]-1),range[1]]:[range[0],Math.max(t,range[0]+1)];draw();onInput?.(range)};
-  const drag=which=>event=>{event.preventDefault();const r=track.getBoundingClientRect(),move=ev=>set(which,(ev.clientX-r.left)/r.width*duration),up=()=>{removeEventListener('pointermove',move);removeEventListener('pointerup',up);onCommit?.(range)};addEventListener('pointermove',move);addEventListener('pointerup',up)};
-  const nudge=which=>event=>{const d=event.key==='ArrowLeft'?-.1:event.key==='ArrowRight'?.1:0;if(!d)return;event.preventDefault();set(which,range[which]+d*(event.shiftKey?10:1));onCommit?.(range)};
-  hin.onpointerdown=drag(0);hout.onpointerdown=drag(1);hin.onkeydown=nudge(0);hout.onkeydown=nudge(1);draw();
-  return {el:root,set(v){range=[...v];draw()},setPeaks(p){peaks=p;track.querySelector('.cd-wave')?.replaceWith(wave());innerWave.replaceChildren(wave());draw()}};
+  const commit=()=>{refit();onCommit?.(range)};
+  const drag=which=>event=>{event.preventDefault();const r=track.getBoundingClientRect(),[a,b]=view,at=x=>a+Math.max(0,Math.min(1,(x-r.left)/r.width))*(b-a),grab=at(event.clientX)-range[which],move=ev=>set(which,at(ev.clientX)-grab),up=()=>{removeEventListener('pointermove',move);removeEventListener('pointerup',up);commit()};addEventListener('pointermove',move);addEventListener('pointerup',up)};
+  const nudge=which=>event=>{const d=event.key==='ArrowLeft'?-.1:event.key==='ArrowRight'?.1:0;if(!d)return;event.preventDefault();set(which,range[which]+d*(event.shiftKey?10:1));commit()};
+  hin.onpointerdown=drag(0);hout.onpointerdown=drag(1);hin.onkeydown=nudge(0);hout.onkeydown=nudge(1);place();draw();
+  return {el:root,set(v){range=[...v];refit()},setPeaks(p){peaks=p;track.querySelector('.cd-wave')?.replaceWith(wave());innerWave.replaceChildren(wave());draw()}};
 }

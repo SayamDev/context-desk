@@ -678,3 +678,9 @@ body[data-intent=translate] .cd-drop-meta .cd-badge {display:none}
 /* Settings > Classic look switch (works in both looks) */
 .look-choice {display:flex;align-items:center;gap:8px;margin:0 0 16px;font-size:14px}
 .look-choice input {width:24px;height:24px;margin:0;flex:none}
+/* Trim handles: 24px touch targets (WCAG 2.5.8) inside the selection, a 12px bar on screen.
+   The zoomed trim bar keeps the selection at least a third of the bar, so the two never overlap. */
+.cd-handle {width:24px;background:transparent}
+.cd-handle::before {content:"";position:absolute;top:0;bottom:0;width:12px;background:var(--cue)}
+.cd-handle-in {left:0} .cd-handle-in::before {left:0;border-radius:3px 0 0 3px} .cd-handle-in::after {left:5px}
+.cd-handle-out {right:0} .cd-handle-out::before {right:0;border-radius:0 3px 3px 0} .cd-handle-out::after {left:auto;right:5px}
