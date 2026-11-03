@@ -172,3 +172,25 @@ test('the Classic look switch turns the restyle off, survives a reload and turns
     assert.deepEqual(problems,[]);
   }finally{await app.stop()}
 });
+
+test('Studio fullscreen: a sharp picture with its play bar, which fades while watching and returns on movement',async()=>{
+  const app=await startApp({env:{FFMPEG_PATH:ffmpeg}});
+  try{
+    const {page,problems}=await watchedPage(browser,app.url);
+    await page.evaluate(async()=>{const {mountPreviewFullscreen}=await import('/fullscreen.js');const frame=document.createElement('div'),bar=document.createElement('div'),holder=document.createElement('div');frame.id='fsFrame';frame.className='preview-frame';frame.style.cssText='position:fixed;left:20px;top:20px;width:320px;height:180px;z-index:9999';bar.id='fsBar';bar.textContent='play bar';holder.append(bar);document.body.append(frame,holder);
+      window.fsChanges=[];mountPreviewFullscreen({frame,transport:bar,onChange:on=>window.fsChanges.push(on)})});
+    await page.locator('#fsFrame .preview-fullscreen-toggle').click();
+    await page.waitForFunction(()=>document.fullscreenElement?.id==='fsFrame');
+    assert.equal(await page.evaluate(()=>document.getElementById('fsFrame').contains(document.getElementById('fsBar'))),true);
+    assert.equal(await page.evaluate(()=>document.activeElement.id),'fsFrame');
+    await page.waitForFunction(()=>document.getElementById('fsFrame').classList.contains('is-idle'),null,{timeout:5000});
+    await page.mouse.move(200,200);await page.mouse.move(220,220);
+    assert.equal(await page.evaluate(()=>document.getElementById('fsFrame').classList.contains('is-idle')),false);
+    // Esc is handled by the browser itself; the same corner button exits.
+    await page.locator('#fsFrame .preview-fullscreen-toggle').click();await page.waitForFunction(()=>!document.fullscreenElement);
+    // The play bar goes back to its place once the browser reports the change.
+    await page.waitForFunction(()=>!document.getElementById('fsFrame').contains(document.getElementById('fsBar')));
+    assert.deepEqual(await page.evaluate(()=>window.fsChanges),[true,false]);
+    assert.deepEqual(problems,[]);
+  }finally{await app.stop()}
+});
