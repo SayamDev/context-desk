@@ -100,7 +100,7 @@ body[data-workspace=source] .pagehead {max-width:1000px;margin:32px auto 26px}bo
 body:not(.has-source) #scanButton {display:none}
 body[data-workspace=clips] .source-setup {order:10;border-top:1px solid var(--line);border-bottom:0}
 /* Map is actual coverage, never an engagement score or invented waveform. */
-.moment-map {padding:18px 16px;border-top:1px solid var(--line)}.moment-map-heading {display:flex;align-items:center;justify-content:space-between;gap:12px}.moment-map-heading h3 {font-size:17px;margin:0}.moment-map-heading label {flex-direction:row;align-items:center;gap:8px}.moment-map-heading select {font-size:12px;padding:7px;min-height:36px}
+.moment-map {padding:18px 16px;border-top:1px solid var(--line)}.moment-map-heading {display:flex;align-items:center;justify-content:space-between;gap:12px}.moment-map-heading h2 {font-size:17px;margin:0}.moment-map-heading label {flex-direction:row;align-items:center;gap:8px}.moment-map-heading select {font-size:12px;padding:7px;min-height:36px}
 .moment-map>p {font-size:12px;margin:10px 0 16px}.moment-map-track {height:58px;position:relative;border:1px solid var(--line);background:var(--canvas);border-radius:8px;overflow:hidden}
 .moment-map-track button {position:absolute;top:7px;bottom:7px;min-height:0;min-width:4px;padding:0;border:1px solid var(--muted);border-radius:4px;background:var(--surface-raised)}
 .moment-map-track button.supported {background:var(--accent);border-color:var(--accent)}.moment-map-track button.checked {background:var(--line-strong)}.moment-map-track button.unchecked {border-style:dashed}

@@ -138,6 +138,22 @@ test('Home > Subtitles for the whole video opens the whole-video track instead o
   }finally{await app.stop();await fs.rm(dir,{recursive:true,force:true})}
 });
 
+test('keyboard and screen readers: skip link, one main region, clip list before the monitor, Arabic titles keep their direction',async()=>{
+  const app=await startApp({env:{FFMPEG_PATH:ffmpeg}});
+  try{
+    const {page,problems}=await watchedPage(browser,app.url);
+    assert.equal(await page.locator('main').count(),1);
+    await page.keyboard.press('Tab');
+    assert.equal(await page.evaluate(()=>document.activeElement.textContent),'Skip to content');
+    const hash=await page.evaluate(()=>location.hash);await page.keyboard.press('Enter');
+    assert.equal(await page.evaluate(()=>document.activeElement.id),'main');assert.equal(await page.evaluate(()=>location.hash),hash);
+    await page.locator('.workspace-nav [data-workspace=clips]').click();
+    assert.equal(await page.evaluate(()=>Boolean(document.querySelector('.queue-panel').compareDocumentPosition(document.querySelector('.monitor-panel'))&Node.DOCUMENT_POSITION_FOLLOWING)),true);
+    assert.equal(await page.evaluate(()=>getComputedStyle(document.getElementById('projectTitle')).unicodeBidi),'plaintext');
+    assert.deepEqual(problems,[]);
+  }finally{await app.stop()}
+});
+
 test('the Classic look switch turns the restyle off, survives a reload and turns it back on',async()=>{
   const app=await startApp({env:{FFMPEG_PATH:ffmpeg}});
   try{

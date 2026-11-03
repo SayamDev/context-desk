@@ -101,7 +101,11 @@ export function mountLayout({navigate,onFilter,onView,onTrim,onSource}){
   // Newly mounted navigation uses the same owning workspace controller.
   nav.querySelectorAll('button').forEach(button=>button.onclick=()=>navigate(button.dataset.workspace));
   return {
-    syncWorkspace(view){setup.open=view==='source';},
+    syncWorkspace(view){setup.open=view==='source';
+      // On Clips the list sits left of the monitor; put it first in the page too, so keyboard and
+      // screen-reader order match what is seen. Only the list moves: moving the monitor's video would pause it.
+      const desk=one('.desk'),queue=one('.queue-panel'),monitor=one('.monitor-panel');
+      if(desk&&queue&&monitor&&queue.parentElement===desk&&monitor.parentElement===desk){if(view==='clips')desk.insertBefore(queue,monitor);else monitor.after(queue)}},
     inspector,
     setLibraryView(view){$('libraryRows').dataset.view=view;for(const [id,value] of [['libraryGrid','grid'],['libraryList','list']])$(id).setAttribute('aria-pressed',String(value===view));},
     syncPlayhead(moment,time){if(!moment)return;const duration=Math.max(.1,moment.end-moment.start);$('timelinePlayhead').style.left=Math.max(0,Math.min(100,time/duration*100))+'%';},

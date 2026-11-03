@@ -654,7 +654,7 @@ body.simple-mode .memory-panel,body.simple-mode .more-exports,body.simple-mode .
 .visual-search form{display:flex;gap:8px;margin-top:6px}.visual-search form[hidden]{display:none}.visual-search input{flex:1;min-width:0;height:36px;border-radius:8px;border:1px solid var(--line);background:var(--surface-raised);color:var(--text);padding:0 10px;font:inherit}
 /* Setup check */
 .setup-check{margin:0 0 16px;padding:14px 16px;border:1px solid var(--warning);border-radius:14px;background:var(--surface)}
-.setup-check h3{margin:0 0 8px;font-size:16px}.setup-check p{margin:8px 0 0;font-size:13px;color:var(--muted)}
+.setup-check h2{margin:0 0 8px;font-size:16px}.setup-check p{margin:8px 0 0;font-size:13px;color:var(--muted)}
 .setup-item{display:grid;gap:2px;padding:8px 0;border-top:1px solid var(--line)}.setup-item strong{font-size:14px}.setup-item.is-needed strong{color:var(--warning)}
 .setup-item span{font-size:13px;color:var(--muted)}.setup-item code{font:12px/1.4 'Geist Mono',monospace;color:var(--text);overflow-wrap:anywhere}
 /* Permanent delete (Library > Trash): a destructive action reads as one */
@@ -669,6 +669,12 @@ body.simple-mode .memory-panel,body.simple-mode .more-exports,body.simple-mode .
 .home-intent input {margin:0;accent-color:var(--accent)}
 .home-intent-note {margin:0 0 var(--space-3);color:var(--muted);font-size:14px;line-height:1.5}
 body[data-intent=translate] .cd-drop-meta .cd-badge {display:none}
+/* Recording titles and other user text take their own direction (Arabic reads right to left, punctuation included) */
+#sourceLabel, #clipHeadLabel, .cd-card-meta span, .cd-card h3, #wholePhase, .ds-inspector-title, .project-open, #projectTitle, .home-project-copy button, .home-session-info h2, .cd-cmd-item {unicode-bidi:plaintext}
+/* Skip link: first stop for keyboard users, hidden until focused */
+.skip-link {position:absolute;left:var(--space-2);top:var(--space-2);z-index:1000;padding:var(--space-2) var(--space-4);border-radius:var(--control-radius);background:var(--accent);color:var(--accent-ink);font-weight:600;text-decoration:none;transform:translateY(-200%)}
+.skip-link:focus {transform:none}
+#main:focus {outline:none}
 /* Settings > Classic look switch (works in both looks) */
 .look-choice {display:flex;align-items:center;gap:8px;margin:0 0 16px;font-size:14px}
 .look-choice input {width:24px;height:24px;margin:0;flex:none}

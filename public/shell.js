@@ -13,7 +13,6 @@ export function mountShell({openPalette,openBrandKit=()=>{}}){
   const brand=one('.wordmark');
   const newVideo=nav.querySelector('[data-workspace=source]');newVideo.classList.add('ds-new');
   const label=el('span','cd-label ds-rail-label','Workspace');
-  nav.setAttribute('aria-orientation','vertical');
   // Design-system rail: Library, Clips, Exports, Brand kit. Home is the logo; Studio opens from a clip.
   const library=nav.querySelector('[data-workspace=library]');if(library&&!$('navLibraryCount')){const count=el('b');count.id='navLibraryCount';count.hidden=true;library.append(count)}
   const brandKit=el('button',undefined,'Brand kit');brandKit.type='button';brandKit.id='railBrandKit';brandKit.onclick=openBrandKit;nav.append(brandKit);
@@ -44,6 +43,8 @@ export function mountShell({openPalette,openBrandKit=()=>{}}){
     box.onchange=()=>{restyle.disabled=box.checked;try{localStorage.setItem('cd-look',box.checked?'classic':'new')}catch{/* Not remembered when storage is blocked. */}};
     settingsBody.prepend(look);
   }
+  // Skip link: focus the workspace content without touching the hash, which the app uses for routes.
+  const skip=one('.skip-link');if(skip)skip.onclick=event=>{event.preventDefault();$('main')?.focus()};
   // Paste a link anywhere (outside a text field) to start finding clips.
   document.addEventListener('paste',event=>{
     const target=event.target;if(/^(INPUT|TEXTAREA|SELECT)$/.test(target?.tagName||'')||target?.isContentEditable||document.querySelector('dialog[open]'))return;
