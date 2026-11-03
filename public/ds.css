@@ -678,6 +678,20 @@ body[data-intent=translate] .cd-drop-meta .cd-badge {display:none}
 /* Settings > Classic look switch (works in both looks) */
 .look-choice {display:flex;align-items:center;gap:8px;margin:0 0 16px;font-size:14px}
 .look-choice input {width:24px;height:24px;margin:0;flex:none}
+/* Long subtitle tracks: the browser skips layout and paint for lines scrolled out of view */
+.caption-lines .caption-line {content-visibility:auto;contain-intrinsic-size:auto 132px}
+/* Studio preview fullscreen (fullscreen.js): corner button, full-resolution picture, a play bar that fades while watching */
+.preview-frame {position:relative}
+.preview-fullscreen-toggle {position:absolute;top:var(--space-2);right:var(--space-2);z-index:4;display:grid;place-items:center;width:40px;height:40px;padding:0;border-radius:var(--control-radius);border:1px solid var(--line-strong);background:var(--surface);color:var(--text);opacity:.85;transition:opacity var(--dur-fast)}
+.preview-fullscreen-toggle svg {width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.preview-frame:hover .preview-fullscreen-toggle,.preview-fullscreen-toggle:focus-visible {opacity:1}
+.preview-frame:fullscreen {display:block;width:100%;height:100%;padding:0;background:var(--canvas);border:0;border-radius:0}
+.preview-frame:fullscreen #previewCanvas {display:block;width:100%;height:100%;max-width:none;max-height:none;object-fit:contain}
+.preview-frame:fullscreen .transport {position:absolute;left:0;right:0;bottom:0;z-index:3;margin:0;padding:var(--space-4) var(--space-6) calc(var(--space-4) + env(safe-area-inset-bottom));background:var(--surface);border-top:1px solid var(--line);transition:opacity var(--dur-base)}
+.preview-frame:fullscreen .preview-fullscreen-toggle {top:var(--space-4);right:var(--space-4)}
+.preview-frame:fullscreen.is-idle .transport,.preview-frame:fullscreen.is-idle .preview-fullscreen-toggle {opacity:0}
+.preview-frame:fullscreen.is-idle {cursor:none}
+@media (prefers-reduced-motion:reduce) {.preview-fullscreen-toggle,.preview-frame:fullscreen .transport {transition:none}}
 /* Trim handles: 24px touch targets (WCAG 2.5.8) inside the selection, a 12px bar on screen.
    The zoomed trim bar keeps the selection at least a third of the bar, so the two never overlap. */
 .cd-handle {width:24px;background:transparent}

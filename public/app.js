@@ -32,6 +32,7 @@ import {createProjectSession,recoverBrowserMoments,settingIds,savedMomentKeys,re
 import {createTranslationCache,translationKey} from './translation-cache.js';
 import {syncedCues,shouldRestart,speechCues,srtDocument} from './timing.js';
 import {assignMediaSource,bindPlayerControls} from './player.js';
+import {mountPreviewFullscreen} from './fullscreen.js';
 import {captionTarget,inheritCaptionTarget,commitCaptionTranslation,translationQueue,outputLanguages,projectTrack} from './caption-policy.js';
 import {socialPresets,socialExportIssue,lengthAdvice,crossPostTargets,hashtagCount,hashtagLimit,draftPostCaption,composePostCaption} from './social.js';
 const $ = id => document.getElementById(id);
@@ -64,7 +65,7 @@ let importIntent='clips',pendingIntent='clips';try{if(localStorage.getItem('cd-i
 homeView=createHome({intent:()=>importIntent,onIntent:value=>{importIntent=value==='translate'?'translate':'clips';try{localStorage.setItem('cd-intent',importIntent)}catch{/* Not remembered when storage is blocked. */}document.body.dataset.intent=importIntent;$('openStream').replaceChildren(document.createTextNode(importIntent==='translate'?'Subtitle video →':'Make clips →'))},navigate:navigateWorkspace,openTrash:()=>{$('showProjectTrash').checked=true;showWorkspace('library')},getCurrent:()=>projectSession?.current,openProject:async id=>{setActivity('project-open','Opening your project','Restoring your video and saved edits…');try{await projectSession.open(id);navigateWorkspace(state.selected?'edit':'clips')}finally{finishActivity('project-open')}}});
 const editorTools=createEditorTools({select:selectMoment,getSelected:()=>state.moments.find(m=>m.id===state.selected),edit:performEdit,draw:drawPreview});
 const brandControls=createBrandControls({getSelected:()=>state.moments.find(m=>m.id===state.selected),edit:performEdit,draw:()=>{editorTools.sync(state.moments.find(m=>m.id===state.selected));drawPreview()}});
-discoveryTools=createDiscoveryTools({requestJson:async(url,options)=>{if(url==='/api/moment-search')await projectSession.flush();return requestJson(url,options)},getProject:()=>projectSession?.current?{...projectSession.current,state:{...projectSession.current.state,aiCalls:state.aiCalls}}:null,getSelected:()=>state.moments.find(m=>m.id===state.selected),getMoments:()=>state.moments,onSelect:selectMoment,onMessage:message,onChanged:()=>projectSession?.changed(),onTranscriptEdit:async(result,source)=>{const before=editSnapshot();for(const segment of result.segments){segment.splitCreated=true;segment.manual=true;segment.status='manual';splitOriginals.set(segment.id,structuredClone(segment));state.moments.push(segment)}const ids=result.segments.map(m=>m.id),position=state.cut.indexOf(source.id);if(position>=0)state.cut.splice(position,1,...ids);else state.cut.push(...ids);state.selected=ids[0];editHistory.record(before,editSnapshot(),'transcript-cut');projectSession.changed();renderQueue();renderBatchResults();renderCut();await selectMoment(ids[0],{scroll:false});message(`${ids.length} editable segment${ids.length===1?'':'s'} added to your Story cut. Original footage and captions are retained.`)}});
+discoveryTools=createDiscoveryTools({requestJson:async(url,options)=>{if(url==='/api/moment-search')await projectSession.flush();return requestJson(url,options)},getProject:()=>projectSession?.current?{...projectSession.current,state:{...projectSession.current.state,aiCalls:state.aiCalls}}:null,getSelected:()=>state.moments.find(m=>m.id===state.selected),getMoments:()=>state.moments,onSelect:selectMoment,onMessage:message,onChanged:()=>projectSession?.changed(),onTranscriptEdit:async(result,source)=>{flushEdit();const before=editSnapshot();for(const segment of result.segments){segment.splitCreated=true;segment.manual=true;segment.status='manual';splitOriginals.set(segment.id,structuredClone(segment));state.moments.push(segment)}const ids=result.segments.map(m=>m.id),position=state.cut.indexOf(source.id);if(position>=0)state.cut.splice(position,1,...ids);else state.cut.push(...ids);state.selected=ids[0];editHistory.record(before,editSnapshot(),'transcript-cut');projectSession.changed();renderQueue();renderBatchResults();renderCut();await selectMoment(ids[0],{scroll:false});message(`${ids.length} editable segment${ids.length===1?'':'s'} added to your Story cut. Original footage and captions are retained.`)}});
 liveBuffer=createLiveBuffer({getUrl:()=>$('streamUrl')?.value,getRecording:()=>state.source?.importId?{id:state.source.importId,title:state.sourceName||'',time:program.currentTime}:null,onMessage:message});liveBuffer.sync();
 enhanceSegmented($('aspectSelect'),{label:'Format',labels:{portrait:['9:16','TikTok'],square:'1:1 Feed'.split(' '),fourfive:['4:5','Feed'],landscape:['16:9','YouTube']},order:['portrait','square','fourfive','landscape']});
 // Beginner guide: progress is read from the project; each Next action jumps to the right place.
@@ -173,6 +174,7 @@ connectionsView=createConnections({requestJson,getProject:()=>projectSession?.cu
 showWorkspace('home');
 window.addEventListener('popstate',()=>navigateWorkspace(workspaceFromHash(location.hash)));
 bindPlayerControls(clipVideo,{volume:$('previewVolume'),mute:$('mutePreview'),speed:$('previewSpeed'),status:$('previewBufferStatus'),fullscreen:$('previewFullscreen'),surface:$('previewCanvas').parentElement});
+mountPreviewFullscreen({frame:$('previewCanvas').parentElement,transport:document.querySelector('.clip-preview .transport'),buttons:[$('previewFullscreen')],onChange:()=>{setPreviewSize();drawPreview()}});
 function userCaptionDefault(){try{const value=localStorage.getItem('context-desk-output-language');return outputLanguages.includes(value)?value:'Original'}catch{return 'Original'}}
 $('liveCaptionLanguage').value=userCaptionDefault();
 const captionWork=translationQueue(2);let captionWaiting=0,captionFailed=0;
@@ -874,6 +876,11 @@ function mediaTime(moment,time){return (moment.mediaStart||0)+time}
 function localTime(moment,time){return time-(moment.mediaStart||0)}
 function activeCues(moment){return moment.captionCues[moment.captionLanguage]||[]}
 function timedCues(moment){return syncedCues(activeCues(moment),moment.captionOffset||0,moment.end-moment.start)}
+// Lines within 30 s of a moment in the track, timed like timedCues. Drawing a frame needs only these;
+// processing a whole-recording track (thousands of lines) on every frame made playback stutter.
+function cuesNear(moment,time,span=30){const offset=moment.captionOffset||0;return syncedCues(activeCues(moment).filter(c=>c.end+offset>=time-span&&c.start+offset<=time+span),offset,moment.end-moment.start)}
+// Index of the line playing at a time, without copying the track.
+function activeCueIndex(moment,time){const offset=moment.captionOffset||0,duration=moment.end-moment.start,cues=activeCues(moment);for(let i=0;i<cues.length;i++){const start=Math.max(0,cues[i].start+offset),end=Math.min(duration,cues[i].end+offset);if(end>start&&time>=start&&time<end)return i}return undefined}
 function cueText(cues){return cues.map(cue=>`${cue.start.toFixed(1)} --> ${cue.end.toFixed(1)} | ${cue.text}`).join('\n')}
 function parseCues(raw,duration){
   const cues=[];let previousEnd=0;
@@ -891,10 +898,11 @@ function parseCues(raw,duration){
 function wrapLines(context,text,maxWidth){let words=text.split(/\s+/),lines=[],line='';for(const word of words){const trial=line?`${line} ${word}`:word;if(context.measureText(trial).width>maxWidth&&line){lines.push(line);line=word;}else line=trial;}if(line)lines.push(line);return lines}
 function drawCaption(context,moment,sourceTime){
   if(!moment.showCaptions)return;
-  const cue=displayCues(timedCues(moment),{mode:moment.captionMode==='accessible'?'accessible':'clean'}).find(c=>sourceTime>=c.start&&sourceTime<c.end);if(!cue)return;
+  const cue=displayCues(cuesNear(moment,sourceTime),{mode:moment.captionMode==='accessible'?'accessible':'clean'}).find(c=>sourceTime>=c.start&&sourceTime<c.end);if(!cue)return;
   drawCaptionFrame(context,{cue,time:sourceTime,styleId:moment.captionStyle,look:moment.captionLook,offset:moment.captionOffset||0,accent:accentFor(moment,cue.text)});
 }
-function setPreviewSize(){const [width,height]=outputDimensions(),canvas=$('previewCanvas');if(canvas.width!==width||canvas.height!==height){canvas.width=width;canvas.height=height;}updateFrameControls()}
+// Fullscreen draws at 1080p; the page preview stays at 540p to keep editing light.
+function setPreviewSize(){const canvas=$('previewCanvas'),[width,height]=outputDimensions(document.fullscreenElement?.contains(canvas)?1080:'preview');if(canvas.width!==width||canvas.height!==height){canvas.width=width;canvas.height=height;}updateFrameControls()}
 // Complete the thought: warns when the cut starts or ends mid-sentence, starts on a connecting
 // word, or stops before the answer to a question, and fixes it in one undoable step.
 {const box=Object.assign(document.createElement('div'),{id:'thoughtCheck',className:'thought-check',hidden:true});box.setAttribute('role','status');$('cutTools').before(box);let shown='';
@@ -1107,17 +1115,19 @@ $('resetCaptionSync').onclick=()=>performEdit('caption-sync',()=>changeCaptionSy
 function renderCaptionLines(m){
   const cues=activeCues(m),timed=timedCues(m),issues=new Map(lineIssues(cues,{language:m.captionLanguage,sourceScript:dominantScript(m.captionCues.Original||[]),originals:m.captionCues.Original||[]}).map(i=>[i.index,i.reasons]));
   $('captionLineCount').textContent=`${cues.length} lines${issues.size?` · ${issues.size} to check`:''}`;$('captionQaNext').hidden=!issues.size;$('captionQaNext').dataset.lines=[...issues.keys()].join(',');
-  const overlaps=overlapIndexes(cues),speakers=[...new Set(['A','B',...cues.map(c=>c.speaker).filter(Boolean)])].sort();
+  const timedByIndex=new Map(timed.map(cue=>[cue.index,cue])),overlaps=overlapIndexes(cues),speakers=[...new Set(['A','B',...cues.map(c=>c.speaker).filter(Boolean)])].sort();
   $('captionLines').innerHTML=cues.length?cues.map((cue,index)=>{
-    const timing=timed.find(cue=>cue.index===index),start=timing?.start??0,unavailable=!timing||timing.end<=m.trimIn||start>=m.trimOut;
+    const timing=timedByIndex.get(index),start=timing?.start??0,unavailable=!timing||timing.end<=m.trimIn||start>=m.trimOut;
     // Editing-only speaker data: never burned in. Visible cue and line type decide what viewers see.
     const meta=`<div class="caption-line-meta"><label>Speaker <select class="caption-speaker" data-cue="${index}" aria-label="Speaker for caption ${index+1}">${['',...speakers].map(sp=>`<option value="${sp}" ${(cue.speaker||'')===sp?'selected':''}>${sp?'Speaker '+sp:'Unknown'}</option>`).join('')}</select></label><label>Type <select class="caption-kind" data-cue="${index}" aria-label="Line type for caption ${index+1}">${[['','Dialogue'],['sound','Sound description'],['background','Background speech']].map(([v,l])=>`<option value="${v}" ${(cue.kind||'')===v?'selected':''}>${l}</option>`).join('')}</select></label><input class="caption-cue-label" data-cue="${index}" maxlength="24" placeholder="Visible cue, e.g. (off-screen)" aria-label="Optional visible cue for caption ${index+1}" value="${escapeHtml(cue.cueLabel||'')}"></div>`;
     return `<div class="caption-line${overlaps.has(index)?' is-overlap':''}" data-cue="${index}">${meta}<button type="button" data-caption-jump="${index}" aria-label="Play from caption ${index+1} at ${start.toFixed(1)} seconds" ${unavailable?'disabled':''}>${start.toFixed(1)}s</button><textarea class="caption-line-text" rows="3" data-cue="${index}" aria-label="Caption ${index+1} text" dir="auto" maxlength="100">${escapeHtml(cue.text)}</textarea><button type="button" class="caption-flag ${cue.uncertain?'is-flagged':''}" data-caption-flag="${index}" aria-label="${cue.uncertain?'Resolve':'Flag'} uncertainty in caption ${index+1}">${cue.uncertain?'Review needed':'Flag'}</button>${cue.uncertain&&cue.reviewReason?`<small class="caption-original">${escapeHtml(cue.reviewReason)}</small>`:''}${issues.has(index)?`<small class="caption-qa">${issues.get(index).map(escapeHtml).join(' ')}</small>`:''}${m.captionLanguage!=='Original'?`<small class="caption-original" dir="auto">SOURCE · ${escapeHtml(m.captionCues.Original[index]?.text||'Original line unavailable')}</small>`:''}</div>`;
   }).join(''):'<p class="caption-lines-empty">'+(m.translationPending?.has(m.captionLanguage)?'Preparing '+escapeHtml(m.captionLanguage)+' subtitles…':m.translationError&&m.captionCues.Original?.length?escapeHtml(m.captionLanguage)+' subtitles are missing: '+escapeHtml(m.translationError)+' The original transcript ('+m.captionCues.Original.length+' lines) is safe.':m.captionCues.Original?.length?'No '+escapeHtml(m.captionLanguage)+' subtitles yet. The original transcript has '+m.captionCues.Original.length+' lines; choose Retry translation.':'No timed captions yet. Recheck the speech or add captions to this clip.')+'</p>';
 }
 function highlightCaption(clock){
-  const m=previewMoment();if(!m)return;const time=localTime(m,clock),active=timedCues(m).find(cue=>time>=cue.start&&time<cue.end)?.index;
-  document.querySelectorAll('.caption-line').forEach(row=>{const isActive=Number(row.dataset.cue)===active;if(row.classList.contains('is-current')!==isActive)row.classList.toggle('is-current',isActive)});
+  const m=previewMoment();if(!m)return;const active=activeCueIndex(m,localTime(m,clock));
+  // Touch only the row that stops and the row that starts playing.
+  const list=$('captionLines'),current=list.querySelector('.caption-line.is-current'),next=active===undefined?null:list.querySelector(`.caption-line[data-cue="${active}"]`);
+  if(current!==next){current?.classList.remove('is-current');next?.classList.add('is-current')}
 }
 $('captionLines').onclick=async event=>{
   const flag=event.target.closest('[data-caption-flag]');if(flag){const m=state.moments.find(x=>x.id===state.selected),cue=activeCues(m)[Number(flag.dataset.captionFlag)];performEdit('caption-flag',()=>{cue.uncertain=!cue.uncertain;m.captionReviewed[m.captionLanguage]=false;renderEditor()});return}
@@ -1132,10 +1142,13 @@ $('captionLines').addEventListener('change',event=>{const m=state.moments.find(x
   if(event.target.matches('.caption-speaker'))performEdit('caption-speaker',()=>{setLineMeta(m,index,'speaker',event.target.value);const overlaps=overlapIndexes(activeCues(m));for(const row of $('captionLines').querySelectorAll('.caption-line'))row.classList.toggle('is-overlap',overlaps.has(Number(row.dataset.cue)))});
   else if(event.target.matches('.caption-kind'))performEdit('caption-kind',()=>{setLineMeta(m,index,'kind',event.target.value)});
   else if(event.target.matches('.caption-cue-label'))performEdit('caption-cue-label',()=>setLineMeta(m,index,'cueLabel',event.target.value.trim()))});
+// The plain-text copy of the track is rebuilt after typing pauses: rebuilding thousands of lines on
+// every keystroke made typing lag on a whole-recording track.
+let captionTextTimer=null;function syncCaptionText(m){clearTimeout(captionTextTimer);captionTextTimer=setTimeout(()=>{if(state.moments.includes(m)&&document.activeElement!==$('captionsInput'))$('captionsInput').value=cueText(activeCues(m))},250)}
 $('captionLines').oninput=event=>{
   if(!event.target.matches('.caption-line-text'))return;const m=state.moments.find(x=>x.id===state.selected);if(!m)return;const cue=activeCues(m)[Number(event.target.dataset.cue)];if(!cue)return;cue.text=event.target.value;delete cue.words;m.captionReviewed[m.captionLanguage]=false;$('captionReviewed').checked=false;
   if(m.captionLanguage==='Original'){for(const language of Object.keys(m.captionCues))if(language!=='Original')delete m.captionCues[language];m.captionReviewed={}}
-  m.captionError=activeCues(m).some(cue=>!cue.text.trim())?'Caption text cannot be empty.':'';$('captionsInput').value=cueText(activeCues(m));$('captionStatus').textContent=m.captionError||'Words updated. Listen and review before export.';drawPreview();
+  m.captionError=activeCues(m).some(cue=>!cue.text.trim())?'Caption text cannot be empty.':'';syncCaptionText(m);$('captionStatus').textContent=m.captionError||'Words updated. Listen and review before export.';drawPreview();
 };
 $('captionLanguage').onchange=e=>{const m=state.moments.find(x=>x.id===state.selected);if(!m)return;if(!m.captionLanguageOverride){setProjectCaptionTarget(e.target.value);return}m.captionLanguageOverride=e.target.value;inheritCaptionTarget(m,projectCaptionTarget());m.captionError='';m.translationError='';if(activeCues(m).length)m.showCaptions=true;renderEditor();queueCaptionTarget(m)};
 $('captionOverride').onchange=e=>{const m=state.moments.find(x=>x.id===state.selected);if(!m)return;m.captionLanguageOverride=e.target.checked?m.captionLanguage:null;inheritCaptionTarget(m,projectCaptionTarget());queueCaptionTarget(m);renderEditor()};
@@ -1406,16 +1419,25 @@ $('captionTranslationMode').onchange=async()=>{const m=state.moments.find(x=>x.i
 const memoryView=createMemoryView({trashToggle:$('showMemoryTrash'),trashButton:$('trashMemory'),select:$('storyMemorySelect'),rows:$('memoryFacts'),status:$('memoryStatus'),getSelected:()=>{const m=state.moments.find(x=>x.id===state.selected);return m?{...m,projectId:projectSession.current?.id}:null},onSelect:()=>projectSession?.changed()});
 $('createMemory').onclick=()=>memoryView.create($('newMemoryTitle').value||'Story memory');$('addMemoryNote').onclick=()=>memoryView.add();$('addMemoryEvidence').onclick=()=>memoryView.add(true);$('saveMemory').onclick=()=>void memoryView.save().catch(()=>{});$('exportMemory').onclick=()=>memoryView.export();$('trashMemory').onclick=()=>memoryView.trash();
 
-function performEdit(key,mutate){const before=editSnapshot();mutate();editHistory.record(before,editSnapshot(),key);projectSession.changed()}
+function performEdit(key,mutate){flushEdit();const before=editSnapshot();mutate();editHistory.record(before,editSnapshot(),key);projectSession.changed()}
 const editKeys=['trimIn','trimOut','captionMode','hook','hookVariants','captionAccents','showAccents','alternateHook','frameMode','splitCam','cuts','zoom','focusX','focusY','showHook','captionLanguage','captionLanguageOverride','translationMode','captionStyle','captionLook','frameKeyframes','frameTracking','transcriptEdit','discoveryStrategy','audioEnhance','dialectNote','captionCues','captionReviewed','showCaptions','captionOffset','sourceCaptionMask','approved'];
 function editSnapshot(){return {aspect:state.aspect,targetLanguage:projectCaptionTarget(),cut:[...state.cut],selected:state.selected,moments:state.moments.map(m=>({id:m.id,captionLanguageOverride:m.captionLanguageOverride||null,...Object.fromEntries(editKeys.filter(k=>m[k]!==undefined).map(k=>[k,structuredClone(m[k])]))}))}}
 function applyEditSnapshot(value){const ids=new Set(value.moments.map(m=>m.id));state.moments=state.moments.filter(m=>!m.splitCreated||ids.has(m.id));for(const edit of value.moments){const m=state.moments.find(m=>m.id===edit.id);if(m)Object.assign(m,edit);else if(splitOriginals.has(edit.id))state.moments.push({...structuredClone(splitOriginals.get(edit.id)),...edit})}state.cut=value.cut.filter(id=>state.moments.some(m=>m.id===id));state.aspect=value.aspect;state.selected=value.selected;if(value.targetLanguage)$('liveCaptionLanguage').value=value.targetLanguage;renderQueue();renderCut();renderBatchResults();renderEditor();for(const m of state.moments)queueCaptionTarget(m);projectSession.changed()}
 const splitOriginals=new Map();const editHistory=createHistory({apply:applyEditSnapshot,onChange:()=>{$('undoEdit').disabled=!editHistory.canUndo;$('redoEdit').disabled=!editHistory.canRedo;projectSession?.changed()}});
-$('undoEdit').onclick=()=>editHistory.undo();$('redoEdit').onclick=()=>editHistory.redo();
-let beforeEdit=null;const editable=event=>event.target.matches('.editor input,.editor textarea,.editor select,.cut-section input')&&!event.target.matches('#seekBar,#loopClip,#trimStartRange,#trimEndRange,#previewVolume,#previewSpeed');
-for(const type of ['input','change']){document.addEventListener(type,event=>{if(editable(event))beforeEdit=editSnapshot()},true);document.addEventListener(type,event=>{if(editable(event)&&beforeEdit){const before=beforeEdit;beforeEdit=null;editHistory.record(before,editSnapshot(),event.target.id||event.target.getAttribute('aria-label'))}})}
-$('splitClip').onclick=()=>{const m=state.moments.find(x=>x.id===state.selected);if(!m)return;const before=editSnapshot();try{const [first,second]=splitEdits(m,localTime(m,clipVideo.currentTime),crypto.randomUUID());Object.assign(m,first);second.splitCreated=true;splitOriginals.set(second.id,structuredClone(second));state.moments.push(second);if(state.cut.includes(m.id))state.cut.splice(state.cut.indexOf(m.id)+1,0,second.id);editHistory.record(before,editSnapshot(),'split');renderQueue();renderBatchResults();renderCut();renderEditor();$('historyStatus').textContent='Two editable trims created; source timing is preserved.'}catch(error){$('historyStatus').textContent=error.message}};
-document.addEventListener('keydown',event=>{if(!(event.metaKey||event.ctrlKey)||event.key.toLowerCase()!=='z'||/^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName||''))return;event.preventDefault();event.shiftKey?editHistory.redo():editHistory.undo()});
+// A burst of typing in one field is one undo step: the "before" copy is taken at its first keystroke and
+// the "after" copy once typing pauses (or another field or button is used). Copying the whole project on
+// every keystroke made typing lag on a whole-recording subtitle track.
+let pendingEdit=null,pendingTimer=null;
+function flushEdit(){clearTimeout(pendingTimer);if(!pendingEdit)return;const {before,key}=pendingEdit;pendingEdit=null;editHistory.record(before,editSnapshot(),key)}
+$('undoEdit').onclick=()=>{flushEdit();editHistory.undo()};$('redoEdit').onclick=()=>{flushEdit();editHistory.redo()};
+const editable=event=>event.target.matches('.editor input,.editor textarea,.editor select,.cut-section input')&&!event.target.matches('#seekBar,#loopClip,#trimStartRange,#trimEndRange,#previewVolume,#previewSpeed');
+const editKey=event=>event.target.id||event.target.getAttribute('aria-label');
+for(const type of ['input','change']){
+  document.addEventListener(type,event=>{if(!editable(event))return;if(pendingEdit&&pendingEdit.key!==editKey(event))flushEdit();if(!pendingEdit)pendingEdit={before:editSnapshot(),key:editKey(event)}},true);
+  document.addEventListener(type,event=>{if(!editable(event)||!pendingEdit)return;clearTimeout(pendingTimer);if(type==='change')flushEdit();else pendingTimer=setTimeout(flushEdit,400)});
+}
+$('splitClip').onclick=()=>{const m=state.moments.find(x=>x.id===state.selected);if(!m)return;flushEdit();const before=editSnapshot();try{const [first,second]=splitEdits(m,localTime(m,clipVideo.currentTime),crypto.randomUUID());Object.assign(m,first);second.splitCreated=true;splitOriginals.set(second.id,structuredClone(second));state.moments.push(second);if(state.cut.includes(m.id))state.cut.splice(state.cut.indexOf(m.id)+1,0,second.id);editHistory.record(before,editSnapshot(),'split');renderQueue();renderBatchResults();renderCut();renderEditor();$('historyStatus').textContent='Two editable trims created; source timing is preserved.'}catch(error){$('historyStatus').textContent=error.message}};
+document.addEventListener('keydown',event=>{if(!(event.metaKey||event.ctrlKey)||event.key.toLowerCase()!=='z'||/^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName||''))return;event.preventDefault();flushEdit();event.shiftKey?editHistory.redo():editHistory.undo()});
 
 // JobProgress (design system): the running server job with its real percentage and steps, docked in the rail.
 function renderJobDock(job){
