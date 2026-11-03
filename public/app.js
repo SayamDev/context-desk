@@ -42,6 +42,7 @@ import {mountDub} from './dub.js';
 import {mountLoader} from './loader.js';
 import {clock as bgClock} from './clock.js';
 import {mountLiveBar} from './live-bar.js';
+import {createLiveMonitor} from './live-monitor.js';
 import {mountCultureNotes,activeNote,drawCultureNote} from './culture-notes.js';
 import {captionTarget,inheritCaptionTarget,commitCaptionTranslation,translationQueue,outputLanguages,projectTrack} from './caption-policy.js';
 import {socialPresets,socialExportIssue,lengthAdvice,crossPostTargets,hashtagCount,hashtagLimit,draftPostCaption,composePostCaption} from './social.js';
@@ -102,9 +103,13 @@ const brandControls=createBrandControls({getSelected:()=>state.moments.find(m=>m
 discoveryTools=createDiscoveryTools({requestJson:async(url,options)=>{if(url==='/api/moment-search')await projectSession.flush();return requestJson(url,options)},getProject:()=>projectSession?.current?{...projectSession.current,state:{...projectSession.current.state,aiCalls:state.aiCalls}}:null,getSelected:()=>state.moments.find(m=>m.id===state.selected),getMoments:()=>state.moments,onSelect:selectMoment,onMessage:message,onChanged:()=>projectSession?.changed(),onTranscriptEdit:async(result,source)=>{flushEdit();const before=editSnapshot();for(const segment of result.segments){segment.splitCreated=true;segment.manual=true;segment.status='manual';splitOriginals.set(segment.id,structuredClone(segment));state.moments.push(segment)}const ids=result.segments.map(m=>m.id),position=state.cut.indexOf(source.id);if(position>=0)state.cut.splice(position,1,...ids);else state.cut.push(...ids);state.selected=ids[0];editHistory.record(before,editSnapshot(),'transcript-cut');projectSession.changed();renderQueue();renderBatchResults();renderCut();await selectMoment(ids[0],{scroll:false});message(`${ids.length} editable segment${ids.length===1?'':'s'} added to your Story cut. Original footage and captions are retained.`)}});
 liveBuffer=createLiveBuffer({getUrl:()=>$('streamUrl')?.value,getRecording:()=>state.source?.importId?{id:state.source.importId,title:state.sourceName||'',time:program.currentTime}:null,onMessage:message});liveBuffer.sync();
 enhanceSegmented($('aspectSelect'),{label:'Format',labels:{portrait:['9:16','TikTok'],square:'1:1 Feed'.split(' '),fourfive:['4:5','Feed'],landscape:['16:9','YouTube']},order:['portrait','square','fourfive','landscape']});
-// The live bar shows and controls live clipping from every page (live-bar.js).
-mountLiveBar({every:(ms,fn)=>bgClock.every(ms,fn),start:()=>startLiveClipping(),stop:()=>stopLiveClipping(),open:()=>showWorkspace('clips'),
-  getState:()=>({connected:state.sourceType==='screen'&&Boolean(state.screenStream?.getVideoTracks().some(t=>t.readyState==='live')),scanning:state.scanning,framing:state.cropPicking,elapsed:state.liveEpoch?liveTime():0,windows:state.moments.filter(m=>m.sourceType==='screen').length,clips:usableMoments(state.moments).filter(m=>m.sourceType==='screen').length})});
+// The live bar shows and controls live clipping from every page (live-bar.js); the monitor window
+// shows the framed picture being recorded (live-monitor.js), with the tab's sound when switched on.
+const liveMonitor=createLiveMonitor({stop:()=>stopLiveClipping(),getStreams:()=>({video:state.stageCrop&&stageDrawing?stageCanvas.captureStream(30).getVideoTracks()[0]:state.screenStream?.getVideoTracks()[0]?.clone(),audio:state.screenStream?.getAudioTracks()||[]})});
+function announceLiveClip({id,hook}){const open=()=>{showWorkspace('clips');inspectClip(id)};toast('New live clip: '+(hook||'a moment worth checking'),{action:'Open',run:open,timeout:9000});
+  if(document.hidden&&window.Notification?.permission==='granted'){try{const n=new Notification('New live clip',{body:hook||'Context Desk found a moment worth checking.',tag:'context-desk-live-clip'});n.onclick=()=>{window.focus();open();n.close()}}catch{/* Notifications are optional. */}}}
+mountLiveBar({every:(ms,fn)=>bgClock.every(ms,fn),start:()=>startLiveClipping(),stop:()=>stopLiveClipping(),open:()=>showWorkspace('clips'),monitor:liveMonitor,onClip:announceLiveClip,
+  getState:()=>({latest:usableMoments(state.moments).filter(m=>m.sourceType==='screen').sort((a,b)=>b.start-a.start)[0]||null,connected:state.sourceType==='screen'&&Boolean(state.screenStream?.getVideoTracks().some(t=>t.readyState==='live')),scanning:state.scanning,framing:state.cropPicking,elapsed:state.liveEpoch?liveTime():0,windows:state.moments.filter(m=>m.sourceType==='screen').length,clips:usableMoments(state.moments).filter(m=>m.sourceType==='screen').length})});
 // Beginner guide: progress is read from the project; each Next action jumps to the right place.
 {const guide=createGuide({
   getState:()=>{const m=state.moments.find(x=>x.id===state.selected),clips=usableMoments(state.moments).length;
@@ -318,14 +323,14 @@ function linkStatus(text){$('linkStatus').hidden=false;$('linkStatus').textConte
 $('linkForm').onsubmit=async event=>{
   event.preventDefault();if(importId)return;noteIntent();$('streamUrl').setAttribute('aria-invalid','false');importCancelled=false;$('captureFallback').hidden=true;$('openStream').disabled=true;$('cancelImport').hidden=false;setActivity('import','Loading your video','Checking the link and preparing the recording…');linkStatus('Checking your video link…');
   try{
-    let url;try{url=new URL($('streamUrl').value.trim())}catch{throw Error('Paste a full video link beginning with https://.')}if(url.protocol!=='https:'||url.username||url.password)throw Error('Paste a public HTTPS video link.');sourcePageUrl=url.href;
+    let url;try{url=new URL($('streamUrl').value.trim())}catch{throw Error('Paste a full video link beginning with https://.')}if(url.protocol!=='https:'||url.username||url.password)throw Error('Paste a public HTTPS video link.');sourcePageUrl=url.href;livePlayerPage='';liveSource=null;
     const response=await fetch('/api/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:url.href})});let job=await response.json();if(!response.ok)throw Error(job.error||'Import could not start.');importId=job.id;noteDuplicate(job);
     while(!importCancelled){
       linkStatus(job.message);setActivity('import',job.status==='downloading'?'Preparing the recording':'Checking your video',job.message);
       if(job.status==='ready'){
         finishActivity('import');linkStatus('Video ready. Your clip scan is starting.');await loadImportedVideo(job,url.href);break;
       }
-      if(job.status==='needs-capture'){livePlayerPage=job.playerUrl||'';linkStatus(job.message);$('captureFallback').hidden=false;break;}
+      if(job.status==='needs-capture'){livePlayerPage=job.playerUrl||'';liveSource={channel:job.channel||'',title:String(job.title||'').replace(/\s+\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}$/,'')};linkStatus(job.message);$('captureFallback').hidden=false;break;}
       if(job.status==='error'||job.status==='cancelled')throw Error(job.message);
       await new Promise(resolve=>setTimeout(resolve,1000));if(importCancelled)break;const poll=await fetch('/api/import/'+job.id);job=await poll.json();if(!poll.ok)throw Error(job.error||'The import could not be checked.');
     }
@@ -336,16 +341,21 @@ $('cancelImport').onclick=async()=>{importCancelled=true;if(importId)await fetch
 // A live link opens the platform's player-only page in its own window when there is one, so the
 // shared picture is just the video (no comments or sidebar) and framing uses the whole frame.
 // Embedded players refuse to play without a referrer, so that window keeps it (still noopener).
-let livePlayerPage='';
-$('captureFallback').onclick=()=>{const page=livePlayerPage||sourcePageUrl;if(page&&!openedSourceLinks.has(page)){window.open(page,'context-desk-source',livePlayerPage?'popup,width=1280,height=720,noopener':'noopener,noreferrer');openedSourceLinks.add(page)}$('screenButton').click()};
+let livePlayerPage='',liveSource=null;
+// "Channel · Stream title · Live 3 Nov, 15:47" when the stream came from a link; otherwise a dated live session.
+const liveSessionName=()=>[liveSource?.channel,liveSource?.title].filter(Boolean).join(' · ').slice(0,120);
+function liveSessionTitle(){const name=liveSessionName();return name?name+' · Live '+new Date().toLocaleString(undefined,{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):''}
+// An open live session carries on only for the same stream; a link to a different channel or stream starts its own project.
+const continuesLiveSession=p=>Boolean(p&&!p.sourceId&&(!liveSessionName()||String(p.title||'').startsWith(liveSessionName()+' · Live ')));
+$('captureFallback').onclick=()=>{const page=livePlayerPage||sourcePageUrl;if(page&&!openedSourceLinks.has(page)){window.open(page,'context-desk-source',livePlayerPage?'popup,width=1600,height=900,noopener':'noopener,noreferrer');openedSourceLinks.add(page)}$('screenButton').click()};
 $('screenButton').onclick=async()=>{
   let connectingStream;try{
     // Chrome normally jumps to the shared tab, which sends Context Desk to the background and pauses its
     // drawing and timers. Keep the desk in front so framing, recording and new clips stay visible.
     const controller=typeof CaptureController==='function'?new CaptureController():null;
-    const stream=connectingStream=await navigator.mediaDevices.getDisplayMedia({video:{displaySurface:'browser',frameRate:{ideal:60}},audio:{suppressLocalAudioPlayback:true},selfBrowserSurface:'exclude',...(controller?{controller}:{})});
+    const stream=connectingStream=await navigator.mediaDevices.getDisplayMedia({video:{displaySurface:'browser',width:{ideal:1920},height:{ideal:1080},frameRate:{ideal:60,max:60}},audio:{suppressLocalAudioPlayback:true},selfBrowserSurface:'exclude',...(controller?{controller}:{})});
     try{controller?.setFocusBehavior?.('no-focus-change')}catch{/* Not supported for this surface; Chrome keeps its default. */}
-    showWorkspace('clips');if(projectSession){await finishCaptureForSwitch();const resume=projectSession.current&&!projectSession.current.sourceId;if(!resume){await projectSession.beforeSourceChange();state.moments=[];state.cut=[];state.selected=null;state.batchExports=[];state.exportHistory=[];state.aiCalls=0;state.windowCount=0;await projectSession.createLive();}else await projectSession.flush();}setActivity('share','Connecting the live picture','Preparing automatic framing and scanning…');cleanupSource();state.screenStream=stream;state.liveElapsedOffset=Math.max(0,...state.moments.filter(m=>m.sourceType==='screen').map(m=>m.end));state.liveEpoch=performance.now();state.source=stream;state.sourceType='screen';state.sourceName='Shared video tab';program.muted=true;program.volume=0;program.controls=false;program.srcObject=stream;await program.play();if(!program.videoWidth)await mediaReady(program);
+    showWorkspace('clips');if(projectSession){await finishCaptureForSwitch();const resume=continuesLiveSession(projectSession.current);if(!resume){await projectSession.beforeSourceChange();state.moments=[];state.cut=[];state.selected=null;state.batchExports=[];state.exportHistory=[];state.aiCalls=0;state.windowCount=0;await projectSession.createLive(liveSessionTitle());}else await projectSession.flush();}setActivity('share','Connecting the live picture','Preparing automatic framing and scanning…');cleanupSource();state.screenStream=stream;state.liveElapsedOffset=Math.max(0,...state.moments.filter(m=>m.sourceType==='screen').map(m=>m.end));state.liveEpoch=performance.now();state.source=stream;state.sourceType='screen';state.sourceName='Shared video tab';program.muted=true;program.volume=0;program.controls=false;program.srcObject=stream;await program.play();if(!program.videoWidth)await mediaReady(program);
     stream.getVideoTracks()[0].addEventListener('ended',()=>{cleanupSource();message('The shared tab stopped. Captured clips remain available.');});setSourceLabel('Live tab connected');$('emptySource').hidden=true;$('sourceCropRow').hidden=false;updateButtons();beginCrop();state.resumeAfterCrop=true;updateSourceQuality();finishActivity('share');await detectAndApplyCrop();
   }catch(error){if(connectingStream!==state.screenStream)connectingStream?.getTracks().forEach(track=>track.stop());message(error.name==='NotAllowedError'?'Sharing was cancelled. Choose Connect live tab when you’re ready.':error.message||'The tab could not be connected.');linkStatus(error.name==='NotAllowedError'?'Browser sharing was cancelled. Your other clips are still available.':'Could not connect this tab. Try again with tab audio enabled.');}
   finally{finishActivity('share')}
@@ -454,17 +464,17 @@ $('applyCrop').onclick=async()=>{
   stageCanvas.width=Math.max(2,Math.round(rawWidth*scale));stageCanvas.height=Math.max(2,Math.round(rawHeight*scale));
   $('cropMask').hidden=true;$('cropSelection').hidden=true;$('monitor').classList.add('video-cropped');
   $('cropStatus').textContent=`Clean feed · ${stageCanvas.width} × ${stageCanvas.height} · ${state.screenStream.getAudioTracks().length?'TAB AUDIO ON':'NO TAB AUDIO'}`;
-  drawStage();updateButtons();updateSourceQuality();
+  drawStage();liveMonitor.refresh();updateButtons();updateSourceQuality();
   message('Video area framed. AI samples and exported clips use only this picture. You can edit moments while scanning continues.');
   if(state.resumeAfterCrop){state.resumeAfterCrop=false;await startScan();}
 };
 let stageDrawing=false;
-// The framed live picture is copied 30 times a second on the background clock (clock.js), not
+// The framed live picture is copied at the stream's frame rate (24 to 60 fps) on the background clock (clock.js), not
 // requestAnimationFrame, which stops in a hidden tab and froze recordings when the editor looked away.
 function drawStage(){
   if(stageDrawing)return;
   stageDrawing=true;
-  const handle=bgClock.every(1000/30,()=>{
+  const fps=Math.min(60,Math.max(24,state.screenStream?.getVideoTracks()[0]?.getSettings()?.frameRate||30)),handle=bgClock.every(1000/fps,()=>{
     if(!state.stageCrop||state.sourceType!=='screen'){bgClock.clear(handle);stageDrawing=false;return;}
     if(program.readyState>=2&&program.videoWidth&&program.videoHeight){
       const c=state.stageCrop;
@@ -475,6 +485,8 @@ function drawStage(){
 // Live clipping from anywhere (guide, live bar): confirm the suggested framing (or use the whole
 // shared picture) and start; framing confirmation starts the scan itself through resumeAfterCrop.
 function startLiveClipping(){if(state.sourceType!=='screen'||!state.screenStream)return;if(state.scanning)return;
+  // Both need the click that started clipping, so they are asked for before anything is awaited.
+  if(!liveMonitor.isOpen())void liveMonitor.open();if(window.Notification?.permission==='default')void Notification.requestPermission().catch(()=>{});
   if(state.cropPicking||!state.stageCrop){state.resumeAfterCrop=true;if(state.cropDraft)$('applyCrop').click();else $('fullFrame').click();return}void startScan()}
 function stopLiveClipping(){if(state.scanning)stopScan('Live clipping stopped. Clips found so far are saved; start again any time.')}
 async function startScan(){
@@ -500,7 +512,7 @@ function startWindow(){
   const mimeTypes=['video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'].filter(MediaRecorder.isTypeSupported);
   const cleanCapture=state.sourceType==='screen',crop=null,captureArea=state.stageCrop?{...state.stageCrop}:null,track=state.recordStream?.getVideoTracks()[0],settings=track?.getSettings?.()||{};
   const sourcePixels={width:cleanCapture?stageCanvas.width:program.videoWidth,height:cleanCapture?stageCanvas.height:program.videoHeight,frameRate:Math.round(settings.frameRate||30),frameRateKnown:Boolean(settings.frameRate),audioTracks:state.recordStream?.getAudioTracks().length||0};
-  const pixelCount=Math.max(640*360,sourcePixels.width*sourcePixels.height),captureBitrate=Math.min(12000000,Math.max(4000000,Math.round(pixelCount/(1280*720)*5000000*Math.sqrt(sourcePixels.frameRate/30))));
+  const pixelCount=Math.max(640*360,sourcePixels.width*sourcePixels.height),captureBitrate=Math.min(16000000,Math.max(6000000,Math.round(pixelCount/(1280*720)*5000000*Math.sqrt(sourcePixels.frameRate/30))));
   let setupError;state.recording=null;
   for(const mimeType of [...mimeTypes,undefined]){try{state.recording=new MediaRecorder(state.recordStream,{...(mimeType?{mimeType}:{}),videoBitsPerSecond:captureBitrate,audioBitsPerSecond:192000});break;}catch(error){setupError=error;}}
   if(!state.recording){message(`Recording could not start (${setupError?.name||'unsupported format'}). Share the tab again or try a local video.`);stopScan();return;}

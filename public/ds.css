@@ -950,3 +950,17 @@ body.has-live-bar .main {padding-bottom:96px}
 .home-session-action {background:var(--cue)!important;color:var(--cue-ink)!important;border-color:var(--cue)!important;font-weight:700}
 .home-session-action svg {stroke:currentColor}
 @media (prefers-reduced-motion:reduce) {.home-intent label {transition:none}}
+
+/* Home: cue to the saved projects below the fold (home.js) */
+.home-scroll-cue {position:fixed;left:50%;bottom:var(--space-4);z-index:50;transform:translateX(-50%);display:inline-flex;align-items:center;gap:var(--space-2);height:40px;padding:0 var(--space-4);border:1px solid var(--cue);border-radius:var(--radius-pill);background:var(--surface);color:var(--text);font:700 14px/1 var(--font-body);box-shadow:var(--shadow-pop);cursor:pointer}
+.home-scroll-cue[hidden] {display:none}
+.home-scroll-cue:hover {background:var(--surface-2,var(--surface));border-color:var(--text)}
+.home-scroll-cue:focus-visible {outline:2px solid var(--cue);outline-offset:3px}
+.home-scroll-cue svg {width:18px;height:18px;fill:none;stroke:var(--cue);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;animation:cd-nudge 1.6s ease-in-out infinite}
+@keyframes cd-nudge {0%,100%{transform:translateY(0)}50%{transform:translateY(3px)}}
+body.has-live-bar .home-scroll-cue {bottom:calc(var(--space-4) + 64px)}
+@media (prefers-reduced-motion:reduce){.home-scroll-cue svg{animation:none}}
+/* Live bar buttons that only apply while the monitor is open */
+.live-bar .cd-btn[hidden] {display:none}
+.live-bar .cd-btn[aria-pressed=true] {border-color:var(--cue);color:var(--text)}
+@media (max-width:600px){.live-bar #liveBarSound,.live-bar #liveBarOpen{display:none}.home-scroll-cue{bottom:84px;white-space:nowrap}.home-cue-long{display:none}}
