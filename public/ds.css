@@ -861,3 +861,59 @@ input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color])
 @media (prefers-reduced-motion:reduce) {.trailer-beat.is-loading .trailer-still {animation:none}}
 /* Simple mode hides the story cut, except once one exists (a trailer, or clips added to the cut) */
 body.simple-mode.has-cut[data-workspace=edit] .cut-section {display:block!important}
+
+/* Post kit (post-kit.js): one action, a step list while it works, then the kit to copy or download */
+.post-kit-panel {display:grid;gap:var(--space-3);padding:var(--space-4);margin-bottom:var(--space-6);border:1px solid var(--line-strong);border-radius:var(--radius-md);background:linear-gradient(180deg,var(--surface-raised),var(--surface))}
+.post-kit-head {display:flex;justify-content:space-between;align-items:flex-start;gap:var(--space-3)}
+.post-kit-head h3 {margin:0;font:900 26px/1 var(--font-display);letter-spacing:-.03em}
+.post-kit-head p {margin:var(--space-1) 0 0;color:var(--muted);font-size:13px;max-width:44ch}
+.post-kit-steps {list-style:none;margin:0;padding:0;display:grid;gap:var(--space-1);font-size:13px}
+.post-kit-steps li {display:flex;align-items:center;gap:var(--space-2);color:var(--muted)}
+.post-kit-steps li::before {content:"";width:8px;height:8px;border-radius:var(--radius-pill);border:1px solid var(--line-strong)}
+.post-kit-steps li[data-state=working] {color:var(--text)}
+.post-kit-steps li[data-state=working]::before {background:var(--cue);border-color:var(--cue);animation:cd-pulse 1.2s ease-in-out infinite}
+.post-kit-steps li[data-state=done]::before {background:var(--success);border-color:var(--success)}
+.post-kit-steps li[data-state=skipped] {text-decoration:line-through}
+.post-kit-ready {display:grid;grid-template-columns:minmax(0,1fr);gap:var(--space-3)}
+.post-kit-ready img {width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:var(--radius-sm);background:var(--surface-3)}
+.post-kit-copy {display:grid;gap:var(--space-2)}
+.post-kit-copy b {font:800 18px/1.2 var(--font-display);letter-spacing:-.015em}
+.post-kit-copy p {margin:0;font-size:13.5px;line-height:1.5;white-space:pre-wrap}
+.post-kit-notes:empty {display:none}
+.post-kit-notes {display:grid;gap:var(--space-1);padding:var(--space-3);border-radius:var(--radius-sm);background:var(--canvas);font-size:13px}
+.post-kit-notes b {color:var(--success-text);margin-inline-end:var(--space-1)}
+@media (prefers-reduced-motion:reduce) {.post-kit-steps li[data-state=working]::before {animation:none}}
+
+/* English dub (dub.js) */
+.dub-panel {display:grid;gap:var(--space-3);margin-top:var(--space-4);padding:var(--space-4);border:1px solid var(--line);border-radius:var(--radius-md);background:var(--surface-raised)}
+.dub-head {display:flex;justify-content:space-between;align-items:flex-start;gap:var(--space-3)}
+.dub-head h3 {margin:0;font:800 18px/1.15 var(--font-display);letter-spacing:-.015em}
+.dub-head p {margin:var(--space-1) 0 0;color:var(--muted);font-size:12.5px;max-width:46ch}
+.dub-voices {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-2)}
+.dub-voices label, .dub-level {display:grid;gap:var(--space-1);font-size:12.5px;color:var(--muted)}
+.dub-status:empty {display:none}
+.dub-status {margin:0;font-size:12.5px;color:var(--cue)}
+.dub-ready {display:grid;gap:var(--space-3)}
+.dub-use {display:flex;align-items:center;gap:var(--space-2);font-size:13px}
+.dub-level {grid-template-columns:auto 1fr auto;align-items:center}
+.dub-level output {font:500 12px/1 var(--font-mono);color:var(--text)}
+.dub-script summary {cursor:pointer;font-size:13px;color:var(--muted)}
+.dub-script ol {margin:var(--space-2) 0 0;padding-left:var(--space-4);display:grid;gap:var(--space-1);font-size:13px}
+.dub-script .cd-tc {color:var(--cue);margin-inline-end:var(--space-1)}
+
+/* Loader (loader.js): the brand mark animation in the rail's activity card and over blocking waits */
+.activity-spinner, .ds-rail-dock .activity-spinner {width:40px;height:40px;flex:none;border:0!important;border-radius:0;background:none!important;animation:none!important}
+.activity-spinner svg, .busy-loader svg {display:block}
+.loader-fallback {border-radius:var(--radius-sm);background:var(--surface-3)!important}
+.busy-overlay {position:fixed;inset:0;z-index:60;display:grid;place-items:center;background:var(--scrim);opacity:0;transition:opacity var(--dur-base) var(--ease-out);pointer-events:none}
+.busy-overlay.is-on {opacity:1;pointer-events:auto}
+.busy-card {display:grid;justify-items:center;gap:var(--space-2);min-width:260px;max-width:min(380px,calc(100vw - 32px));padding:var(--space-6) var(--space-8);border:1px solid var(--line-strong);border-radius:var(--radius-lg);background:var(--surface);box-shadow:var(--shadow-pop);text-align:center;transform:translateY(8px) scale(.98);transition:transform var(--dur-base) var(--ease-out)}
+.busy-overlay.is-on .busy-card {transform:none}
+.busy-loader {width:88px;height:88px}
+.busy-card strong {font:800 20px/1.15 var(--font-display);letter-spacing:-.015em}
+.busy-card p {margin:0;color:var(--muted);font-size:13px;line-height:1.45}
+@media (prefers-reduced-motion:reduce) {.busy-overlay, .busy-card {transition:none}}
+.activity-spinner::before, .activity-spinner::after {content:none!important;display:none!important}
+.dub-engine {display:grid;gap:var(--space-1);font-size:12.5px;color:var(--muted)}
+.trailer-video {display:grid;gap:var(--space-3);margin-bottom:var(--space-4)}
+.trailer-video video {width:100%;max-height:520px;aspect-ratio:16/9;border-radius:var(--radius-md);background:#000}

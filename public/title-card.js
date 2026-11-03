@@ -122,12 +122,17 @@ export function mountTitleCardPanel({panel,getMoment,video,defaultLabel,defaultT
   const edit=fn=>()=>{const m=getMoment();if(!m)return;fn(spec(m),m);onChange();sync()};
   section.addEventListener('click',event=>{const look=event.target.closest('[data-card-look]');if(look)edit(s=>{s.look=look.dataset.cardLook})()});
   $('titleCardSize').onchange=edit(s=>{s.size=$('titleCardSize').value});
-  $('titleCardTitle').oninput=edit(s=>{s.title=$('titleCardTitle').value;if(s.highlight&&s.highlight!==' '&&!s.title.includes(s.highlight))s.highlight=''});
+  $('titleCardTitle').oninput=edit(s=>{s.title=$('titleCardTitle').value;s.edited=true;if(s.highlight&&s.highlight!==' '&&!s.title.includes(s.highlight))s.highlight=''});
   $('titleCardHighlight').onchange=edit(s=>{const v=$('titleCardHighlight').value;s.highlight=v==='-'?' ':v});
   $('titleCardLabel').oninput=edit(s=>{s.label=$('titleCardLabel').value});
   $('titleCardFrame').onclick=()=>{const m=getMoment();if(!m)return;if(!grab(m)){toast('Wait for the clip preview to load, then try again.');return}onChange();void draw();toast('Title card picture updated from the playhead.')};
   const blob=type=>new Promise(resolve=>canvas.toBlob(resolve,type,.9));
   $('titleCardDownload').onclick=async()=>{const m=getMoment();if(!m)return;await draw();const file=await blob('image/png');if(file)download(file,`title-card-${spec(m).size.replace(':','x')}-${Math.floor(m.start)}.png`)};
   $('titleCardSave').onclick=async()=>{const m=getMoment();if(!m)return;const button=$('titleCardSave');button.disabled=true;try{await draw();const file=await blob('image/jpeg');if(!file)throw Error('The title card could not be drawn.');const saved=await saveAsset(file);m.titleCard=saved.url;onChange({picture:true});toast('Saved. This title card is now the clip’s picture in Clips.')}catch(error){toast(error.message||'The title card could not be saved.')}finally{button.disabled=false}};
-  return {sync,draw,grabWhenReady(){const m=getMoment();if(m&&stillFor!==m.id&&grab(m))void draw()}};
+  // The current clip's card at any size, for the post kit (PNG Blob).
+  async function render(size){const m=getMoment();if(!m)return null;await draw();const s=spec(m),[w,h]=titleCardSizes[size]||titleCardSizes['16:9'],c=document.createElement('canvas');c.width=w;c.height=h;
+    drawTitleCard(c.getContext('2d'),{frame:stillFor===m.id?still:null,title:s.title,highlight:s.highlight||pickHighlight(s.title),label:s.label,look:s.look,focusX:m.focusX??50});return new Promise(resolve=>c.toBlob(resolve,'image/png'))}
+  // A written post title replaces a card title nobody has typed yet.
+  function useTitle(text){const m=getMoment();if(!m||!text)return;const s=spec(m);if(!s.edited){s.title=String(text).slice(0,90);s.highlight='';onChange();sync()}}
+  return {sync,draw,render,useTitle,grabWhenReady(){const m=getMoment();if(m&&stillFor!==m.id&&grab(m))void draw()}};
 }
