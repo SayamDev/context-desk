@@ -52,14 +52,23 @@ const state={sourceLoadToken:0,sourceUploadAbort:null,source:null,sourceName:'',
 let projectSession=null;const activities=new Map();
 function setActivity(id,title,detail){activities.set(id,{title,detail,started:activities.get(id)?.started||Date.now()});renderActivity()}
 function finishActivity(id){activities.delete(id);renderActivity()}
-// Waits that block the screen (opening a project, a clip, a recording) also show the loader over the
-// workspace, but only after 350 ms so quick ones never flash. Background work stays in the rail card.
-const blockingActivities=new Set(['workspace','project-open','preview','source','connect','relink']);let busyTimer=null;
-function busyOverlay(){let o=$('busyOverlay');if(!o){o=document.createElement('div');o.id='busyOverlay';o.className='busy-overlay';o.hidden=true;o.setAttribute('role','status');o.setAttribute('aria-live','polite');o.innerHTML='<div class="busy-card"><div class="busy-loader" aria-hidden="true"></div><strong></strong><p></p></div>';document.body.append(o)}return o}
+// Waits that block the screen (opening a project, a clip, a recording, connecting or framing a live tab,
+// deleting, saving an export) show the big loader over the app, but only after 350 ms so quick ones never
+// flash. It counts the seconds after 3 s so it never looks frozen, and offers Cancel where the work can
+// really stop. Long background work (link imports, finding clips, renders) never blocks: it shows in the
+// rail card and as a moving strip along the top of the app.
+const blockingActivities=new Set(['workspace','project-open','preview','source','connect','relink','share','frame','project-delete','export-save','whole-source']);let busyTimer=null;
+const uploadCancel=()=>state.sourceUploadAbort&&!state.sourceUploadAbort.signal.aborted?()=>state.sourceUploadAbort.abort():null;
+const activityCancel={source:uploadCancel,'whole-source':uploadCancel,frame:()=>()=>{state.autoFrameJob++;finishActivity('frame');updateButtons();message('Automatic framing stopped. Draw around the video, or choose Use full frame.')}};
+function busyOverlay(){let o=$('busyOverlay');if(!o){o=document.createElement('div');o.id='busyOverlay';o.className='busy-overlay';o.hidden=true;o.setAttribute('role','status');o.setAttribute('aria-live','polite');o.innerHTML='<div class="busy-card"><div class="busy-loader" aria-hidden="true"></div><strong></strong><p></p><span class="busy-elapsed cd-tc"></span><button type="button" class="cd-btn cd-btn-sm cd-btn-ghost busy-cancel" hidden>Cancel</button></div>';document.body.append(o)}return o}
 function renderBusy(){const id=[...activities.keys()].reverse().find(k=>blockingActivities.has(k)),overlay=busyOverlay();clearTimeout(busyTimer);
-  if(!id){overlay.classList.remove('is-on');overlay.hidden=true;return}const a=activities.get(id);overlay.querySelector('strong').textContent=a.title;overlay.querySelector('p').textContent=a.detail;
+  if(!id){overlay.classList.remove('is-on');overlay.hidden=true;return}const a=activities.get(id),seconds=Math.floor((Date.now()-a.started)/1000),cancel=activityCancel[id]?.(),button=overlay.querySelector('.busy-cancel');
+  overlay.querySelector('strong').textContent=a.title;overlay.querySelector('p').textContent=a.detail;overlay.querySelector('.busy-elapsed').textContent=seconds>=3?clock(seconds)+' so far':'';
+  button.hidden=!cancel;button.onclick=cancel?()=>{button.disabled=true;cancel();setTimeout(()=>{button.disabled=false},800)}:null;
   if(overlay.hidden)busyTimer=setTimeout(()=>{if(!activities.has(id))return;overlay.hidden=false;mountLoader(overlay.querySelector('.busy-loader'));requestAnimationFrame(()=>overlay.classList.add('is-on'))},350)}
-function renderActivity(){renderBusy();const current=[...activities.values()].at(-1);$('activityPanel').hidden=!current;if(!current)return;mountLoader($('activityPanel').querySelector('.activity-spinner'));{const id=[...activities.keys()].at(-1),cancel=$('cancelImport'),btn=$('activityCancel');if(btn)btn.hidden=!(id==='import'&&cancel&&!cancel.hidden)}$('activityTitle').textContent=current.title;$('activityDetail').textContent=current.detail;$('activityElapsed').textContent=clock((Date.now()-current.started)/1000)}
+function workStrip(){let s=$('workStrip');if(!s){s=document.createElement('div');s.id='workStrip';s.className='work-strip';s.hidden=true;s.setAttribute('aria-hidden','true');document.body.append(s)}return s}
+function renderStrip(){const background=[...activities.entries()].reverse().find(([k])=>!blockingActivities.has(k)),strip=workStrip();strip.hidden=!background;if(background)strip.title=background[1].title}
+function renderActivity(){renderBusy();renderStrip();const current=[...activities.values()].at(-1);$('activityPanel').hidden=!current;if(!current)return;mountLoader($('activityPanel').querySelector('.activity-spinner'));{const id=[...activities.keys()].at(-1),cancel=$('cancelImport'),btn=$('activityCancel');if(btn)btn.hidden=!(id==='import'&&cancel&&!cancel.hidden)}$('activityTitle').textContent=current.title;$('activityDetail').textContent=current.detail;$('activityElapsed').textContent=clock((Date.now()-current.started)/1000)}
 setInterval(()=>{if(activities.size)renderActivity()},1000);
 let renderHookLab=()=>{},syncAccents=()=>{},syncCaptionVariant=()=>{},syncLinkDrop=()=>{};const clipSelection=new Set(),shownScores=new Set();let bulkBar=null,visibleClipIds=[],lastSelected=null,inspectedId=null;
 let titleCards=null,chaptersView=null,askView=null,clipFromRange=null,cultureView=null,trailerView=null,postKitView=null,writePostFor=null,dubView=null;
