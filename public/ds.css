@@ -787,3 +787,77 @@ input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color])
 .chapter.is-loading i {width:70%}
 @keyframes cd-chapter-pulse {50% {opacity:.55}}
 @media (prefers-reduced-motion:reduce) {.chapter-thumb img, .chapter-thumb {transition:none}.chapter.is-loading .chapter-thumb {animation:none}.chapter button:hover .chapter-thumb img {transform:none}}
+
+/* Ask the episode (ask.js): question, answer, then the moments that show it */
+.ask-panel {margin:var(--space-6) 0;padding:var(--space-6);border:1px solid var(--line);border-radius:var(--radius-lg);background:linear-gradient(180deg,var(--surface-raised),var(--surface) 140px)}
+.ask-head h2 {margin:0;font:900 40px/.95 var(--font-display);letter-spacing:-.03em}
+.ask-head p {margin:var(--space-2) 0 var(--space-4);color:var(--muted);font-size:14px;max-width:64ch}
+.ask-form {display:flex;gap:var(--space-2)}
+.ask-form .cd-input {flex:1;min-width:0;height:48px;font-size:16px;padding:0 var(--space-4);border-radius:var(--radius-sm);background:var(--canvas)}
+.ask-form .cd-btn {height:48px;padding:0 22px;font-size:16px}
+.ask-form .cd-input:focus {box-shadow:var(--shadow-signal)}
+.ask-starters {display:flex;flex-wrap:wrap;gap:var(--space-2);margin:var(--space-3) 0 0}
+.ask-starters .cd-btn {border:1px solid var(--line);border-radius:var(--radius-pill);color:var(--muted)}
+.ask-starters .cd-btn:hover {color:var(--text);border-color:var(--line-strong)}
+.ask-result:empty {display:none}
+.ask-result {margin-top:var(--space-6)}
+.ask-question {margin:0 0 var(--space-2);font:500 11px/14px var(--font-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--cue);display:flex;gap:var(--space-2);align-items:center;flex-wrap:wrap}
+.ask-text {margin:0 0 var(--space-4);font:600 20px/1.4 var(--font-body);max-width:70ch;text-wrap:pretty}
+.ask-moments {list-style:none;margin:0;padding:0;display:grid;gap:var(--space-3)}
+.ask-moment {display:grid;grid-template-columns:220px minmax(0,1fr);gap:var(--space-4);padding:var(--space-3);border:1px solid var(--line);border-radius:var(--radius-md);background:var(--canvas)}
+.ask-moment-play {padding:0;border:0;background:none;cursor:pointer;border-radius:var(--radius-md)}
+.ask-moment-body {display:grid;gap:var(--space-2);align-content:start}
+.ask-moment-body b {font:800 18px/1.2 var(--font-display);letter-spacing:-.015em}
+.ask-moment-body q {font-size:14px;line-height:1.5;color:var(--text);quotes:"\201C" "\201D"}
+.ask-moment-body q::before {color:var(--success-text)}
+.ask-moment-body span {font-size:13px;color:var(--muted)}
+.ask-note, .ask-none {margin:var(--space-3) 0 0;font-size:12.5px;color:var(--muted)}
+.ask-error {color:var(--warning);margin:0}
+.ask-history {margin-top:var(--space-4)}
+.ask-history summary {cursor:pointer;color:var(--muted);font-size:13px}
+.ask-history ul {list-style:none;margin:var(--space-2) 0 0;padding:0;display:flex;flex-wrap:wrap;gap:var(--space-2)}
+.ask-answer.is-loading .ask-line {display:block;height:16px;margin:var(--space-2) 0;border-radius:var(--radius-xs);background:var(--surface-3);animation:cd-chapter-pulse 1.4s ease-in-out infinite}
+.ask-answer.is-loading .ask-line.short {width:55%}
+.ask-wait {margin:var(--space-3) 0 0;color:var(--cue);font-size:13px}
+@media (max-width:700px) {.ask-moment {grid-template-columns:1fr}.ask-head h2 {font-size:32px}.ask-form {flex-direction:column}.ask-panel {padding:var(--space-4)}}
+@media (prefers-reduced-motion:reduce) {.ask-answer.is-loading .ask-line {animation:none}}
+
+/* Culture notes (culture-notes.js): phrase in volt, literal in mono, meaning in plain words */
+.culture-notes {display:grid;gap:var(--space-3);margin:0 0 var(--space-4);padding:var(--space-4);border:1px solid var(--line);border-radius:var(--radius-md);background:var(--surface-raised)}
+.culture-head {display:flex;justify-content:space-between;align-items:flex-start;gap:var(--space-3)}
+.culture-head h3 {margin:0;font:800 18px/1.15 var(--font-display);letter-spacing:-.015em}
+.culture-head p {margin:var(--space-1) 0 0;color:var(--muted);font-size:12.5px;max-width:48ch}
+.culture-show {display:flex;align-items:center;gap:var(--space-2);font-size:13px}
+.culture-status:empty {display:none}
+.culture-status {margin:0;font-size:12.5px;color:var(--muted)}
+.culture-list {list-style:none;margin:0;padding:0;display:grid;gap:var(--space-2)}
+.culture-note {display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:var(--space-3);align-items:start;padding:var(--space-3);border-radius:var(--radius-sm);background:var(--canvas)}
+.culture-note.is-hidden {opacity:.55}
+.culture-note b {display:block;color:var(--success-text);font:700 16px/1.3 var(--font-body)}
+.culture-note span {display:block;font-size:13px;line-height:1.45}
+.culture-note .culture-literal {font:500 11px/14px var(--font-mono);letter-spacing:.04em;color:var(--muted);margin:2px 0}
+.culture-time {font:500 12px/1 var(--font-mono);padding:6px 8px;border-radius:var(--radius-xs);border:1px solid var(--line-strong);background:none;color:var(--cue);cursor:pointer}
+.culture-keep {display:flex;align-items:center;gap:var(--space-1);font-size:12px;color:var(--muted);white-space:nowrap}
+
+/* Make the trailer (trailer.js): numbered beats with their role, in story order */
+.trailer-panel {margin:var(--space-6) 0;padding:var(--space-6);border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--surface)}
+.trailer-head {display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:var(--space-3);margin-bottom:var(--space-4)}
+.trailer-head h2 {margin:0;font:900 40px/.95 var(--font-display);letter-spacing:-.03em}
+.trailer-head p {margin:var(--space-2) 0 0;color:var(--muted);font-size:14px;max-width:70ch}
+.trailer-head p b {color:var(--text);font-weight:700}
+.trailer-head .cd-tc {margin-left:var(--space-2);color:var(--success-text)}
+.trailer-status:empty {display:none}
+.trailer-status {margin:0 0 var(--space-3);color:var(--cue);font-size:13px}
+.trailer-beats {list-style:none;margin:0;padding:0 0 var(--space-2);display:grid;grid-auto-flow:column;grid-auto-columns:minmax(200px,1fr);gap:var(--space-3);overflow-x:auto;scroll-snap-type:x mandatory}
+.trailer-beat {display:grid;gap:var(--space-2);align-content:start;scroll-snap-align:start}
+.trailer-still {position:relative;display:block;aspect-ratio:16/9;overflow:hidden;border-radius:var(--radius-md);background:var(--surface-3)}
+.trailer-still img {width:100%;height:100%;object-fit:cover}
+.trailer-still .cd-dur {position:absolute;left:var(--space-2);bottom:var(--space-2)}
+.trailer-beat .cd-badge {width:max-content}
+.trailer-beat b {font:800 16px/1.2 var(--font-display);letter-spacing:-.01em}
+.trailer-beat q {font-size:13px;line-height:1.45;color:var(--muted);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.trailer-beat.is-loading .trailer-still {animation:cd-chapter-pulse 1.4s ease-in-out infinite}
+@media (max-width:700px) {.trailer-head h2 {font-size:32px}.trailer-panel {padding:var(--space-4)}}
+@media (prefers-reduced-motion:reduce) {.trailer-beat.is-loading .trailer-still {animation:none}}
+/* Simple mode hides the story cut, except once one exists (a trailer, or clips added to the cut) */
+body.simple-mode.has-cut[data-workspace=edit] .cut-section {display:block!important}

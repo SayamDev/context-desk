@@ -34,3 +34,11 @@ test('pasting a shared link to an imported video reopens it instead of downloadi
   assert.equal(status,200);assert.equal(data.duplicate,true);assert.equal(data.id,id);assert.equal(data.status,'ready');
   assert.equal(store.listRecords('source').filter(r=>r.sourceUrl&&sourceKey(r.sourceUrl)===sourceKey(data.sourceUrl)).length,1,'no second copy was started');
 });
+
+import {livePlayerUrl} from '../lib/imports.js';
+test('a live link maps to the platform player page, which shows only the video',()=>{
+  assert.equal(livePlayerUrl({extractor_key:'Youtube',id:'aPxWXFjcYXg'}),'https://www.youtube.com/embed/aPxWXFjcYXg?autoplay=1&playsinline=1&rel=0');
+  assert.equal(livePlayerUrl({extractor_key:'TwitchStream',id:'123',uploader_id:'Kai_Cenat'}),'https://player.twitch.tv/?channel=kai_cenat&parent=localhost&autoplay=true');
+  assert.equal(livePlayerUrl({extractor_key:'Kick',channel:'xqc'}),'https://player.kick.com/xqc');
+  for(const info of [{extractor_key:'Youtube',id:'bad id'},{extractor_key:'Vimeo',id:'1'},{extractor_key:'Twitch',uploader_id:'<script>'},null])assert.equal(livePlayerUrl(info),'');
+});
