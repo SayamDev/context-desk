@@ -180,9 +180,8 @@ test('Studio fullscreen: a sharp picture with its play bar, which fades while wa
     await page.evaluate(async()=>{const {mountPreviewFullscreen}=await import('/fullscreen.js');const frame=document.createElement('div'),bar=document.createElement('div'),holder=document.createElement('div');frame.id='fsFrame';frame.className='preview-frame';frame.style.cssText='position:fixed;left:20px;top:20px;width:320px;height:180px;z-index:9999';bar.id='fsBar';bar.textContent='play bar';holder.append(bar);document.body.append(frame,holder);
       window.fsChanges=[];mountPreviewFullscreen({frame,transport:bar,onChange:on=>window.fsChanges.push(on)})});
     await page.locator('#fsFrame .preview-fullscreen-toggle').click();
-    await page.waitForFunction(()=>document.fullscreenElement?.id==='fsFrame');
-    assert.equal(await page.evaluate(()=>document.getElementById('fsFrame').contains(document.getElementById('fsBar'))),true);
-    assert.equal(await page.evaluate(()=>document.activeElement.id),'fsFrame');
+    // fullscreenchange arrives just after fullscreenElement is set, so wait for its effects.
+    await page.waitForFunction(()=>document.fullscreenElement?.id==='fsFrame'&&document.getElementById('fsFrame').contains(document.getElementById('fsBar'))&&document.activeElement.id==='fsFrame');
     await page.waitForFunction(()=>document.getElementById('fsFrame').classList.contains('is-idle'),null,{timeout:5000});
     await page.mouse.move(200,200);await page.mouse.move(220,220);
     assert.equal(await page.evaluate(()=>document.getElementById('fsFrame').classList.contains('is-idle')),false);
@@ -191,6 +190,26 @@ test('Studio fullscreen: a sharp picture with its play bar, which fades while wa
     // The play bar goes back to its place once the browser reports the change.
     await page.waitForFunction(()=>!document.getElementById('fsFrame').contains(document.getElementById('fsBar')));
     assert.deepEqual(await page.evaluate(()=>window.fsChanges),[true,false]);
+    assert.deepEqual(problems,[]);
+  }finally{await app.stop()}
+});
+
+test('the trim bar zooms a 30-second clip in a 2-hour window, so dragging and arrow keys are precise',async()=>{
+  const app=await startApp({env:{FFMPEG_PATH:ffmpeg}});
+  try{
+    const {page,problems}=await watchedPage(browser,app.url);
+    await page.evaluate(async()=>{const {createTrim}=await import('/ds.js');const host=document.createElement('div');host.id='trimTest';host.style.cssText='position:fixed;left:20px;top:20px;width:390px;z-index:9999;background:#000';document.body.append(host);
+      window.trimCommits=[];host.append(createTrim({duration:7904,value:[340,370],onCommit:r=>window.trimCommits.push([...r])}).el)});
+    const geo=await page.evaluate(()=>{const t=document.querySelector('#trimTest .cd-trim-track'),s=t.querySelector('.cd-trim-sel');return {track:t.getBoundingClientRect().width,sel:s.getBoundingClientRect().width,title:t.title,handle:t.querySelector('.cd-handle-in').getBoundingClientRect().width}});
+    assert.equal(geo.title,'Showing 05:10–06:40');
+    assert.ok(Math.abs(geo.sel/geo.track-1/3)<.02,`the clip fills ${Math.round(geo.sel/geo.track*100)}% of the bar`);
+    assert.equal(geo.handle,24);
+    const handle=page.locator('#trimTest .cd-handle-in'),box=await handle.boundingBox(),pxPerSecond=geo.track/90;
+    await page.mouse.move(box.x+box.width/2,box.y+box.height/2);await page.mouse.down();await page.mouse.move(box.x+box.width/2+pxPerSecond*5,box.y+box.height/2,{steps:4});await page.mouse.up();
+    const [start]=(await page.evaluate(()=>window.trimCommits)).at(-1);
+    assert.ok(Math.abs(start-345)<=.5,`dragging 5 seconds' worth moved the start to ${start}`);
+    await handle.focus();await page.keyboard.press('ArrowRight');await page.keyboard.press('Shift+ArrowRight');
+    assert.ok(Math.abs((await page.evaluate(()=>window.trimCommits)).at(-1)[0]-(start+1.1))<.05);
     assert.deepEqual(problems,[]);
   }finally{await app.stop()}
 });
