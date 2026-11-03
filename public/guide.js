@@ -7,10 +7,13 @@ export const guideSteps=[
   {id:'subtitles',label:'Check English subtitles'},
   {id:'post',label:'Prepare the post'}
 ];
-// state: {hasSource, finding, clips, selected, toCheck, reviewed, exported}
+// state: {live, scanning, hasSource, finding, clips, selected, toCheck, reviewed, exported}
 export function guideStatus(state){
   const s=state||{};
   if(!s.hasSource)return {step:0,action:'add-video',cta:'Add a video',hint:'Paste a YouTube, Twitch or Kick link, or upload a file.'};
+  // A connected live tab: the one action is starting or stopping live clipping.
+  if(s.live&&!s.scanning)return {step:1,action:'start-live',cta:'Start live clipping',hint:'Clips the live stream as it plays. You can switch tabs; it keeps going.'};
+  if(s.live&&!s.clips)return {step:1,action:'stop-live',cta:'Stop live clipping',hint:'Clipping the live stream. Clips appear as moments happen, even if you switch tabs.'};
   if(!s.clips)return s.finding?{step:1,action:null,cta:'Finding clips…',hint:'Clips appear here as soon as they are ready. You can keep working.'}:{step:1,action:'find-clips',cta:'Find clips',hint:'We look for complete moments with a clear start and finish.'};
   if(!s.selected)return {step:1,action:'open-clip',cta:'Open the top clip',hint:`${s.clips} ${s.clips===1?'clip is':'clips are'} ready. The top one has the strongest evidence.`};
   if(!s.reviewed)return {step:2,action:'check-subtitles',cta:s.toCheck?`Check subtitles · ${s.toCheck} ${s.toCheck===1?'line needs':'lines need'} a look`:'Check the subtitles',hint:'Read each line against the speech, fix anything wrong, then tick “I checked every line”.'};

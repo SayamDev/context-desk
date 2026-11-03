@@ -40,6 +40,8 @@ import {mountTrailer} from './trailer.js';
 import {mountPostKit} from './post-kit.js';
 import {mountDub} from './dub.js';
 import {mountLoader} from './loader.js';
+import {clock as bgClock} from './clock.js';
+import {mountLiveBar} from './live-bar.js';
 import {mountCultureNotes,activeNote,drawCultureNote} from './culture-notes.js';
 import {captionTarget,inheritCaptionTarget,commitCaptionTranslation,translationQueue,outputLanguages,projectTrack} from './caption-policy.js';
 import {socialPresets,socialExportIssue,lengthAdvice,crossPostTargets,hashtagCount,hashtagLimit,draftPostCaption,composePostCaption} from './social.js';
@@ -100,14 +102,19 @@ const brandControls=createBrandControls({getSelected:()=>state.moments.find(m=>m
 discoveryTools=createDiscoveryTools({requestJson:async(url,options)=>{if(url==='/api/moment-search')await projectSession.flush();return requestJson(url,options)},getProject:()=>projectSession?.current?{...projectSession.current,state:{...projectSession.current.state,aiCalls:state.aiCalls}}:null,getSelected:()=>state.moments.find(m=>m.id===state.selected),getMoments:()=>state.moments,onSelect:selectMoment,onMessage:message,onChanged:()=>projectSession?.changed(),onTranscriptEdit:async(result,source)=>{flushEdit();const before=editSnapshot();for(const segment of result.segments){segment.splitCreated=true;segment.manual=true;segment.status='manual';splitOriginals.set(segment.id,structuredClone(segment));state.moments.push(segment)}const ids=result.segments.map(m=>m.id),position=state.cut.indexOf(source.id);if(position>=0)state.cut.splice(position,1,...ids);else state.cut.push(...ids);state.selected=ids[0];editHistory.record(before,editSnapshot(),'transcript-cut');projectSession.changed();renderQueue();renderBatchResults();renderCut();await selectMoment(ids[0],{scroll:false});message(`${ids.length} editable segment${ids.length===1?'':'s'} added to your Story cut. Original footage and captions are retained.`)}});
 liveBuffer=createLiveBuffer({getUrl:()=>$('streamUrl')?.value,getRecording:()=>state.source?.importId?{id:state.source.importId,title:state.sourceName||'',time:program.currentTime}:null,onMessage:message});liveBuffer.sync();
 enhanceSegmented($('aspectSelect'),{label:'Format',labels:{portrait:['9:16','TikTok'],square:'1:1 Feed'.split(' '),fourfive:['4:5','Feed'],landscape:['16:9','YouTube']},order:['portrait','square','fourfive','landscape']});
+// The live bar shows and controls live clipping from every page (live-bar.js).
+mountLiveBar({every:(ms,fn)=>bgClock.every(ms,fn),start:()=>startLiveClipping(),stop:()=>stopLiveClipping(),open:()=>showWorkspace('clips'),
+  getState:()=>({connected:state.sourceType==='screen'&&Boolean(state.screenStream?.getVideoTracks().some(t=>t.readyState==='live')),scanning:state.scanning,framing:state.cropPicking,elapsed:state.liveEpoch?liveTime():0,windows:state.moments.filter(m=>m.sourceType==='screen').length,clips:usableMoments(state.moments).filter(m=>m.sourceType==='screen').length})});
 // Beginner guide: progress is read from the project; each Next action jumps to the right place.
 {const guide=createGuide({
   getState:()=>{const m=state.moments.find(x=>x.id===state.selected),clips=usableMoments(state.moments).length;
     const toCheck=m?activeCues(m).filter(c=>c.uncertain).length+(Number($('captionLineCount')?.textContent.match(/(\d+) to check/)?.[1])||0):0;
-    return {hasSource:Boolean(state.source||state.moments.length),finding:Boolean(state.batchRunning||state.moments.some(x=>x.status==='analysing')),clips,selected:Boolean(m),toCheck,reviewed:Boolean(m?.captionReviewed?.[m.captionLanguage]),exported:Boolean(m?.exportedAt)}},
+    return {live:state.sourceType==='screen'&&Boolean(state.screenStream),scanning:state.scanning,hasSource:Boolean(state.source||state.moments.length),finding:Boolean(state.batchRunning||state.moments.some(x=>x.status==='analysing')),clips,selected:Boolean(m),toCheck,reviewed:Boolean(m?.captionReviewed?.[m.captionLanguage]),exported:Boolean(m?.exportedAt)}},
   run:async action=>{
     if(action==='add-video'){showWorkspace('home');$('streamUrl')?.focus();return}
-    if(action==='find-clips'){if(!$('batchButton').disabled)$('batchButton').click();else showWorkspace('clips');return}
+    if(action==='start-live'){startLiveClipping();showWorkspace('clips');return}
+    if(action==='stop-live'){stopLiveClipping();return}
+    if(action==='find-clips'){if(state.sourceType==='screen'){startLiveClipping();showWorkspace('clips');return}if(!$('batchButton').disabled)$('batchButton').click();else showWorkspace('clips');return}
     if(action==='open-clip'){const best=[...usableMoments(state.moments)].sort((a,b)=>(b.analysis?.score||0)-(a.analysis?.score||0))[0];if(best){await selectMoment(best.id);showWorkspace('edit')}return}
     showWorkspace('edit');
     if(action==='check-subtitles'){$('captionTab')?.click();const w=document.querySelector('.caption-workspace');if(w)w.open=true;if(!$('captionQaNext')?.hidden)$('captionQaNext').click();else $('captionLines')?.scrollIntoView({block:'start',behavior:'smooth'})}
@@ -452,19 +459,24 @@ $('applyCrop').onclick=async()=>{
   if(state.resumeAfterCrop){state.resumeAfterCrop=false;await startScan();}
 };
 let stageDrawing=false;
+// The framed live picture is copied 30 times a second on the background clock (clock.js), not
+// requestAnimationFrame, which stops in a hidden tab and froze recordings when the editor looked away.
 function drawStage(){
   if(stageDrawing)return;
   stageDrawing=true;
-  const loop=()=>{
-    if(!state.stageCrop||state.sourceType!=='screen'){stageDrawing=false;return;}
+  const handle=bgClock.every(1000/30,()=>{
+    if(!state.stageCrop||state.sourceType!=='screen'){bgClock.clear(handle);stageDrawing=false;return;}
     if(program.readyState>=2&&program.videoWidth&&program.videoHeight){
       const c=state.stageCrop;
       stageCanvas.getContext('2d',{alpha:false}).drawImage(program,c.x*program.videoWidth,c.y*program.videoHeight,c.w*program.videoWidth,c.h*program.videoHeight,0,0,stageCanvas.width,stageCanvas.height);
     }
-    requestAnimationFrame(loop);
-  };
-  loop();
+  });
 }
+// Live clipping from anywhere (guide, live bar): confirm the suggested framing (or use the whole
+// shared picture) and start; framing confirmation starts the scan itself through resumeAfterCrop.
+function startLiveClipping(){if(state.sourceType!=='screen'||!state.screenStream)return;if(state.scanning)return;
+  if(state.cropPicking||!state.stageCrop){state.resumeAfterCrop=true;if(state.cropDraft)$('applyCrop').click();else $('fullFrame').click();return}void startScan()}
+function stopLiveClipping(){if(state.scanning)stopScan('Live clipping stopped. Clips found so far are saved; start again any time.')}
 async function startScan(){
   if(!state.source||state.sourceType==='screen'&&!state.stageCrop)return;
   if(!window.MediaRecorder){message('This browser cannot record a live window. Use a current Chrome-based browser.');return;}
@@ -481,7 +493,7 @@ async function startScan(){
 }
 async function finishCaptureForSwitch(){if(state.sourceType!=='screen')return;const recorder=state.recording;if(recorder?.state==='recording')stopScan('Saving the current live window before switching…');if(recorder?.saved)await recorder.saved;await projectSession?.flush()}
 function liveTime(){return (state.liveElapsedOffset||0)+(performance.now()-state.liveEpoch)/1000}
-function stopScan(reason){state.scanning=false;clearTimeout(state.windowTimer);clearInterval(state.frameTimer);if(state.recording?.state==='recording'){state.recording.endTime=state.sourceType==='file'?program.currentTime:liveTime();state.recording.stop();}updateButtons();if(reason)message(reason);}
+function stopScan(reason){state.scanning=false;bgClock.clear(state.windowTimer);bgClock.clear(state.frameTimer);if(state.recording?.state==='recording'){state.recording.endTime=state.sourceType==='file'?program.currentTime:liveTime();state.recording.stop();}updateButtons();if(reason)message(reason);}
 function grabFrame(frames,crop){if(program.readyState<2||!program.videoWidth||!program.videoHeight)return;const sx=crop?crop.x*program.videoWidth:0,sy=crop?crop.y*program.videoHeight:0,sw=crop?crop.w*program.videoWidth:program.videoWidth,sh=crop?crop.h*program.videoHeight:program.videoHeight;const c=document.createElement('canvas');const scale=Math.min(1,640/sw);c.width=Math.max(2,Math.round(sw*scale));c.height=Math.max(2,Math.round(sh*scale));c.getContext('2d').drawImage(program,sx,sy,sw,sh,0,0,c.width,c.height);frames.push(c.toDataURL('image/jpeg',.68));}
 function startWindow(){
   if(!state.scanning)return;
@@ -496,8 +508,8 @@ function startWindow(){
   const start=sourceType==='file'?program.currentTime:liveTime();
   recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
   recorder.onerror=event=>{message(`Recording stopped: ${event.error?.message||'the source became unavailable'}. Your captured windows remain in the queue.`);state.scanning=false;updateButtons()};
-  recorder.onstop=()=>{clearTimeout(state.windowTimer);clearInterval(state.frameTimer);const blob=new Blob(chunks,{type:recorder.mimeType||'video/webm'});const end=recorder.endTime??(sourceType==='file'?program.currentTime:liveTime());if(blob.size>1000)void processWindow(blob,frames,start,end,Boolean(recorder.manual),sourceName,sourceType,crop,sourcePixels,captureArea,ownerProjectId,recorder.resolveSave).catch(error=>{recorder.rejectSave(error);message('Live window could not be saved: '+error.message)});else recorder.resolveSave();if(state.recording!==recorder)return;if(state.scanning&&state.recordStream?.getVideoTracks().some(track=>track.readyState==='live')&&(sourceType!=='file'||!program.ended))startWindow();else if(state.scanning){stopScan();message(sourceType==='file'?'Video finished. Captured moments are ready to edit.':'The shared tab stopped. Share it again to continue scanning.');}};
-  try{recorder.start();grabFrame(frames,captureArea);state.frameTimer=setInterval(()=>grabFrame(frames,captureArea),4000);state.windowTimer=setTimeout(()=>{if(recorder.state==='recording'){recorder.endTime=sourceType==='file'?program.currentTime:liveTime();recorder.stop();}},WINDOW_MS);}catch(error){message(`Recorder could not continue (${error.name||'unknown error'}). Captured windows remain available.`);stopScan();}
+  recorder.onstop=()=>{bgClock.clear(state.windowTimer);bgClock.clear(state.frameTimer);const blob=new Blob(chunks,{type:recorder.mimeType||'video/webm'});const end=recorder.endTime??(sourceType==='file'?program.currentTime:liveTime());if(blob.size>1000)void processWindow(blob,frames,start,end,Boolean(recorder.manual),sourceName,sourceType,crop,sourcePixels,captureArea,ownerProjectId,recorder.resolveSave).catch(error=>{recorder.rejectSave(error);message('Live window could not be saved: '+error.message)});else recorder.resolveSave();if(state.recording!==recorder)return;if(state.scanning&&state.recordStream?.getVideoTracks().some(track=>track.readyState==='live')&&(sourceType!=='file'||!program.ended))startWindow();else if(state.scanning){stopScan();message(sourceType==='file'?'Video finished. Captured moments are ready to edit.':'The shared tab stopped. Share it again to continue scanning.');}};
+  try{recorder.start();grabFrame(frames,captureArea);state.frameTimer=bgClock.every(4000,()=>grabFrame(frames,captureArea));state.windowTimer=bgClock.after(WINDOW_MS,()=>{if(recorder.state==='recording'){recorder.endTime=sourceType==='file'?program.currentTime:liveTime();recorder.stop();}});}catch(error){message(`Recorder could not continue (${error.name||'unknown error'}). Captured windows remain available.`);stopScan();}
 }
 program.addEventListener('ended',()=>{if(state.scanning)stopScan(`Video finished at ${formatTime(program.duration)}. Captured windows are ready to edit.`);});
 program.addEventListener('loadedmetadata',()=>{updateSourceQuality();renderWholeSubtitles();renderScanCoverage()});
