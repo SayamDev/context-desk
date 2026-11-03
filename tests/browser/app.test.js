@@ -154,25 +154,6 @@ test('keyboard and screen readers: skip link, one main region, clip list before 
   }finally{await app.stop()}
 });
 
-test('the Classic look switch turns the restyle off, survives a reload and turns it back on',async()=>{
-  const app=await startApp({env:{FFMPEG_PATH:ffmpeg}});
-  try{
-    const {page,problems}=await watchedPage(browser,app.url);
-    const restyleOn=()=>page.evaluate(()=>!document.getElementById('restyleCss').disabled);
-    assert.equal(await restyleOn(),true);
-    await page.locator('#openSettings').click();
-    await page.locator('#classicLook').check();
-    assert.equal(await restyleOn(),false);
-    await page.reload({waitUntil:'networkidle'});
-    assert.equal(await restyleOn(),false);
-    await page.locator('#openSettings').click();
-    assert.equal(await page.locator('#classicLook').isChecked(),true);
-    await page.locator('#classicLook').uncheck();
-    assert.equal(await restyleOn(),true);
-    assert.deepEqual(problems,[]);
-  }finally{await app.stop()}
-});
-
 test('Studio fullscreen: a sharp picture with its play bar, which fades while watching and returns on movement',async()=>{
   const app=await startApp({env:{FFMPEG_PATH:ffmpeg}});
   try{
@@ -246,6 +227,16 @@ test('Studio keyboard: arrows, J/K/L, frame steps and Home/End move the clip pre
     await page.locator('[data-card="keys-clip"]').waitFor({state:'attached'});
     await page.evaluate(()=>document.querySelector('[data-card="keys-clip"]').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true})));
     await page.waitForFunction(()=>document.body.dataset.workspace==='edit'&&document.getElementById('activityPanel').hidden!==false&&document.getElementById('clipVideo').readyState>=2);
+    // Pictures: the project has a poster, the trim bar a filmstrip, and the title card draws the clip's frame.
+    const [listed]=(await (await fetch(app.url+'/api/projects')).json()).projects;assert.match(listed.thumbnail,/^\/api\/import\/[a-f0-9-]{36}\/frame\?t=\d+&w=320$/);
+    assert.equal((await fetch(app.url+listed.thumbnail)).headers.get('content-type'),'image/jpeg');
+    await page.waitForFunction(()=>document.querySelectorAll('#timelineFrames img[src]').length===8);
+    await page.locator('#exportTab').click();await page.locator('#titleCardCanvas').waitFor();
+    await page.waitForFunction(()=>{const c=document.getElementById('titleCardCanvas');if(c.width!==1280)return false;const d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;let lit=0;for(let i=0;i<d.length;i+=4000)if(d[i]+d[i+1]+d[i+2]>120)lit++;return lit>20});
+    assert.equal(await page.locator('#titleCardTitle').inputValue(),'keys.mp4');
+    await page.locator('[data-card-look=signal]').click();assert.equal(await page.locator('[data-card-look=signal]').getAttribute('aria-pressed'),'true');
+    await page.locator('#titleCardSize').selectOption('9:16');await page.waitForFunction(()=>document.getElementById('titleCardCanvas').height===1920);
+    await page.locator('#captionTab').click();
     const at=()=>page.evaluate(()=>Math.round(document.getElementById('clipVideo').currentTime*100)/100);
     await page.evaluate(()=>document.activeElement?.blur());
     const step=async(key,expected)=>{await page.keyboard.press(key);await page.waitForFunction(t=>Math.abs(document.getElementById('clipVideo').currentTime-t)<.02,expected,{timeout:3000}).catch(async()=>assert.fail(`${key}: expected ${expected}, at ${await at()}`))};

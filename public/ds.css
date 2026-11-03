@@ -676,8 +676,6 @@ body[data-intent=translate] .cd-drop-meta .cd-badge {display:none}
 .skip-link:focus {transform:none}
 #main:focus {outline:none}
 /* Settings > Classic look switch (works in both looks) */
-.look-choice {display:flex;align-items:center;gap:8px;margin:0 0 16px;font-size:14px}
-.look-choice input {width:24px;height:24px;margin:0;flex:none}
 /* Long subtitle tracks: the browser skips layout and paint for lines scrolled out of view */
 .caption-lines .caption-line {content-visibility:auto;contain-intrinsic-size:auto 132px}
 /* Studio preview fullscreen (fullscreen.js): corner button, full-resolution picture, a play bar that fades while watching */
@@ -702,3 +700,90 @@ body[data-intent=translate] .cd-drop-meta .cd-badge {display:none}
 .cd-handle::before {content:"";position:absolute;top:0;bottom:0;width:12px;background:var(--cue)}
 .cd-handle-in {left:0} .cd-handle-in::before {left:0;border-radius:3px 0 0 3px} .cd-handle-in::after {left:5px}
 .cd-handle-out {right:0} .cd-handle-out::before {right:0;border-radius:0 3px 3px 0} .cd-handle-out::after {left:auto;right:5px}
+
+/* Floors carried over from the November restyle, on design-system tokens */
+html, body {overflow-x:clip}
+:is(a, button, input, select, textarea, summary, [tabindex]):focus-visible {outline:2px solid var(--focus);outline-offset:2px;transition:none}
+.cd-btn:disabled, .cd-btn:disabled:hover {background:var(--surface-raised);color:var(--disabled-ink, #5e5d66);border-color:var(--line);cursor:not-allowed;opacity:1}
+.cd-btn-primary .cd-kbd, .cd-quick .cd-kbd {background:transparent;border-color:currentColor;color:inherit}
+.bundle-choice:has(input:disabled) {opacity:1;cursor:not-allowed}
+@media (pointer:coarse) {.cd-btn, .cd-seg button, .workspace-nav button, .cd-input, select {min-height:44px}}
+input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]), select, textarea {border-color:var(--line-strong)}
+.batch-controls>button {white-space:nowrap;flex:none}
+#batchPanel .cd-seg button {white-space:nowrap;padding:0 var(--space-2);font-size:12.5px}
+.cd-look:not(:has(canvas)) {place-items:center}
+.cd-bar span, .lb-span, .lb-clip, .lb-mark, .lb-level, .edit-timeline .timeline-track .timeline-selection {transition:none}
+@media (hover:none) {.cd-quick {opacity:1;transform:none}}
+@media (max-width:760px) {
+  .ds-rail {overflow-x:visible;gap:var(--space-1);padding-inline:var(--space-1)}
+  .ds-rail .workspace-nav {display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:2px;min-width:0}
+  .ds-rail .workspace-nav button {justify-content:center;gap:var(--space-1);padding:0 var(--space-1);font-size:12px;white-space:nowrap}
+  .ds-rail .workspace-nav button b {padding:0 var(--space-1)}
+  .ds-rail .ds-new {padding:0 var(--space-3);font-size:12px}
+  .ds-topdrop {display:flex;min-width:0;width:100%;box-sizing:border-box}
+  .ds-topdrop .cd-input {flex:1;min-width:0}
+  .ds-topdrop .cd-btn {flex:none}
+  .cd-seg {max-width:100%}
+  .cd-seg button {white-space:nowrap;padding:0 var(--space-2)}
+}
+@media (max-width:360px) {.ds-rail .ds-new {padding:0 var(--space-2)}.ds-rail .workspace-nav button {font-size:11.5px;padding:0 2px}}
+@media (prefers-reduced-motion:reduce) {.cd-quick {transition:none}}
+
+/* Library: every project shows a still from its recording, its length and a state badge */
+.library-thumb {position:relative}
+.library-thumb .cd-dur {position:absolute;right:var(--space-2);bottom:var(--space-2)}
+.library-row {transition:background var(--dur-fast) var(--ease-out),border-color var(--dur-fast) var(--ease-out)}
+.library-row:hover {background:var(--surface-raised);border-color:var(--line-strong)}
+.library-row .project-state {text-transform:none;display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2);color:var(--muted);font-size:12.5px}
+.library-rows:not([data-view=grid]) .library-row {grid-template-columns:176px minmax(0,1fr) 60px 60px auto}
+.library-row .project-open {font:800 18px/1.15 var(--font-display);letter-spacing:-.015em;text-align:start}
+.library-clips strong {font:900 28px/1 var(--font-display);letter-spacing:-.03em}
+.library-clips span {font:500 11px/14px var(--font-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+
+/* Exports: each row leads with its picture; the state reads as a design-system badge */
+.job-thumb {display:block;width:100%;max-width:280px;aspect-ratio:16/9;object-fit:contain;background:var(--surface-3);border-radius:var(--radius-md);margin-bottom:var(--space-3)}
+.job-row .job-title h3 {font:800 18px/1.2 var(--font-display);letter-spacing:-.015em}
+.job-row .job-state {display:inline-flex;align-items:center;width:max-content;height:22px;padding:0 8px;border-radius:var(--radius-sm);background:var(--surface-raised);font:500 11px/1 var(--font-mono);letter-spacing:.06em;text-transform:uppercase}
+.job-row[data-state=complete] .job-state {background:var(--success);color:var(--success-ink)}
+.job-row[data-state=running] .job-state, .job-row[data-state=queued] .job-state {color:var(--cue)}
+.job-row:is([data-state=error],[data-state=interrupted]) .job-state {color:var(--warning)}
+
+/* Title card (title-card.js): the preview is the picture; controls sit under it */
+.title-card {display:grid;gap:var(--space-3);padding:var(--space-4);margin-bottom:var(--space-6);border:1px solid var(--line);border-radius:var(--radius-md);background:var(--surface)}
+.title-card-head h3 {margin:0;font:800 20px/1.1 var(--font-display);letter-spacing:-.015em}
+.title-card-head p {margin:var(--space-1) 0 0;color:var(--muted);font-size:13px}
+.title-card-canvas {display:block;width:100%;max-height:420px;object-fit:contain;border-radius:var(--radius-sm);background:var(--surface-3)}
+.title-card-looks {display:flex;gap:var(--space-2)}
+.title-card-looks [aria-pressed=true] {background:var(--text);color:var(--canvas);border-color:var(--text)}
+.title-card-fields {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-2) var(--space-3)}
+.title-card-fields label {display:grid;gap:var(--space-1);font-size:12.5px;color:var(--muted)}
+.title-card-fields label:nth-child(2) {grid-column:1/-1}
+.title-card-actions {justify-content:flex-end}
+.title-card-status:empty {display:none}
+.title-card-status {margin:0;color:var(--warning);font-size:12.5px}
+@media (max-width:600px) {.title-card-fields {grid-template-columns:1fr}.title-card-actions .cd-btn {flex:1}}
+
+/* Chapters (chapters.js): a strip of stills, each a jump into the source recording */
+.chapters-panel {margin:var(--space-6) 0;padding:var(--space-4) var(--space-4) var(--space-6);border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--surface)}
+.chapters-head {display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:var(--space-3);margin-bottom:var(--space-4)}
+.chapters-head h2 {margin:0;font:900 32px/.95 var(--font-display);letter-spacing:-.03em}
+.chapters-head p {margin:var(--space-2) 0 0;color:var(--muted);font-size:13px;max-width:62ch}
+.chapters-status:empty {display:none}
+.chapters-status {margin:0 0 var(--space-3);color:var(--cue);font-size:13px}
+.chapters-list {list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:var(--space-4)}
+.chapter button {display:grid;gap:var(--space-2);width:100%;padding:0;border:0;background:none;color:inherit;text-align:start;cursor:pointer;border-radius:var(--radius-md)}
+.chapter-thumb {position:relative;display:block;aspect-ratio:16/9;overflow:hidden;border-radius:var(--radius-md);background:var(--surface-3);outline:2px solid transparent;outline-offset:2px;transition:outline-color var(--dur-fast) var(--ease-out)}
+.chapter-thumb img {width:100%;height:100%;object-fit:cover;transition:transform var(--dur-base) var(--ease-out)}
+.chapter-thumb .cd-dur {position:absolute;left:var(--space-2);bottom:var(--space-2)}
+.chapter button:hover .chapter-thumb img {transform:scale(1.03)}
+.chapter.is-current .chapter-thumb {outline-color:var(--cue)}
+.chapter.is-current .cd-dur {background:var(--cue);color:var(--cue-ink)}
+.chapter-body {display:grid;gap:var(--space-1)}
+.chapter-body b {font:800 16px/1.2 var(--font-display);letter-spacing:-.01em}
+.chapter-body span {color:var(--muted);font-size:13px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.chapter-body small {font:500 11px/14px var(--font-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.chapter.is-loading .chapter-thumb {animation:cd-chapter-pulse 1.4s ease-in-out infinite}
+.chapter.is-loading b, .chapter.is-loading i {display:block;height:14px;border-radius:var(--radius-xs);background:var(--surface-3)}
+.chapter.is-loading i {width:70%}
+@keyframes cd-chapter-pulse {50% {opacity:.55}}
+@media (prefers-reduced-motion:reduce) {.chapter-thumb img, .chapter-thumb {transition:none}.chapter.is-loading .chapter-thumb {animation:none}.chapter button:hover .chapter-thumb img {transform:none}}
