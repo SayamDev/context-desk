@@ -60,7 +60,8 @@ export function createDiscoveryTools({requestJson,getProject,getSelected=()=>nul
   const searchButton=node('button','Search moments',{id:'semanticMomentSubmit',type:'submit'});searchButton.type='submit';
   const retryButton=button('Retry search · another request','semanticMomentRetry');retryButton.hidden=true;
   const searchHelp=node('p','Search saved transcripts and source evidence by meaning. One explicit search request; changing this text makes no request.',{id:'semanticMomentHelp',class:'depth-help'}),searchStatus=status('semanticMomentStatus'),coverage=node('p','',{id:'semanticMomentCoverage',class:'depth-help'}),results=node('ol','',{id:'semanticMomentResults'});
-  searchForm.append(label('Ask your saved moments',query),searchButton,retryButton);searchPanel.append(node('summary','Find a moment by description'),searchForm,searchHelp,searchStatus,coverage,results);($('momentSearch').closest('.moment-filters')||$('momentSearch')).after(searchPanel);
+  searchForm.append(label('Ask your saved moments',query),searchButton,retryButton);searchPanel.append(node('summary','Find a moment by description'),searchForm,searchHelp,searchStatus,coverage,results);// Clips come first; search tools sit under the grid.
+  ($('queue')||$('momentSearch').closest('.moment-filters')||$('momentSearch')).after(searchPanel);
   const updateSearchButtons=()=>{const available=Boolean(getProject()?.id),busy=Boolean(searchFlight);searchButton.disabled=!available||busy;retryButton.disabled=!available||busy;searchForm.setAttribute('aria-busy',String(busy))};
   function clearResults(){results.replaceChildren();coverage.textContent=''}
   query.oninput=()=>{searchEpoch++;lastFailure=null;retryButton.hidden=true;clearResults();searchStatus.textContent=searchFlight?'The current request may still finish. Choose Search again for the changed query.':'Choose Search moments to search this saved project.'};

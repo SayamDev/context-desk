@@ -118,9 +118,9 @@ export function mountLayout({navigate,onFilter,onView,onTrim,onSource}){
       for(const [id,value] of [['trimStartRange',moment.trimIn],['trimEndRange',moment.trimOut]]){$(id).max=duration;$(id).value=value;$(id).setAttribute('aria-valuetext',format(value));}
       $('trimDuration').textContent=(moment.trimOut-moment.trimIn).toFixed(1)+'s selected';
       $('timelineSelection').style.marginLeft=moment.trimIn/duration*100+'%';$('timelineSelection').style.width=(moment.trimOut-moment.trimIn)/duration*100+'%';
-      const signature=JSON.stringify([moment.id,moment.frames]);if($('timelineFrames').dataset.signature!==signature){$('timelineFrames').dataset.signature=signature;$('timelineFrames').replaceChildren();for(const source of moment.frames||[]){const img=document.createElement('img');img.src=source;img.alt='Sampled source frame';$('timelineFrames').append(img)}if(!moment.frames?.length){const id=String(moment.url||'').match(/^\/api\/import\/([a-f0-9-]{36})\/media$/)?.[1];
+      const signature=JSON.stringify([moment.id,moment.frames,moment.url]);if($('timelineFrames').dataset.signature!==signature){$('timelineFrames').dataset.signature=signature;$('timelineFrames').replaceChildren();for(const source of moment.frames||[]){const img=document.createElement('img');img.src=source;img.alt='Sampled source frame';$('timelineFrames').append(img)}if(!moment.frames?.length){const id=String(moment.url||'').match(/^\/api\/import\/([a-f0-9-]{36})\/media$/)?.[1];
         // No sampled frames (e.g. a full-recording clip): fetch a filmstrip from the saved source.
-        if(id)for(let i=0;i<8;i++){const img=document.createElement('img');img.alt='';img.loading='lazy';img.dataset.src=`/api/import/${id}/frame?t=${Math.floor((moment.mediaStart||0)+duration*(i+.5)/8)}`;img.onerror=()=>img.remove();$('timelineFrames').append(img)}if(!framesHeld)loadFrames();
+        if(id){for(let i=0;i<8;i++){const img=document.createElement('img');img.alt='';img.loading='lazy';img.dataset.src=`/api/import/${id}/frame?t=${Math.floor((moment.mediaStart||0)+duration*(i+.5)/8)}`;img.onerror=()=>img.remove();$('timelineFrames').append(img)}if(!framesHeld)loadFrames()}
         else $('timelineFrames').textContent='Source frames unavailable';}}
     }
   };

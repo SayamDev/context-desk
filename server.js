@@ -1,3 +1,4 @@
+import {createChapterService} from './lib/chapters.js';
 import {cleanAccents} from './public/caption-accents.js';
 import {randomUUID} from 'node:crypto';
 import {createMomentSearch} from './lib/moment-search.js';
@@ -42,13 +43,14 @@ const port = Number(process.env.PORT || 3001);
 const codeStamp=createCodeStamp(path.join(root,'server.js'));
 const voiceStudioUrl = 'http://127.0.0.1:3900';
 const languageCodes = {Arabic:'ar',Bengali:'bn',Dutch:'nl',English:'en',French:'fr',German:'de',Hebrew:'he',Hindi:'hi',Indonesian:'id',Italian:'it',Japanese:'ja',Kannada:'kn',Korean:'ko',Malay:'ms','Mandarin Chinese':'zh',Marathi:'mr',Polish:'pl',Portuguese:'pt',Spanish:'es',Tagalog:'tl',Tamil:'ta',Telugu:'te',Thai:'th',Turkish:'tr',Vietnamese:'vi',Urdu:'ur'};
-const staticFiles = {'/':'index.html','/app.js':'app.js','/player.js':'player.js','/social.js':'social.js','/caption-policy.js':'caption-policy.js','/layout.js':'layout.js','/studio-ui.js':'studio-ui.js','/timing.js':'timing.js','/translation-cache.js':'translation-cache.js','/projects.js':'projects.js','/jobs.js':'jobs.js','/languages.js':'languages.js','/history.js':'history.js','/moment-results.js':'moment-results.js','/story-memory.js':'story-memory.js','/style.css':'style.css','/ds.css':'ds.css','/restyle.css':'restyle.css','/assets/context-desk-studio.webp':'assets/context-desk-studio.webp','/assets/story-paper.webp':'assets/story-paper.webp','/assets/fonts/Manrope.ttf':'assets/fonts/Manrope.ttf','/assets/fonts/NotoEmoji.ttf':'assets/fonts/NotoEmoji.ttf','/assets/fonts/archivo-latin-wght-normal.woff2':'assets/fonts/archivo-latin-wght-normal.woff2','/assets/fonts/geist-latin-wght-normal.woff2':'assets/fonts/geist-latin-wght-normal.woff2','/assets/fonts/geist-mono-latin-wght-normal.woff2':'assets/fonts/geist-mono-latin-wght-normal.woff2'};
+const staticFiles = {'/':'index.html','/app.js':'app.js','/player.js':'player.js','/social.js':'social.js','/caption-policy.js':'caption-policy.js','/layout.js':'layout.js','/studio-ui.js':'studio-ui.js','/timing.js':'timing.js','/translation-cache.js':'translation-cache.js','/projects.js':'projects.js','/jobs.js':'jobs.js','/languages.js':'languages.js','/history.js':'history.js','/moment-results.js':'moment-results.js','/story-memory.js':'story-memory.js','/style.css':'style.css','/ds.css':'ds.css','/assets/context-desk-studio.webp':'assets/context-desk-studio.webp','/assets/story-paper.webp':'assets/story-paper.webp','/assets/fonts/Manrope.ttf':'assets/fonts/Manrope.ttf','/assets/fonts/NotoEmoji.ttf':'assets/fonts/NotoEmoji.ttf','/assets/fonts/archivo-latin-wght-normal.woff2':'assets/fonts/archivo-latin-wght-normal.woff2','/assets/fonts/geist-latin-wght-normal.woff2':'assets/fonts/geist-latin-wght-normal.woff2','/assets/fonts/geist-mono-latin-wght-normal.woff2':'assets/fonts/geist-mono-latin-wght-normal.woff2'};
 const mime = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.webp':'image/webp','.ttf':'font/ttf','.woff2':'font/woff2'};
 if(process.env.NODE_ENV!=='test')await recoverLegacySubtitles(studioStore(),path.join(root,'.runtime/subtitle-jobs'));
 const subtitleService=createSubtitleService({claimSource:claimImportSource,extract:extractAudio,store:studioStore(),
   validate:body=>{if(!process.env.MODEL_API_KEY&&(body.speechProvider!=='voicestudio'||(body.language!=='Original'&&body.translationProvider!=='voicestudio')))throw Error('Configure Meta, or choose VoiceStudio for both speech and translation.');},
   transcribe:(bytes,j)=>j.speechProvider==='voicestudio'?transcribeVoiceStudio(bytes,j.speechLanguage,j.keywords):transcribe(bytes,j.speechLanguage,j.keywords),
   translate:(cues,j)=>j.translationProvider==='voicestudio'?translateVoiceStudio(cues,j.language,j.speechLanguage,j.dialectNote):translate(cues,j.language,j.dialectNote,j.translationMode,j.glossary,{variant:j.variant,script:j.script})});
+const chapterService=createChapterService({store:studioStore(),subtitles:subtitleService});
 
 const discoveryService=createDiscoveryService({store:studioStore(),claimSource:claimImportSource,frame:captureFrame,extract:extractAudio,rankStories:createMetaStoryRanker(),
   validate:()=>{if(!process.env.MODEL_API_KEY)throw Error('Configure Meta before starting story discovery.');},
@@ -85,6 +87,7 @@ const server = http.createServer(async (req,res) => {
   if(await timelineApi(req,res,json))return;
   if(await reframeApi(req,res,json))return;
   if(await subtitleService.handle(req,res,json))return;
+  if(await chapterService.handle(req,res,json))return;
   if(await liveBufferService.handle(req,res,json))return;
   const route=new URL(req.url,'http://localhost').pathname;
   if(route==='/api/discovery-preview'&&req.method==='POST'){try{let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>10000)throw Error('Preview request is too large.')}return json(res,200,discoveryService.preview(JSON.parse(raw||'{}')))}catch(error){return json(res,400,{error:error.message})}}
