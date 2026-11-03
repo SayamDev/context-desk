@@ -35,15 +35,17 @@ export function mountCultureNotes({before,getMoment,clipLines,dialect,requestJso
     const times=new Map(clipLines(m).map(l=>[l.line,l.start]));
     $('cultureList').innerHTML=notes.map((n,i)=>[n,i]).sort((a,b)=>a[0].line-b[0].line).map(([n,i])=>`<li class="culture-note${n.hidden?' is-hidden':''}"><button type="button" class="culture-time" data-note-seek="${i}">${clock(times.get(n.line)??0)}</button><div><b dir="auto">${esc(n.phrase)}</b><span class="culture-literal">${esc(n.literal)}</span><span>${esc(n.meaning)}</span></div><label class="culture-keep"><input type="checkbox" data-note-keep="${i}" ${n.hidden?'':'checked'}> On video</label></li>`).join('');
   }
-  $('cultureFind').onclick=async()=>{
+  // Finds notes for the open clip; the Post kit calls this too. Throws when the clip cannot be read.
+  async function find(){
     const m=getMoment();if(!m||busy)return;const lines=clipLines(m).filter(l=>l.original);if(!lines.length){toast('This clip has no original-language lines yet. Transcribe it first.');return}
     busy=true;$('cultureStatus').textContent='';sync();
     try{const data=await requestJson('/api/culture-notes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lines:lines.map(({line,original,translation})=>({line,original,translation})),dialect:dialect(),language:m.captionLanguage==='Original'?'English':m.captionLanguage})});
       m.cultureNotes=data.notes;if(data.notes.length&&m.showCultureNotes===undefined)m.showCultureNotes=true;onChange();
       $('cultureStatus').textContent=data.notes.length?'':'Nothing here needs explaining for an English viewer.';if(data.notes.length)toast(`${data.notes.length} culture ${data.notes.length===1?'note':'notes'} found. Check each one against the speech.`)}
-    catch(error){$('cultureStatus').textContent=error.message||'Culture notes could not be written.'}finally{busy=false;sync()}};
+    catch(error){$('cultureStatus').textContent=error.message||'Culture notes could not be written.';throw error}finally{busy=false;sync()}}
+  $('cultureFind').onclick=()=>find().catch(()=>{});
   $('cultureShow').onchange=()=>{const m=getMoment();if(!m)return;m.showCultureNotes=$('cultureShow').checked;onChange({redraw:true})};
   section.addEventListener('change',event=>{const keep=event.target.closest('[data-note-keep]');const m=getMoment();if(!keep||!m)return;m.cultureNotes[Number(keep.dataset.noteKeep)].hidden=!keep.checked;onChange({redraw:true});sync()});
   section.addEventListener('click',event=>{const b=event.target.closest('[data-note-seek]');const m=getMoment();if(!b||!m)return;const n=m.cultureNotes[Number(b.dataset.noteSeek)],line=clipLines(m).find(l=>l.line===n.line);if(line)seek(line.start)});
-  return {sync};
+  return {sync,find};
 }

@@ -17,7 +17,7 @@ export function mountShell({openPalette,openBrandKit=()=>{}}){
   const library=nav.querySelector('[data-workspace=library]');if(library&&!$('navLibraryCount')){const count=el('b');count.id='navLibraryCount';count.hidden=true;library.append(count)}
   const brandKit=el('button',undefined,'Brand kit');brandKit.type='button';brandKit.id='railBrandKit';brandKit.onclick=openBrandKit;nav.append(brandKit);
   const dock=el('div','ds-rail-dock');const activity=$('activityPanel');if(activity)dock.append(activity);
-  if(activity){activity.querySelector('.activity-spinner')?.classList.add('ds-live-badge');const cancel=el('button','cd-btn cd-btn-sm cd-btn-ghost','Cancel');cancel.type='button';cancel.id='activityCancel';cancel.hidden=true;cancel.onclick=()=>$('cancelImport')?.click();activity.append(cancel)}
+  if(activity){const cancel=el('button','cd-btn cd-btn-sm cd-btn-ghost','Cancel');cancel.type='button';cancel.id='activityCancel';cancel.hidden=true;cancel.onclick=()=>$('cancelImport')?.click();activity.append(cancel)}
   const settings=$('openSettings');if(settings)dock.append(settings);
   rail.append(brand,newVideo,label,nav,el('div','ds-rail-grow'),dock);
   app.insertBefore(rail,main);document.body.classList.add('ds-shell');

@@ -37,6 +37,9 @@ import {mountTitleCardPanel} from './title-card.js';
 import {mountChapters} from './chapters.js';
 import {mountAsk} from './ask.js';
 import {mountTrailer} from './trailer.js';
+import {mountPostKit} from './post-kit.js';
+import {mountDub} from './dub.js';
+import {mountLoader} from './loader.js';
 import {mountCultureNotes,activeNote,drawCultureNote} from './culture-notes.js';
 import {captionTarget,inheritCaptionTarget,commitCaptionTranslation,translationQueue,outputLanguages,projectTrack} from './caption-policy.js';
 import {socialPresets,socialExportIssue,lengthAdvice,crossPostTargets,hashtagCount,hashtagLimit,draftPostCaption,composePostCaption} from './social.js';
@@ -46,10 +49,17 @@ const state={sourceLoadToken:0,sourceUploadAbort:null,source:null,sourceName:'',
 let projectSession=null;const activities=new Map();
 function setActivity(id,title,detail){activities.set(id,{title,detail,started:activities.get(id)?.started||Date.now()});renderActivity()}
 function finishActivity(id){activities.delete(id);renderActivity()}
-function renderActivity(){const current=[...activities.values()].at(-1);$('activityPanel').hidden=!current;if(!current)return;{const id=[...activities.keys()].at(-1),cancel=$('cancelImport'),btn=$('activityCancel');if(btn)btn.hidden=!(id==='import'&&cancel&&!cancel.hidden)}$('activityTitle').textContent=current.title;$('activityDetail').textContent=current.detail;$('activityElapsed').textContent=clock((Date.now()-current.started)/1000)}
+// Waits that block the screen (opening a project, a clip, a recording) also show the loader over the
+// workspace, but only after 350 ms so quick ones never flash. Background work stays in the rail card.
+const blockingActivities=new Set(['workspace','project-open','preview','source','connect','relink']);let busyTimer=null;
+function busyOverlay(){let o=$('busyOverlay');if(!o){o=document.createElement('div');o.id='busyOverlay';o.className='busy-overlay';o.hidden=true;o.setAttribute('role','status');o.setAttribute('aria-live','polite');o.innerHTML='<div class="busy-card"><div class="busy-loader" aria-hidden="true"></div><strong></strong><p></p></div>';document.body.append(o)}return o}
+function renderBusy(){const id=[...activities.keys()].reverse().find(k=>blockingActivities.has(k)),overlay=busyOverlay();clearTimeout(busyTimer);
+  if(!id){overlay.classList.remove('is-on');overlay.hidden=true;return}const a=activities.get(id);overlay.querySelector('strong').textContent=a.title;overlay.querySelector('p').textContent=a.detail;
+  if(overlay.hidden)busyTimer=setTimeout(()=>{if(!activities.has(id))return;overlay.hidden=false;mountLoader(overlay.querySelector('.busy-loader'));requestAnimationFrame(()=>overlay.classList.add('is-on'))},350)}
+function renderActivity(){renderBusy();const current=[...activities.values()].at(-1);$('activityPanel').hidden=!current;if(!current)return;mountLoader($('activityPanel').querySelector('.activity-spinner'));{const id=[...activities.keys()].at(-1),cancel=$('cancelImport'),btn=$('activityCancel');if(btn)btn.hidden=!(id==='import'&&cancel&&!cancel.hidden)}$('activityTitle').textContent=current.title;$('activityDetail').textContent=current.detail;$('activityElapsed').textContent=clock((Date.now()-current.started)/1000)}
 setInterval(()=>{if(activities.size)renderActivity()},1000);
 let renderHookLab=()=>{},syncAccents=()=>{},syncCaptionVariant=()=>{},syncLinkDrop=()=>{};const clipSelection=new Set(),shownScores=new Set();let bulkBar=null,visibleClipIds=[],lastSelected=null,inspectedId=null;
-let titleCards=null,chaptersView=null,askView=null,clipFromRange=null,cultureView=null,trailerView=null;
+let titleCards=null,chaptersView=null,askView=null,clipFromRange=null,cultureView=null,trailerView=null,postKitView=null,writePostFor=null,dubView=null;
 let layout=null,homeView=null,discoveryTools=null,liveControls=null,liveBuffer=null,connectionsView=null,libraryView='list',startupNavigation=true;const entryWorkspace=workspaceFromHash(location.hash);let requestedWorkspace=entryWorkspace;
 function showWorkspace(view){
   if(startupNavigation&&projectSession?.restoring)view=requestedWorkspace;
@@ -76,6 +86,13 @@ cultureView=mountCultureNotes({before:document.querySelector('.caption-line-head
   clipLines:m=>timedCues(m).filter(c=>c.end>m.trimIn&&c.start<m.trimOut).slice(0,160).map(c=>({line:c.index,start:Math.max(0,c.start-m.trimIn),original:(m.captionCues.Original?.[c.index]?.text)||(m.captionLanguage==='Original'?c.text:''),translation:m.captionLanguage==='Original'?'':c.text})),
   seek:t=>{const m=state.moments.find(x=>x.id===state.selected);if(m){clipVideo.currentTime=mediaTime(m,m.trimIn+t);updatePreviewTime()}},
   onChange:({redraw}={})=>{projectSession?.changed();if(redraw)drawPreview()}});
+// The post kit leads Studio's Export tab, above the title card (post-kit.js).
+postKitView=mountPostKit({before:document.querySelector('.title-card'),getMoment:()=>state.moments.find(x=>x.id===state.selected),titleCards,caption:()=>$('postCaption'),toast:text=>toast(text),download:(blob,name)=>download(blob,name),
+  clipText:m=>clipLineText(m),clipSrt:m=>srtDocument(clipCues(m)),writePost:m=>writePostFor(m),findNotes:()=>cultureView.find()});
+// The English dub sits under the audio controls in the Style tab (dub.js); lines are from the clip's start.
+dubView=mountDub({after:document.querySelector('.audio-controls'),video:clipVideo,getMoment:()=>state.moments.find(x=>x.id===state.selected),requestJson,toast:text=>toast(text),onChange:()=>projectSession?.changed(),
+  clipLines:m=>clipCues(m).map(c=>({line:c.index,start:c.start,end:c.end,text:c.text,speaker:c.speaker||'',original:m.captionCues.Original?.[c.index]?.text||''})),clipTime:m=>localTime(m,clipVideo.currentTime)-m.trimIn,
+  clipSource:m=>({sourceId:String(m.url||'').match(/^\/api\/import\/([a-f0-9-]{36})\/media$/)?.[1]||'',offset:mediaTime(m,m.trimIn)})});
 let importIntent='clips',pendingIntent='clips';try{if(localStorage.getItem('cd-intent')==='translate')importIntent='translate'}catch{/* Clips stay the default. */}
 homeView=createHome({intent:()=>importIntent,onIntent:value=>{importIntent=value==='translate'?'translate':'clips';try{localStorage.setItem('cd-intent',importIntent)}catch{/* Not remembered when storage is blocked. */}document.body.dataset.intent=importIntent;$('openStream').replaceChildren(document.createTextNode(importIntent==='translate'?'Subtitle video →':'Make clips →'))},navigate:navigateWorkspace,openTrash:()=>{$('showProjectTrash').checked=true;showWorkspace('library')},getCurrent:()=>projectSession?.current,openProject:async id=>{setActivity('project-open','Opening your project','Restoring your video and saved edits…');try{await projectSession.open(id);navigateWorkspace(state.selected?'edit':'clips')}finally{finishActivity('project-open')}}});
 const editorTools=createEditorTools({select:selectMoment,getSelected:()=>state.moments.find(m=>m.id===state.selected),edit:performEdit,draw:drawPreview,thumb:m=>clipThumb(m)});
@@ -140,11 +157,12 @@ enhanceCaptionLooks($('captionStyle'),{getLook:()=>state.moments.find(x=>x.id===
   const postTitle=Object.assign(document.createElement('p'),{id:'postTitle',className:'post-title',hidden:true});
   kit.append(write,toggle('postLink','Link the full video',true),toggle('postDisclose','Add AI-edited note',true));
   hint?.after(advice,cross,kit,postTitle,captionLabel,caption,captionMeta);
-  write.onclick=async()=>{const m=state.moments.find(x=>x.id===state.selected);if(!m)return;if(!m.transcript){toast('This clip has no transcript yet. Transcribe it first.');return}
-    write.disabled=true;write.textContent='Writing…';
-    try{const response=await fetch('/api/post-kit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({transcript:m.transcript,hook:m.hook,platform:$('socialDestination')?.selectedOptions?.[0]?.textContent||'',language:m.captionLanguage&&m.captionLanguage!=='Original'?m.captionLanguage:'English'})});const data=await response.json();if(!response.ok)throw Error(data.error||'Post copy failed.');
-      m.postTitle=data.title;m.postCaption=composePostCaption({...data,link:$('postLink').checked?(m.sourceLink||state.sourcePageUrl||''):'',disclose:$('postDisclose').checked});caption.value=m.postCaption;projectSession?.changed();renderSocialGuidance();toast('Post copy ready. Review it before posting.')}
-    catch(error){toast(error.message)}finally{write.disabled=false;write.textContent='Write post with AI'}};
+  // Clips cut from a whole-recording track carry a placeholder transcript; their own lines are the text.
+  writePostFor=async m=>{const text=m.transcript&&m.transcript!=='Full-recording subtitle track'?m.transcript:clipLineText(m);if(!text)throw Error('This clip has no transcript yet. Transcribe it first.');
+    const response=await fetch('/api/post-kit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({transcript:text.slice(0,2400),hook:m.hook,platform:$('socialDestination')?.selectedOptions?.[0]?.textContent||'',language:m.captionLanguage&&m.captionLanguage!=='Original'?m.captionLanguage:'English'})});const data=await response.json();if(!response.ok)throw Error(data.error||'Post copy failed.');
+    m.postTitle=data.title;m.postCaption=composePostCaption({...data,link:$('postLink').checked?(m.sourceLink||state.sourcePageUrl||''):'',disclose:$('postDisclose').checked});if(state.selected===m.id)caption.value=m.postCaption;projectSession?.changed();renderSocialGuidance()};
+  write.onclick=async()=>{const m=state.moments.find(x=>x.id===state.selected);if(!m)return;write.disabled=true;write.textContent='Writing…';
+    try{await writePostFor(m);toast('Post copy ready. Review it before posting.')}catch(error){toast(error.message)}finally{write.disabled=false;write.textContent='Write post with AI'}};
   caption.oninput=()=>{const m=state.moments.find(x=>x.id===state.selected);if(m){m.postCaption=caption.value;projectSession?.changed()}renderSocialGuidance()};
   copy.onclick=async()=>{try{await navigator.clipboard.writeText(caption.value);toast('Caption copied.')}catch{toast('Copy is blocked here. Select the text and copy it.')}};}
 // Caption languages, regional variants and romanised scripts (locales.js).
@@ -841,9 +859,13 @@ function renderInspector(){
 // or say exactly which service is missing instead of waiting silently.
 function missingServiceMessage(what){return `${what} needs the Meta key: add MODEL_API_KEY=… to the .env file in the Context Desk folder and restart the app. Or open VoiceStudio and choose it for speech and translation in Settings.`}
 function wholeServiceReady(language){const vs=state.voiceStudio&&$('speechProvider').value==='voicestudio';return Boolean(state.meta||(vs&&(language==='Original'||$('translationProvider').value==='voicestudio')))}
+// The answer can arrive after another project is open: it only ever renames the project it was asked for.
+// A Latin-script title is not sent for an English rewrite (that turned "2026-11-03" into "11/03/2026").
 async function translateTitle(target){
-  const title=$('projectTitle')?.value?.trim();if(!title||target==='Original'||!state.meta)return;
+  const title=$('projectTitle')?.value?.trim(),projectId=projectSession?.current?.id;if(!title||!projectId||target==='Original'||!state.meta)return;
+  if(target==='English'&&!/[^\u0000-\u024f\s\p{P}\p{S}]/u.test(title))return;
   try{const r=await requestJson('/api/translate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({language:target,translationMode:'natural',cues:[{text:title}]})});const text=r.lines?.[0]?.text?.trim();
+    if(projectSession?.current?.id!==projectId||$('projectTitle').value.trim()!==title)return;
     if(text&&text!==title){$('projectTitle').value=text;$('projectTitle').title=`Original title: ${title}`;$('projectTitle').dispatchEvent(new Event('input',{bubbles:true}));$('projectTitle').dispatchEvent(new Event('change',{bubbles:true}));projectSession?.changed()}}catch{/* Keep the original title. */}
 }
 // Home > Subtitles for the whole video: open the whole-recording track and start it, no clip scan.
@@ -898,7 +920,7 @@ async function selectMoment(id,{scroll=true}={}){
   layout?.holdFrames(true);showWorkspace('edit');renderQueue();renderEditor();setActivity('preview','Loading clip preview','Opening the selected source window…');
   try{await mediaReady(clipVideo);if(loadId!==editorLoadId)return;await seekPreview(mediaTime(m,m.trimIn));if(loadId!==editorLoadId)return;setPreviewSize();updatePreviewTime();}
   catch(error){$('editorStatus').textContent=error.message||'Preview failed. Select the clip again.';}
-  finally{if(loadId===editorLoadId){finishActivity('preview');layout?.holdFrames(false)}}
+  finally{if(loadId===editorLoadId){finishActivity('preview');layout?.holdFrames(false);productionTools.auto()}}
   // Workspace navigation already positions the page before loading media.
   // A delayed scroll after metadata arrives would interrupt the next edit.
 }
@@ -910,6 +932,9 @@ function clipThumb(m){if(m.titleCard)return m.titleCard;if(m.frames?.[0])return 
 function mediaTime(moment,time){return (moment.mediaStart||0)+time}
 function localTime(moment,time){return time-(moment.mediaStart||0)}
 function activeCues(moment){return moment.captionCues[moment.captionLanguage]||[]}
+// The open clip's subtitle lines, from its trim start: text for AI requests, an SRT for the post kit.
+function clipCues(m){return timedCues(m).filter(c=>c.end>m.trimIn&&c.start<m.trimOut).map(c=>({...c,start:Math.max(0,c.start-m.trimIn),end:Math.min(m.trimOut-m.trimIn,c.end-m.trimIn)}))}
+function clipLineText(m){return clipCues(m).map(c=>c.text).join(' ').trim()}
 function timedCues(moment){return syncedCues(activeCues(moment),moment.captionOffset||0,moment.end-moment.start)}
 // Lines within 30 s of a moment in the track, timed like timedCues. Drawing a frame needs only these;
 // processing a whole-recording track (thousands of lines) on every frame made playback stutter.
@@ -1097,13 +1122,13 @@ function stopCutPreview(){if(state.cutPreviewIndex<0)return;state.cutPreviewInde
 async function advanceCutPreview(){if(state.cutPreviewBusy)return;state.cutPreviewBusy=true;const next=state.cutPreviewIndex+1;if(next>=cutMoments().length){stopCutPreview();$('cutStatus').textContent='Story cut preview finished. Tighten the edit or export it.';return;}state.cutPreviewIndex=next;const m=cutMoments()[next];clipVideo.src=m.url;clipVideo.load();try{await mediaReady(clipVideo);if(state.cutPreviewIndex!==next)return;clipVideo.currentTime=Math.max(.01,mediaTime(m,m.trimIn));await clipVideo.play();$('previewCut').textContent=`Playing ${next+1}/${cutMoments().length}  `}catch(error){stopCutPreview();$('cutStatus').textContent=error.message}finally{state.cutPreviewBusy=false}}
 $('previewCut').onclick=async()=>{if(state.cutPreviewIndex>=0){stopCutPreview();return;}if(!cutMoments().length)return;state.cutPreviewIndex=0;const m=cutMoments()[0];clipVideo.pause();clipVideo.src=m.url;clipVideo.load();try{await mediaReady(clipVideo);clipVideo.currentTime=Math.max(.01,mediaTime(m,m.trimIn));await clipVideo.play();$('previewCut').textContent=`Playing 1/${cutMoments().length}  `;document.querySelector('.editor')?.scrollIntoView({block:'nearest',behavior:'smooth'});}catch(error){stopCutPreview();$('cutStatus').textContent=error.message}};
 $('seekBar').oninput=e=>{const m=previewMoment();if(m)clipVideo.currentTime=mediaTime(m,m.trimIn+Number(e.target.value));updatePreviewTime()};
-$('aspectSelect').onchange=e=>{state.aspect=e.target.value;setPreviewSize();drawPreview()};
+$('aspectSelect').onchange=e=>{state.aspect=e.target.value;setPreviewSize();drawPreview();productionTools.auto()};
 $('audioEnhance').onchange=e=>{const m=state.moments.find(m=>m.id===state.selected);if(m)m.audioEnhance=e.target.checked};
 $('saveCoverFrame').onclick=()=>{const m=state.moments.find(m=>m.id===state.selected);if(!m||!validateCaptions(m))return;if(clipVideo.readyState<2||!clipVideo.videoWidth){message('Wait for the clip preview to load, then download its cover frame.');return}drawPreview();$('previewCanvas').toBlob(blob=>{if(blob)download(blob,'context-desk-cover-'+Math.floor(m.start)+'.png')},'image/png')};
-$('frameMode').onchange=e=>{const m=state.moments.find(x=>x.id===state.selected);if(m){m.frameKeyframes=[];m.frameTracking=null;m.frameMode=e.target.value;updateFrameControls();drawPreview()}};
-for(const [id,key] of [['zoomRange','zoom'],['focusX','focusX'],['focusY','focusY']])$(id).oninput=e=>{const m=state.moments.find(x=>x.id===state.selected);if(m){m.frameKeyframes=[];m.frameTracking=null;m[key]=Number(e.target.value);drawPreview()}};
+$('frameMode').onchange=e=>{const m=state.moments.find(x=>x.id===state.selected);if(m){m.frameKeyframes=[];m.frameTracking={method:'manual'};m.frameMode=e.target.value;updateFrameControls();drawPreview()}};
+for(const [id,key] of [['zoomRange','zoom'],['focusX','focusX'],['focusY','focusY']])$(id).oninput=e=>{const m=state.moments.find(x=>x.id===state.selected);if(m){m.frameKeyframes=[];m.frameTracking={method:'manual'};m[key]=Number(e.target.value);drawPreview()}};
 $('showHook').onchange=e=>{const m=state.moments.find(x=>x.id===state.selected);if(m){m.showHook=e.target.checked;drawPreview()}};
-$('focusPlayer').onclick=()=>performEdit('focus-player',()=>{const m=state.moments.find(x=>x.id===state.selected);if(!m)return;m.frameKeyframes=[];m.frameTracking=null;m.frameMode='fill';m.zoom=1.4;m.focusX=0;m.focusY=20;$('frameMode').value='fill';$('zoomRange').value=1.4;$('focusX').value=0;$('focusY').value=20;updateFrameControls();drawPreview();message('Main-video framing applied. Adjust zoom and position if your stream layout differs.');});
+$('focusPlayer').onclick=()=>performEdit('focus-player',()=>{const m=state.moments.find(x=>x.id===state.selected);if(!m)return;m.frameKeyframes=[];m.frameTracking={method:'manual'};m.frameMode='fill';m.zoom=1.4;m.focusX=0;m.focusY=20;$('frameMode').value='fill';$('zoomRange').value=1.4;$('focusX').value=0;$('focusY').value=20;updateFrameControls();drawPreview();message('Main-video framing applied. Adjust zoom and position if your stream layout differs.');});
 function renderSocialGuidance(){
   const m=state.moments.find(x=>x.id===state.selected),destination=$('socialDestination')?.value;if(!m||!$('socialAdvice'))return;
   $('socialAdvice').textContent=lengthAdvice(destination,(m.trimOut??m.end-m.start)-(m.trimIn||0));
@@ -1116,7 +1141,7 @@ function renderSocialGuidance(){
 }
 function renderEditor(){
   projectSession?.changed();
-  const m=state.moments.find(x=>x.id===state.selected);titleCards?.sync();cultureView?.sync();if(!m)return;
+  const m=state.moments.find(x=>x.id===state.selected);titleCards?.sync();cultureView?.sync();postKitView?.sync();dubView?.sync();if(!m)return;
   if(!captionStyleIds.includes(m.captionStyle))m.captionStyle='punch';
   inheritCaptionTarget(m,projectCaptionTarget());
   queueCaptionTarget(m);
@@ -1480,9 +1505,9 @@ $('emptyTrash').onclick=async()=>{const ids=libraryProjects.map(p=>p.id),size=li
     await afterDelete(ids.filter(id=>!result.skipped.some(s=>s.id===id)),{...result,message:`Deleted ${result.deleted} ${result.deleted===1?'project':'projects'} for good.`+(result.skipped.length?` Kept ${result.skipped.map(s=>`“${s.title}” (${s.error})`).join(', ')}.`:'')})}
   catch(error){$('libraryStatus').textContent=error.message}finally{finishActivity('project-delete')}};
 $('libraryRows').onclick=async event=>{const open=event.target.closest('[data-project-open]'),trash=event.target.closest('[data-project-trash]'),remove=event.target.closest('[data-project-delete]'),relink=event.target.closest('[data-relink]'),recoveries=event.target.closest('[data-recoveries]');try{if(recoveries){await openRecoveryCopies(recoveries.dataset.recoveries)}else if(relink){relinkSourceId=relink.dataset.relink;$('relinkDescription').textContent='Choose the same recording so existing timecodes stay valid. Exact saved fingerprints are checked when available.';$('relinkPanel').hidden=false;$('confirmOriginalSource').checked=false;}else if(open){setActivity('project-open','Opening saved project','Restoring your recording, clips and edits…');await projectSession.open(open.dataset.projectOpen);showWorkspace('clips')}else if(remove){await deleteForGood(libraryProjects.find(p=>p.id===remove.dataset.projectDelete))}else if(trash){const p=libraryProjects.find(p=>p.id===trash.dataset.projectTrash);await requestJson('/api/projects/'+p.id,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'trash',trashed:!p.trashed})});await renderLibrary()}}catch(error){$('libraryStatus').textContent=error.message}finally{finishActivity('project-open')}};
-projectSession=createProjectSession({capture:projectSnapshot,restore:restoreProject,onStatus:(text,kind)=>{$('saveStatus').textContent=text;$('saveStatus').dataset.state=kind;$('retryProjectSave').hidden=kind!=='error'},onProject:p=>{$('projectBar').hidden=!p;$('projectTrashNotice').hidden=!p?.trashed;if(p){$('projectTitle').value=p.title;queueMicrotask(()=>{if(projectSession?.current?.id===p.id)for(const m of state.moments)queueCaptionTarget(m)})}},onSaved:p=>{for(const saved of p.state.moments||[]){const m=state.moments.find(m=>m.id===saved.id);if(m)m.frames=saved.frames}}});
+projectSession=createProjectSession({capture:projectSnapshot,restore:restoreProject,onStatus:(text,kind)=>{$('saveStatus').textContent=text;$('saveStatus').dataset.state=kind;$('retryProjectSave').hidden=kind!=='error'&&kind!=='yielded';$('retryProjectSave').textContent=kind==='yielded'?'Use this tab':'Retry save'},onProject:p=>{$('projectBar').hidden=!p;$('projectTrashNotice').hidden=!p?.trashed;if(p){$('projectTitle').value=p.title;queueMicrotask(()=>{if(projectSession?.current?.id===p.id)for(const m of state.moments)queueCaptionTarget(m)})}},onSaved:p=>{for(const saved of p.state.moments||[]){const m=state.moments.find(m=>m.id===saved.id);if(m)m.frames=saved.frames}}});
 $('restoreCurrentProject').onclick=async()=>{const p=projectSession.current;if(!p)return;try{await projectSession.flush();await requestJson('/api/projects/'+p.id,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'trash',trashed:false})});p.trashed=false;$('projectTrashNotice').hidden=true;void homeView.refresh()}catch(error){$('projectTrashMessage').textContent=error.message}};
-$('retryProjectSave').onclick=()=>void projectSession.retry().catch(()=>{});
+$('retryProjectSave').onclick=()=>void (projectSession.yielded?projectSession.claim():projectSession.retry()).catch(()=>{});
 for(const type of ['input','change'])document.addEventListener(type,event=>{if(event.target.closest('#libraryPanel')||event.target.closest('#wholeSubtitles')||event.target.matches('#momentSearch,#momentFilter,#seekBar'))return;projectSession.changed()});
 
 function orderedMoments(){return [...state.moments].sort((a,b)=>(a.start-b.start)*($('clipDirection').value==='desc'?-1:1))}
