@@ -14,3 +14,12 @@ test('every destination explains how posting really happens, and never claims to
   for(const [id,info] of Object.entries(destinationInfo)){assert.ok(info.posting,id);assert.ok(!/\bposted for you\b|\bwe post\b/i.test(info.posting),id)}
   for(const id of ['tiktok','instagram','facebook','shorts'])assert.match(destinationInfo[id].posting,/^You post it/);
 });
+
+test('a connected live tab makes starting or stopping live clipping the one next action',async()=>{
+  const {guideStatus}=await import('../public/guide.js');
+  assert.equal(guideStatus({live:true,hasSource:true,clips:0}).action,'start-live');
+  assert.equal(guideStatus({live:true,scanning:true,hasSource:true,clips:0}).cta,'Stop live clipping');
+  assert.equal(guideStatus({live:true,hasSource:true,clips:3}).action,'start-live');
+  assert.equal(guideStatus({live:true,scanning:true,hasSource:true,clips:3}).action,'open-clip');
+  assert.equal(guideStatus({live:false,hasSource:true,clips:0}).action,'find-clips');
+});

@@ -917,3 +917,36 @@ body.simple-mode.has-cut[data-workspace=edit] .cut-section {display:block!import
 .dub-engine {display:grid;gap:var(--space-1);font-size:12.5px;color:var(--muted)}
 .trailer-video {display:grid;gap:var(--space-3);margin-bottom:var(--space-4)}
 .trailer-video video {width:100%;max-height:520px;aspect-ratio:16/9;border-radius:var(--radius-md);background:#000}
+
+/* Live bar (live-bar.js): live clipping status and its one control, on every page */
+.live-bar {position:fixed;left:50%;bottom:var(--space-4);z-index:55;transform:translateX(-50%);display:flex;align-items:center;gap:var(--space-3);padding:var(--space-2) var(--space-2) var(--space-2) var(--space-4);max-width:calc(100vw - 32px);border:1px solid var(--line-strong);border-radius:var(--radius-pill);background:var(--surface);box-shadow:var(--shadow-pop)}
+.live-bar-dot {width:10px;height:10px;flex:none;border-radius:var(--radius-pill);background:var(--muted)}
+.live-bar[data-state=on] {border-color:var(--accent)}
+.live-bar[data-state=on] .live-bar-dot {background:var(--accent);box-shadow:0 0 0 4px rgba(255,90,31,.22);animation:cd-pulse 1.2s ease-in-out infinite}
+.live-bar[data-state=framing] .live-bar-dot {background:var(--warning)}
+.live-bar-text {display:grid;line-height:1.2;min-width:0}
+.live-bar-text strong {font:800 15px/1.2 var(--font-display);letter-spacing:-.01em;white-space:nowrap}
+.live-bar-text span {font-size:12px;color:var(--muted);white-space:nowrap}
+.live-bar .cd-btn {border-radius:var(--radius-pill)}
+.live-bar-stop {border-color:var(--accent);color:var(--text)}
+.live-bar-stop::before {content:"";width:10px;height:10px;border-radius:2px;background:var(--accent)}
+body.has-live-bar .main {padding-bottom:96px}
+@media (max-width:760px) {.live-bar {bottom:76px}.live-bar #liveBarOpen {display:none}}
+@media (prefers-reduced-motion:reduce) {.live-bar[data-state=on] .live-bar-dot {animation:none}}
+
+/* Home: each way in carries its own colour from the theme, so the main choices stand out at a glance.
+   Orange starts things, cyan is your own files and saved work, lime marks what is ready. */
+.home-start h1 .home-accent {color:var(--accent-text)}
+.home-start .upload-button {border:1px solid var(--cue)!important;background:rgba(89,208,245,.08)!important;color:var(--text)!important}
+.home-start .upload-button:hover {background:rgba(89,208,245,.16)!important}
+.home-start #screenButton {border:1px solid var(--accent)!important;background:rgba(255,90,31,.08)!important;color:var(--text)!important;display:inline-flex;align-items:center;justify-content:center;gap:var(--space-2)}
+.home-start #screenButton::before {content:"";width:8px;height:8px;border-radius:var(--radius-pill);background:var(--accent);box-shadow:0 0 0 3px rgba(255,90,31,.25)}
+.home-start #screenButton:hover {background:rgba(255,90,31,.16)!important}
+.home-intent label {transition:border-color var(--dur-fast) var(--ease-out),background var(--dur-fast) var(--ease-out)}
+.home-intent label:has(input[value=clips]:checked) {border-color:var(--accent)!important;background:rgba(255,90,31,.12)!important}
+.home-intent label:has(input[value=translate]:checked) {border-color:var(--cue)!important;background:rgba(89,208,245,.12)!important}
+.home-intent input[value=clips] {accent-color:var(--accent)}
+.home-intent input[value=translate] {accent-color:var(--cue)}
+.home-session-action {background:var(--cue)!important;color:var(--cue-ink)!important;border-color:var(--cue)!important;font-weight:700}
+.home-session-action svg {stroke:currentColor}
+@media (prefers-reduced-motion:reduce) {.home-intent label {transition:none}}
