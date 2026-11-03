@@ -100,7 +100,11 @@ export function mountLayout({navigate,onFilter,onView,onTrim,onSource}){
   one('footer').innerHTML='<span>Context Desk · Open-source production studio</span><span>Local projects. Source-linked stories.</span>';
   // Newly mounted navigation uses the same owning workspace controller.
   nav.querySelectorAll('button').forEach(button=>button.onclick=()=>navigate(button.dataset.workspace));
+  // Each filmstrip still runs FFmpeg, and the browser opens only six connections at once: while the
+  // clip preview loads, its video request must not wait behind them.
+  let framesHeld=false;const loadFrames=()=>{for(const img of $('timelineFrames').querySelectorAll('img[data-src]')){img.src=img.dataset.src;img.removeAttribute('data-src')}};
   return {
+    holdFrames(held){framesHeld=held;if(!held)loadFrames()},
     syncWorkspace(view){setup.open=view==='source';
       // On Clips the list sits left of the monitor; put it first in the page too, so keyboard and
       // screen-reader order match what is seen. Only the list moves: moving the monitor's video would pause it.
@@ -116,7 +120,7 @@ export function mountLayout({navigate,onFilter,onView,onTrim,onSource}){
       $('timelineSelection').style.marginLeft=moment.trimIn/duration*100+'%';$('timelineSelection').style.width=(moment.trimOut-moment.trimIn)/duration*100+'%';
       const signature=JSON.stringify([moment.id,moment.frames]);if($('timelineFrames').dataset.signature!==signature){$('timelineFrames').dataset.signature=signature;$('timelineFrames').replaceChildren();for(const source of moment.frames||[]){const img=document.createElement('img');img.src=source;img.alt='Sampled source frame';$('timelineFrames').append(img)}if(!moment.frames?.length){const id=String(moment.url||'').match(/^\/api\/import\/([a-f0-9-]{36})\/media$/)?.[1];
         // No sampled frames (e.g. a full-recording clip): fetch a filmstrip from the saved source.
-        if(id)for(let i=0;i<8;i++){const img=document.createElement('img');img.alt='';img.loading='lazy';img.src=`/api/import/${id}/frame?t=${Math.floor((moment.mediaStart||0)+duration*(i+.5)/8)}`;img.onerror=()=>img.remove();$('timelineFrames').append(img)}
+        if(id)for(let i=0;i<8;i++){const img=document.createElement('img');img.alt='';img.loading='lazy';img.dataset.src=`/api/import/${id}/frame?t=${Math.floor((moment.mediaStart||0)+duration*(i+.5)/8)}`;img.onerror=()=>img.remove();$('timelineFrames').append(img)}if(!framesHeld)loadFrames();
         else $('timelineFrames').textContent='Source frames unavailable';}}
     }
   };

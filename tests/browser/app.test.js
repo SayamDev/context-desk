@@ -213,3 +213,48 @@ test('the trim bar zooms a 30-second clip in a 2-hour window, so dragging and ar
     assert.deepEqual(problems,[]);
   }finally{await app.stop()}
 });
+
+test('choosing a video that is already in the Library opens it instead of saving a second copy',async()=>{
+  const dir=await fs.mkdtemp(path.join(os.tmpdir(),'context-sample-')),file=path.join(dir,'twice.mp4');
+  execFileSync(ffmpeg,['-v','error','-y','-f','lavfi','-i','testsrc=size=640x360:rate=25:duration=6','-f','lavfi','-i','sine=frequency=440:duration=6','-c:v','libx264','-pix_fmt','yuv420p','-c:a','aac','-shortest',file]);
+  const app=await startApp({env:{FFMPEG_PATH:ffmpeg}});
+  try{
+    const {page,problems}=await watchedPage(browser,app.url);
+    await page.setInputFiles('#fileInput',file);await page.getByText('All changes saved',{exact:false}).first().waitFor();
+    const uploads=[];page.on('request',r=>{if(r.url().endsWith('/api/import/upload'))uploads.push(r.url())});
+    // The same recording saved under another name.
+    const copy=path.join(dir,'twice (copy).mp4');await fs.copyFile(file,copy);await page.setInputFiles('#fileInput',copy);
+    await page.getByText('You already imported this video',{exact:false}).waitFor();
+    assert.deepEqual(uploads,[],'the file was not copied again');
+    const {projects}=await (await fetch(app.url+'/api/projects')).json();assert.equal(projects.length,1);
+    assert.deepEqual(problems,[]);
+  }finally{await app.stop();await fs.rm(dir,{recursive:true,force:true})}
+});
+
+test('Studio keyboard: arrows, J/K/L, frame steps and Home/End move the clip preview, with feedback over the picture',async()=>{
+  const dir=await fs.mkdtemp(path.join(os.tmpdir(),'context-sample-')),file=path.join(dir,'keys.mp4');
+  execFileSync(ffmpeg,['-v','error','-y','-f','lavfi','-i','testsrc=size=640x360:rate=25:duration=40','-f','lavfi','-i','sine=frequency=440:duration=40','-c:v','libx264','-g','25','-pix_fmt','yuv420p','-c:a','aac','-shortest',file]);
+  const app=await startApp({env:{FFMPEG_PATH:ffmpeg}});
+  try{
+    let {page,problems}=await watchedPage(browser,app.url);
+    await page.setInputFiles('#fileInput',file);await page.getByText('All changes saved',{exact:false}).first().waitFor();
+    // A saved 30-second clip of the recording (10 s to 40 s), as Find clips would leave it.
+    const [{id}]=(await (await fetch(app.url+'/api/projects')).json()).projects,project=await (await fetch(app.url+'/api/projects/'+id)).json();await page.close();
+    const moment={id:'keys-clip',url:`/api/import/${id}/media`,frames:[],start:10,end:40,mediaStart:10,sourceName:'keys.mp4',sourceType:'file',manual:true,status:'manual',analysis:null,transcript:'',trimIn:0,trimOut:30,hook:'',alternateHook:'',frameMode:'fit',zoom:1,focusX:50,focusY:50,showHook:false,captionLanguage:'Original',captionStyle:'clean',captionCues:{Original:[]},captionReviewed:{},showCaptions:true,captionOffset:0};
+    const saved=await fetch(app.url+'/api/projects/'+id,{method:'PUT',headers:{'Content-Type':'application/json',Origin:app.url},body:JSON.stringify({state:{...project.state,moments:[moment]},revision:project.revision,title:project.title})});assert.equal(saved.status,200,await saved.text());
+    ({page,problems}=await watchedPage(browser,app.url+'/#/clips'));
+    await page.locator('[data-card="keys-clip"]').waitFor({state:'attached'});
+    await page.evaluate(()=>document.querySelector('[data-card="keys-clip"]').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true})));
+    await page.waitForFunction(()=>document.body.dataset.workspace==='edit'&&document.getElementById('activityPanel').hidden!==false&&document.getElementById('clipVideo').readyState>=2);
+    const at=()=>page.evaluate(()=>Math.round(document.getElementById('clipVideo').currentTime*100)/100);
+    await page.evaluate(()=>document.activeElement?.blur());
+    const step=async(key,expected)=>{await page.keyboard.press(key);await page.waitForFunction(t=>Math.abs(document.getElementById('clipVideo').currentTime-t)<.02,expected,{timeout:3000}).catch(async()=>assert.fail(`${key}: expected ${expected}, at ${await at()}`))};
+    await step('ArrowRight',15);
+    assert.match(await page.locator('.preview-osd').textContent(),/^\+5 s · 00:05 \/ 00:30$/);
+    await step('l',25);await step('Shift+ArrowLeft',24);await step('j',14);await step('Period',14.04);await step('Comma',14);
+    await step('End',39.96);await step('ArrowRight',39.96);await step('Home',10);await step('ArrowLeft',10);
+    await page.keyboard.press('k');await page.waitForFunction(()=>!document.getElementById('clipVideo').paused);
+    await page.keyboard.press('k');await page.waitForFunction(()=>document.getElementById('clipVideo').paused);
+    assert.deepEqual(problems,[]);
+  }finally{await app.stop();await fs.rm(dir,{recursive:true,force:true})}
+});

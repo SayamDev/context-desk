@@ -174,7 +174,7 @@ connectionsView=createConnections({requestJson,getProject:()=>projectSession?.cu
 showWorkspace('home');
 window.addEventListener('popstate',()=>navigateWorkspace(workspaceFromHash(location.hash)));
 bindPlayerControls(clipVideo,{volume:$('previewVolume'),mute:$('mutePreview'),speed:$('previewSpeed'),status:$('previewBufferStatus'),fullscreen:$('previewFullscreen'),surface:$('previewCanvas').parentElement});
-mountPreviewFullscreen({frame:$('previewCanvas').parentElement,transport:document.querySelector('.clip-preview .transport'),buttons:[$('previewFullscreen')],onChange:()=>{setPreviewSize();drawPreview()}});
+const previewScreen=mountPreviewFullscreen({frame:$('previewCanvas').parentElement,transport:document.querySelector('.clip-preview .transport'),buttons:[$('previewFullscreen')],onChange:()=>{setPreviewSize();drawPreview()}});
 function userCaptionDefault(){try{const value=localStorage.getItem('context-desk-output-language');return outputLanguages.includes(value)?value:'Original'}catch{return 'Original'}}
 $('liveCaptionLanguage').value=userCaptionDefault();
 const captionWork=translationQueue(2);let captionWaiting=0,captionFailed=0;
@@ -246,11 +246,22 @@ window.addEventListener('focus',()=>{fetch('/api/status').then(r=>r.json()).then
 async function status(){setActivity('connect','Connecting your workspace','Checking Meta and local speech services…');try{const r=await fetch('/api/status'); const d=await r.json();state.meta=d.metaConfigured;state.voiceStudio=d.voiceStudioAvailable;showServerStale(!('codeStale' in d)||Boolean(d.codeStale));$('apiState').textContent=state.meta?'Meta configured':'Meta key needed';$('apiState').dataset.state=state.meta?'ok':'missing';syncLinkDrop();$('apiState').title=state.meta?(state.voiceStudio?'Muse Spark visual analysis enabled · VoiceStudio local speech available':'Muse Spark visual analysis enabled · open VoiceStudio for local speech'):'Add MODEL_API_KEY to .env to enable AI analysis';}catch{$('apiState').textContent='Server offline';$('apiState').dataset.state='offline';}finally{finishActivity('connect')}}
 function cleanupSource(){$('wholePreview').pause();$('wholePreview').removeAttribute('src');$('wholePreview').load();$('wholePreview').hidden=true;state.sourceLoadToken++;state.sourceUploadAbort?.abort();state.sourceUploadAbort=null;finishActivity('source');stopScan();state.autoFrameJob++;state.batchCancel=true;state.batchRunning=false;state.batchId=null;$('batchPanel').hidden=!state.batchExports.length;$('batchResults').innerHTML='';$('batchButton').disabled=true;if(state.batchExports.length)batchProgress('Source disconnected. Rendered draft clips remain available below until this page closes.');if(state.sourceType==='screen')state.recordStream?.getVideoTracks().forEach(track=>track.stop());state.screenStream?.getTracks().forEach(t=>t.stop());state.screenStream=null;state.stageCrop=null;state.cropDraft=null;state.cropPicking=false;state.resumeAfterCrop=false;state.lastDraftStart=-1;$('monitor').classList.remove('video-cropped');$('cropMask').hidden=true;$('cropSelection').hidden=true;$('sourceCropRow').hidden=true;$('liveCaptions').hidden=true;$('sourceQuality').hidden=true;$('cropStatus').textContent='Auto frame looks for the moving player. You can draw the area yourself if it misses.';if(state.sourceUrl&&!state.moments.some(moment=>moment.url===state.sourceUrl)){URL.revokeObjectURL(state.sourceUrl);sourceUrls.delete(state.sourceUrl)}state.sourceUrl=null;state.source=null;state.sourceType=null;state.sourceName='';state.recordStream=null;program.srcObject=null;program.removeAttribute('src');program.controls=true;program.load();$('emptySource').hidden=false;setSourceLabel('No source');updateButtons();}
 let importId=null,importCancelled=false,sourcePageUrl='';
+// A file already in the Library (same size, length and first and last MiB) opens from there
+// instead of being copied a second time. Otherwise the file is saved to the local cache.
+async function stageLocalFile(file,{name,signal}){
+  try{const part=Math.min(file.size,1<<20),bytes=await new Blob([String(file.size),file.slice(0,part),file.slice(file.size-part)]).arrayBuffer();
+    const print=[...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))].map(b=>b.toString(16).padStart(2,'0')).join('');
+    const response=await fetch('/api/import/check',{method:'POST',signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({size:file.size,duration:program.duration,print})}),found=await response.json();if(response.ok&&found.duplicate)return found;
+  }catch(error){if(error.name==='AbortError')throw error/* Without the check the file is simply saved. */}
+  const response=await fetch('/api/import/upload',{method:'POST',signal,headers:{'Content-Type':file.type||'video/mp4','X-Video-Duration':String(program.duration),'X-Video-Name':encodeURIComponent(name)},body:file}),job=await response.json();
+  if(!response.ok)throw Error(job.error||'The recording could not be prepared.');return job;
+}
+function noteDuplicate(job){if(job?.duplicate)toast(job.restored?'This video was in Trash. It is back in your Library and open again; nothing was downloaded or copied twice.':'You already imported this video, so it opened from your Library instead of being saved again.')}
 async function loadVideoFile(file,{sourceLink='',auto=true}={}){
   if(!projectSession?.restoring){try{await finishCaptureForSwitch();await projectSession?.beforeSourceChange();editHistory.reset()}catch(error){message(error.message);return}}
   cleanupSource();if(!projectSession?.restoring){state.moments=[];state.cut=[];state.selected=null;state.batchExports=[];state.exportHistory=[];state.aiCalls=0;state.windowCount=0;}const loadToken=state.sourceLoadToken;setActivity('source','Opening your video','Preparing the picture and original audio…');
   state.sourceUrl=URL.createObjectURL(file);sourceUrls.add(state.sourceUrl);program.controls=true;program.muted=true;program.src=state.sourceUrl;state.source=file;state.sourceType='file';state.sourceName=file.name;state.sourcePageUrl=sourceLink;state.batchId=crypto.randomUUID();state.batchCancel=false;$('batchPanel').hidden=false;$('batchResults').innerHTML='';setSourceLabel(file.name);$('emptySource').hidden=true;updateButtons();
-  try{await mediaReady(program);if(loadToken!==state.sourceLoadToken)return;if(program.duration>21600||file.size>20*1024*1024*1024)throw Error('Choose a recording up to 6 hours and 20 GB.');{ setActivity('source','Preparing your long recording','Copying the file into the local processing cache. The original stays on this computer.');state.sourceUploadAbort=new AbortController();const staged=await fetch('/api/import/upload',{method:'POST',signal:state.sourceUploadAbort.signal,headers:{'Content-Type':file.type||'video/mp4','X-Video-Duration':String(program.duration),'X-Video-Name':encodeURIComponent(file.name)},body:file});const job=await staged.json();if(loadToken!==state.sourceLoadToken)return;if(!staged.ok)throw Error(job.error||'The long recording could not be prepared.');state.source={importId:job.id,size:file.size,type:file.type,name:file.name};const previousUrl=state.sourceUrl;state.sourceUrl=job.mediaUrl;program.src=job.mediaUrl;await mediaReady(program);URL.revokeObjectURL(previousUrl);sourceUrls.delete(previousUrl);if(await projectSession.adopt(job.projectId||job.id))return;}$('batchButton').disabled=false;batchProgress(`${formatTime(program.duration)} ready · preparing your clip drop`);updateSourceQuality();await connectionReady;if(loadToken!==state.sourceLoadToken)return;renderQueue();showWorkspace('clips');if(auto&&pendingIntent==='translate'){finishActivity('source');batchProgress('Video ready. Subtitles for the whole video are below.');subtitleWholeVideo(projectCaptionTarget())}else if(auto&&$('autoGenerate').checked&&state.meta){finishActivity('source');await $('batchButton').onclick();}else batchProgress(state.meta?'Video ready. Choose Find clips to begin.':'Video ready. Add a Meta API key to enable automatic clip selection.');}
+  try{await mediaReady(program);if(loadToken!==state.sourceLoadToken)return;if(program.duration>21600||file.size>20*1024*1024*1024)throw Error('Choose a recording up to 6 hours and 20 GB.');{ setActivity('source','Preparing your long recording','Copying the file into the local processing cache. The original stays on this computer.');state.sourceUploadAbort=new AbortController();const job=await stageLocalFile(file,{name:file.name,signal:state.sourceUploadAbort.signal});if(loadToken!==state.sourceLoadToken)return;noteDuplicate(job);state.source={importId:job.id,size:file.size,type:file.type,name:file.name};const previousUrl=state.sourceUrl;state.sourceUrl=job.mediaUrl;program.src=job.mediaUrl;await mediaReady(program);URL.revokeObjectURL(previousUrl);sourceUrls.delete(previousUrl);if(await projectSession.adopt(job.projectId||job.id))return;}$('batchButton').disabled=false;batchProgress(`${formatTime(program.duration)} ready · preparing your clip drop`);updateSourceQuality();await connectionReady;if(loadToken!==state.sourceLoadToken)return;renderQueue();showWorkspace('clips');if(auto&&pendingIntent==='translate'){finishActivity('source');batchProgress('Video ready. Subtitles for the whole video are below.');subtitleWholeVideo(projectCaptionTarget())}else if(auto&&$('autoGenerate').checked&&state.meta){finishActivity('source');await $('batchButton').onclick();}else batchProgress(state.meta?'Video ready. Choose Find clips to begin.':'Video ready. Add a Meta API key to enable automatic clip selection.');}
   catch(error){if(loadToken!==state.sourceLoadToken)return;showWorkspace('source');$('linkStatus').hidden=false;$('linkStatus').textContent=error.message||'This file could not be opened. Try an MP4 or WebM.';}
   finally{if(loadToken===state.sourceLoadToken)finishActivity('source')}
 }
@@ -262,13 +273,13 @@ async function loadImportedVideo(job,sourceLink,{auto=true}={}){
 }
 // The home choice applies to imports started from Home; anywhere else they make clips.
 const noteIntent=()=>{pendingIntent=document.body.dataset.workspace==='home'?importIntent:'clips'};
-$('fileInput').onchange=async event=>{noteIntent();const files=[...(event.target.files||[])];if(importId)await $('cancelImport').onclick();for(const file of files)await loadVideoFile(file);};
+$('fileInput').onchange=async event=>{noteIntent();const files=[...(event.target.files||[])];event.target.value='';if(importId)await $('cancelImport').onclick();for(const file of files)await loadVideoFile(file);};
 function linkStatus(text){$('linkStatus').hidden=false;$('linkStatus').textContent=text}
 $('linkForm').onsubmit=async event=>{
   event.preventDefault();if(importId)return;noteIntent();$('streamUrl').setAttribute('aria-invalid','false');importCancelled=false;$('captureFallback').hidden=true;$('openStream').disabled=true;$('cancelImport').hidden=false;setActivity('import','Loading your video','Checking the link and preparing the recording…');linkStatus('Checking your video link…');
   try{
     let url;try{url=new URL($('streamUrl').value.trim())}catch{throw Error('Paste a full video link beginning with https://.')}if(url.protocol!=='https:'||url.username||url.password)throw Error('Paste a public HTTPS video link.');sourcePageUrl=url.href;
-    const response=await fetch('/api/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:url.href})});let job=await response.json();if(!response.ok)throw Error(job.error||'Import could not start.');importId=job.id;
+    const response=await fetch('/api/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:url.href})});let job=await response.json();if(!response.ok)throw Error(job.error||'Import could not start.');importId=job.id;noteDuplicate(job);
     while(!importCancelled){
       linkStatus(job.message);setActivity('import',job.status==='downloading'?'Preparing the recording':'Checking your video',job.message);
       if(job.status==='ready'){
@@ -860,10 +871,10 @@ async function selectMoment(id,{scroll=true}={}){
   const m=state.moments.find(x=>x.id===id);if(!m)return;
   inheritCaptionTarget(m,projectCaptionTarget());queueCaptionTarget(m);
   const loadId=++editorLoadId;if(state.sourceType==='file'){if(state.scanning)stopScan('Playback scan paused while editing.');program.pause()}stopCutPreview();clipVideo.pause();state.selected=id;
-  showWorkspace('edit');renderQueue();renderEditor();setActivity('preview','Loading clip preview','Opening the selected source window…');
+  layout?.holdFrames(true);showWorkspace('edit');renderQueue();renderEditor();setActivity('preview','Loading clip preview','Opening the selected source window…');
   try{await mediaReady(clipVideo);if(loadId!==editorLoadId)return;await seekPreview(mediaTime(m,m.trimIn));if(loadId!==editorLoadId)return;setPreviewSize();updatePreviewTime();}
   catch(error){$('editorStatus').textContent=error.message||'Preview failed. Select the clip again.';}
-  finally{if(loadId===editorLoadId)finishActivity('preview');}
+  finally{if(loadId===editorLoadId){finishActivity('preview');layout?.holdFrames(false)}}
   // Workspace navigation already positions the page before loading media.
   // A delayed scroll after metadata arrives would interrupt the next edit.
 }
@@ -1024,6 +1035,24 @@ clipVideo.addEventListener('play',()=>{setButtonLabel('playPause','Pause','pause
 clipVideo.addEventListener('pause',()=>{cancelPreviewFrame();setButtonLabel('playPause','Play','play');$('playPause').setAttribute('aria-label','Play selected clip');drawPreview()});
 $('restartClip').onclick=restartPreview;
 $('playPause').onclick=async()=>{try{const m=previewMoment();if(!m)return;if(clipVideo.paused){if(state.cutPreviewIndex<0&&shouldRestart(clipVideo.currentTime,mediaTime(m,m.trimIn),mediaTime(m,m.trimOut)))await seekPreview(mediaTime(m,m.trimIn));claimPlayback(clipVideo);await clipVideo.play()}else clipVideo.pause()}catch{$('editorStatus').textContent='Preview could not play. Select the clip again.'}};
+// Transport keys in Studio and its fullscreen: ←/→ 5 s (Shift 1 s), J/L 10 s, K play or pause,
+// ,/. one frame, Home/End the clip's start and end, ↑/↓ volume. They also work while a transport
+// button has focus, so clicking Play in fullscreen does not take the keyboard away.
+function stepPreview(seconds,{to,label}={}){
+  const m=previewMoment();if(!m||!clipVideo.duration)return;const start=mediaTime(m,m.trimIn),end=mediaTime(m,m.trimOut);
+  clipVideo.currentTime=Math.max(start,Math.min(end-.04,to??clipVideo.currentTime+seconds));updatePreviewTime();
+  previewScreen.flash(`${label||(seconds<0?'−':'+')+Math.abs(seconds)+' s'} · ${formatTime(clipVideo.currentTime-start)} / ${formatTime(end-start)}`);
+}
+document.addEventListener('keydown',event=>{
+  if(event.defaultPrevented||event.altKey||event.ctrlKey||event.metaKey||document.body.dataset.workspace!=='edit'||document.querySelector('dialog[open]')||/^(INPUT|TEXTAREA|SELECT|VIDEO)$/.test(document.activeElement?.tagName||'')||document.activeElement?.isContentEditable||!previewMoment())return;
+  const key=event.key,lower=key.toLowerCase(),frame=1/25,full=Boolean(document.fullscreenElement);
+  if(key==='ArrowLeft'||key==='ArrowRight'){const d=(event.shiftKey?1:5)*(key==='ArrowLeft'?-1:1);event.preventDefault();stepPreview(d)}
+  else if(lower==='j'||lower==='l'){event.preventDefault();stepPreview(lower==='j'?-10:10)}
+  else if(lower==='k'){event.preventDefault();$('playPause').click()}
+  else if(key===','||key==='.'){event.preventDefault();clipVideo.pause();stepPreview(key===','?-frame:frame,{label:key===','?'Previous frame':'Next frame'})}
+  else if(key==='Home'||key==='End'){const m=previewMoment();event.preventDefault();stepPreview(0,{to:mediaTime(m,key==='Home'?m.trimIn:m.trimOut),label:key==='Home'?'Clip start':'Clip end'})}
+  else if((key==='ArrowUp'||key==='ArrowDown')&&full){event.preventDefault();clipVideo.muted=false;clipVideo.volume=Math.max(0,Math.min(1,Math.round(clipVideo.volume*10+(key==='ArrowUp'?1:-1))/10));previewScreen.flash(`Volume ${Math.round(clipVideo.volume*100)}%`)}
+});
 document.addEventListener('keydown',event=>{
   if(event.altKey||event.ctrlKey||event.metaKey||/^(INPUT|TEXTAREA|SELECT|BUTTON|A|SUMMARY)$/.test(document.activeElement?.tagName||'')||document.activeElement?.isContentEditable)return;
   const key=event.key.toLowerCase();if(document.activeElement?.tagName==='VIDEO'||(document.body.dataset.workspace!=='edit'&&key!=='m'))return;const m=state.moments.find(x=>x.id===state.selected);
@@ -1112,16 +1141,27 @@ $('captionsLater').onclick=()=>performEdit('caption-sync',()=>changeCaptionSync(
 {const next=Object.assign(document.createElement('button'),{type:'button',id:'captionQaNext',className:'cd-btn cd-btn-sm cd-btn-secondary',textContent:'Next line to check',hidden:true});$('captionLineCount').after(next);
   next.onclick=()=>{const lines=next.dataset.lines.split(',').map(Number),rows=[...document.querySelectorAll('.caption-line')],current=rows.findIndex(r=>r.classList.contains('is-qa-focus')),target=lines.find(i=>i>Number(rows[current]?.dataset.cue??-1))??lines[0],row=rows.find(r=>Number(r.dataset.cue)===target);rows[current]?.classList.remove('is-qa-focus');if(row){row.classList.add('is-qa-focus');row.scrollIntoView({block:'center'});row.querySelector('textarea')?.focus()}}}
 $('resetCaptionSync').onclick=()=>performEdit('caption-sync',()=>changeCaptionSync(0));
+let captionRenderToken=0;
 function renderCaptionLines(m){
   const cues=activeCues(m),timed=timedCues(m),issues=new Map(lineIssues(cues,{language:m.captionLanguage,sourceScript:dominantScript(m.captionCues.Original||[]),originals:m.captionCues.Original||[]}).map(i=>[i.index,i.reasons]));
   $('captionLineCount').textContent=`${cues.length} lines${issues.size?` · ${issues.size} to check`:''}`;$('captionQaNext').hidden=!issues.size;$('captionQaNext').dataset.lines=[...issues.keys()].join(',');
   const timedByIndex=new Map(timed.map(cue=>[cue.index,cue])),overlaps=overlapIndexes(cues),speakers=[...new Set(['A','B',...cues.map(c=>c.speaker).filter(Boolean)])].sort();
-  $('captionLines').innerHTML=cues.length?cues.map((cue,index)=>{
+  const list=$('captionLines'),token=++captionRenderToken;
+  if(!cues.length){list.innerHTML='<p class="caption-lines-empty">'+(m.translationPending?.has(m.captionLanguage)?'Preparing '+escapeHtml(m.captionLanguage)+' subtitles…':m.translationError&&m.captionCues.Original?.length?escapeHtml(m.captionLanguage)+' subtitles are missing: '+escapeHtml(m.translationError)+' The original transcript ('+m.captionCues.Original.length+' lines) is safe.':m.captionCues.Original?.length?'No '+escapeHtml(m.captionLanguage)+' subtitles yet. The original transcript has '+m.captionCues.Original.length+' lines; choose Retry translation.':'No timed captions yet. Recheck the speech or add captions to this clip.')+'</p>';return}
+  const row=(cue,index)=>{
     const timing=timedByIndex.get(index),start=timing?.start??0,unavailable=!timing||timing.end<=m.trimIn||start>=m.trimOut;
     // Editing-only speaker data: never burned in. Visible cue and line type decide what viewers see.
     const meta=`<div class="caption-line-meta"><label>Speaker <select class="caption-speaker" data-cue="${index}" aria-label="Speaker for caption ${index+1}">${['',...speakers].map(sp=>`<option value="${sp}" ${(cue.speaker||'')===sp?'selected':''}>${sp?'Speaker '+sp:'Unknown'}</option>`).join('')}</select></label><label>Type <select class="caption-kind" data-cue="${index}" aria-label="Line type for caption ${index+1}">${[['','Dialogue'],['sound','Sound description'],['background','Background speech']].map(([v,l])=>`<option value="${v}" ${(cue.kind||'')===v?'selected':''}>${l}</option>`).join('')}</select></label><input class="caption-cue-label" data-cue="${index}" maxlength="24" placeholder="Visible cue, e.g. (off-screen)" aria-label="Optional visible cue for caption ${index+1}" value="${escapeHtml(cue.cueLabel||'')}"></div>`;
     return `<div class="caption-line${overlaps.has(index)?' is-overlap':''}" data-cue="${index}">${meta}<button type="button" data-caption-jump="${index}" aria-label="Play from caption ${index+1} at ${start.toFixed(1)} seconds" ${unavailable?'disabled':''}>${start.toFixed(1)}s</button><textarea class="caption-line-text" rows="3" data-cue="${index}" aria-label="Caption ${index+1} text" dir="auto" maxlength="100">${escapeHtml(cue.text)}</textarea><button type="button" class="caption-flag ${cue.uncertain?'is-flagged':''}" data-caption-flag="${index}" aria-label="${cue.uncertain?'Resolve':'Flag'} uncertainty in caption ${index+1}">${cue.uncertain?'Review needed':'Flag'}</button>${cue.uncertain&&cue.reviewReason?`<small class="caption-original">${escapeHtml(cue.reviewReason)}</small>`:''}${issues.has(index)?`<small class="caption-qa">${issues.get(index).map(escapeHtml).join(' ')}</small>`:''}${m.captionLanguage!=='Original'?`<small class="caption-original" dir="auto">SOURCE · ${escapeHtml(m.captionCues.Original[index]?.text||'Original line unavailable')}</small>`:''}</div>`;
-  }).join(''):'<p class="caption-lines-empty">'+(m.translationPending?.has(m.captionLanguage)?'Preparing '+escapeHtml(m.captionLanguage)+' subtitles…':m.translationError&&m.captionCues.Original?.length?escapeHtml(m.captionLanguage)+' subtitles are missing: '+escapeHtml(m.translationError)+' The original transcript ('+m.captionCues.Original.length+' lines) is safe.':m.captionCues.Original?.length?'No '+escapeHtml(m.captionLanguage)+' subtitles yet. The original transcript has '+m.captionCues.Original.length+' lines; choose Retry translation.':'No timed captions yet. Recheck the speech or add captions to this clip.')+'</p>';
+  };
+  // A whole recording has thousands of lines (~40,000 controls). Building them in one go blocked the
+  // page for most of a second each time Studio opened, so the rows near the scroll position come
+  // first and the rest follow in slices between frames.
+  const top=list.scrollTop,average=list.children.length?list.scrollHeight/list.children.length:132,first=Math.max(120,Math.ceil((top+list.clientHeight)/average)+40);let done=0;
+  const slice=()=>{if(token!==captionRenderToken)return;const end=Math.min(cues.length,done+(done?250:first)),html=cues.slice(done,end).map((cue,i)=>row(cue,done+i)).join('');
+    if(done)list.insertAdjacentHTML('beforeend',html);else list.innerHTML=html;done=end;if(list.scrollTop<top)list.scrollTop=top;
+    if(done<cues.length)setTimeout(slice);else if(previewMoment()===m)highlightCaption(clipVideo.currentTime)};
+  slice();
 }
 function highlightCaption(clock){
   const m=previewMoment();if(!m)return;const active=activeCueIndex(m,localTime(m,clock));
@@ -1325,7 +1365,7 @@ async function cacheWholeSource(){
   if(state.source?.importId)return state.source.importId;
   if(!(state.source instanceof Blob))throw Error('Load a recording first. A live tab cannot be translated as a complete recording until it is saved.');
   const file=state.source,token=state.sourceLoadToken;setActivity('whole-source','Preparing the full recording','Copying it into the local cache. This stays on your computer.');state.sourceUploadAbort=new AbortController();
-  try{const response=await fetch('/api/import/upload',{method:'POST',signal:state.sourceUploadAbort.signal,headers:{'Content-Type':file.type||'video/mp4','X-Video-Duration':String(program.duration),'X-Video-Name':encodeURIComponent(state.sourceName)},body:file});const job=await response.json();if(!response.ok)throw Error(job.error);if(token!==state.sourceLoadToken)throw Error('The source changed. Start subtitles on the new recording.');state.source={importId:job.id,size:file.size,type:file.type,name:state.sourceName};return job.id}finally{finishActivity('whole-source')}
+  try{const job=await stageLocalFile(file,{name:state.sourceName,signal:state.sourceUploadAbort.signal});noteDuplicate(job);if(token!==state.sourceLoadToken)throw Error('The source changed. Start subtitles on the new recording.');state.source={importId:job.id,size:file.size,type:file.type,name:state.sourceName};return job.id}finally{finishActivity('whole-source')}
 }
 $('wholeLanguage').onchange=renderWholeSubtitles;
 $('startWholeSubtitles').onclick=async()=>{
