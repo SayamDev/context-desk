@@ -101,7 +101,17 @@ test('an uploaded video becomes a saved project that survives a reload',async()=
     assert.equal(projects.length,1);
     assert.equal(projects[0].title,'sample.mp4');
     assert.equal(Math.round(projects[0].duration),6);
-    await page.reload({waitUntil:'networkidle'});
+    let resumeRestore;
+    const restorePaused=new Promise(resolve=>{resumeRestore=resolve});
+    await page.route('**/api/preferences',async route=>{await restorePaused;await route.continue()});
+    await page.reload({waitUntil:'domcontentloaded'});
+    const restoring=page.getByRole('dialog',{name:'Opening your saved workspace'});
+    try{
+      await restoring.waitFor();
+      assert.equal(await page.locator('.workspace-nav').isVisible(),false);
+      assert.equal(await page.locator('#activityPanel').isVisible(),false);
+    }finally{resumeRestore()}
+    await restoring.waitFor({state:'hidden'});
     await page.waitForFunction(()=>document.querySelector('#projectTitle')?.value==='sample.mp4');
     assert.equal(await page.evaluate(()=>document.body.dataset.workspace),'clips');
     await page.getByRole('navigation',{name:'Project',exact:true}).getByRole('button',{name:'Full video',exact:true}).click();

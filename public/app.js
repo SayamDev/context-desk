@@ -73,7 +73,7 @@ function busyOverlay(){
   return overlay;
 }
 function renderBusy(){
-  const id=[...activities.keys()].reverse().find(key=>blockingActivities.has(key));
+  const id=activities.has('workspace')?'workspace':[...activities.keys()].reverse().find(key=>blockingActivities.has(key));
   const overlay=busyOverlay();
   if(!id){if(overlay.open)overlay.close();return}
   const activity=activities.get(id);
@@ -1980,7 +1980,31 @@ void jobsView.refresh();
 let liveRefreshBusy=false;
 async function refreshLiveMoments(){if(liveRefreshBusy||document.visibilityState==='hidden'||!projectSession?.current||projectSession.current.sourceId)return;const id=projectSession.current.id;liveRefreshBusy=true;try{const p=await requestJson('/api/projects/'+id);if(projectSession.current?.id!==id)return;let changed=false;for(const saved of p.state.moments||[]){const current=state.moments.find(m=>m.id===saved.id);if(!current){state.moments.push(saved);changed=true}else if(saved.liveAnalysisApplied&&saved.liveAnalysisApplied!==current.liveAnalysisApplied&&!current.analysisToken){for(const key of ['analysis','status','transcript','speechError','speechSource','detectedLanguage','timingSource','translationSource','sourceCaptionsVisible','error'])if(saved[key]!==undefined)current[key]=saved[key];const previousCues=structuredClone(current.captionCues||{});if(!current.captionCues?.Original?.length){const tracks={...saved.captionCues};for(const [language,cues]of Object.entries(current.captionCues||{}))if(cues?.length)tracks[language]=cues;current.captionCues=tracks;}if(!current.hook)current.hook=saved.hook;if(!current.alternateHook)current.alternateHook=saved.alternateHook;current.liveAnalysisApplied=saved.liveAnalysisApplied;for(const language of Object.keys(current.captionReviewed||{}))if(JSON.stringify(previousCues[language])!==JSON.stringify(current.captionCues[language]))current.captionReviewed[language]=false;queueCaptionTarget(current);changed=true}}if(changed){renderQueue();renderBatchResults();if(state.selected)renderEditor();projectSession.changed()}}catch{/* A disconnected poll cannot invalidate saved or in-progress edits. */}finally{liveRefreshBusy=false}}
 setInterval(()=>void refreshLiveMoments(),3000);
-async function restoreWorkspace(){setActivity('workspace','Opening your saved workspace','Restoring your projects, preferences and source media…');try{const prefs=await requestJson('/api/preferences');$('librarySort').value=prefs.sort||'updated';$('libraryDirection').value=prefs.direction||'desc';$('librarySearch').value=prefs.search||'';libraryView=prefs.view==='grid'?'grid':'list';layout.setLibraryView(libraryView);if(!['home','library','jobs','brand'].includes(requestedWorkspace))await projectSession.startup();await loadWholeJobs()}catch(error){message('Saved workspace could not be opened: '+error.message)}finally{startupNavigation=false;const target=requestedWorkspace;if(target==='edit'&&state.selected)await selectMoment(state.selected,{scroll:false});else showWorkspace(target==='edit'?'home':target);finishActivity('workspace');history.replaceState({workspace:document.body.dataset.workspace},'',workspaceHash(document.body.dataset.workspace))}}
+async function restoreWorkspace(){
+  setActivity('workspace','Opening your saved workspace','Restoring your projects, preferences and source media…');
+  try{
+    const prefs=await requestJson('/api/preferences');
+    $('librarySort').value=prefs.sort||'updated';
+    $('libraryDirection').value=prefs.direction||'desc';
+    $('librarySearch').value=prefs.search||'';
+    libraryView=prefs.view==='grid'?'grid':'list';
+    layout.setLibraryView(libraryView);
+    if(!['home','library','jobs','brand'].includes(requestedWorkspace))await projectSession.startup();
+    await loadWholeJobs();
+  }catch(error){message('Saved workspace could not be opened: '+error.message)}
+  finally{
+    startupNavigation=false;
+    const target=requestedWorkspace;
+    try{
+      if(target==='edit'&&state.selected)await selectMoment(state.selected,{scroll:false});
+      else showWorkspace(target==='edit'?'home':target);
+      history.replaceState({workspace:document.body.dataset.workspace},'',workspaceHash(document.body.dataset.workspace));
+    }finally{
+      delete document.body.dataset.restoring;
+      finishActivity('workspace');
+    }
+  }
+}
 
 void restoreWorkspace();
 const connectionReady=status();updateButtons();updateBudgetUi();updateSpeechSummary();renderCut();setPreviewSize();drawPreview();

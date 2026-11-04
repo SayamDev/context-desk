@@ -1291,3 +1291,6 @@ body[data-workspace=brand] .pagehead{max-width:74rem}
  .live-player-help{bottom:205px}
  body.has-live-bar .main{padding-bottom:220px}
 }
+
+/* Keep the initial workspace markup off screen until the requested view is restored. */
+body[data-restoring] > :not(#busyOverlay) {visibility:hidden}
