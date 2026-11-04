@@ -512,7 +512,6 @@ body.ds-shell[data-workspace=clips] .moment-filters,body.ds-shell[data-workspace
 .ds-rail .workspace-nav [data-workspace=home],.ds-rail .workspace-nav [data-workspace=edit] {display:none}
 body[data-workspace=edit] .ds-rail .workspace-nav [data-workspace=clips] {color:var(--text);background:var(--surface-raised)}
 body[data-workspace=edit] .ds-rail .workspace-nav [data-workspace=clips]::after {content:"";position:absolute;left:-12px;top:8px;bottom:8px;width:3px;border-radius:2px;background:var(--accent)}
-.ds-rail #railBrandKit {justify-content:flex-start}
 #navLibraryCount[hidden] {display:none}
 .ds-job-dock {padding:var(--space-3);gap:var(--space-2)}
 label.caption-roman[hidden] {display:none!important}
@@ -1011,8 +1010,8 @@ body.has-live-bar .home-scroll-cue {bottom:calc(var(--space-4) + 64px)}
 
 .caption-pager:not([hidden]){display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-block:8px}
 
-body[data-workspace=brand] :is(.desk,.project-bar,.source-summary,.whole-subtitles,.project-trash-notice,.guide){display:none!important}
-.brand-kit-page:not([hidden]){max-width:42rem;display:grid;gap:var(--space-3)}
+body[data-workspace=brand] :is(.setup-check,.desk,.project-bar,.source-summary,.whole-subtitles,.project-trash-notice,.guide){display:none!important}
+.brand-kit-page:not([hidden]){max-width:68rem;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.9fr);gap:var(--space-6);align-items:start}
 .brand-kit-page form,.brand-kit-page form>label{display:grid;gap:var(--space-2)}
 .brand-kit-page form>label:has(input[type=checkbox]){display:flex;align-items:center}
 .brand-kit-page form button{justify-self:start}
@@ -1021,3 +1020,36 @@ body[data-workspace=brand] :is(.desk,.project-bar,.source-summary,.whole-subtitl
 .context-check ol{padding-inline-start:var(--space-4)}
 .context-check li{margin-block:var(--space-3)}
 .context-check li button{margin-inline-end:var(--space-2)}
+
+.home-feature{display:grid;gap:var(--space-3);min-width:0}
+.home-artwork,.brand-preview{position:relative;isolation:isolate;margin:0;overflow:hidden;border-radius:var(--control-radius);background:var(--media-black,#0b0b0d)}
+.home-artwork{aspect-ratio:1.7}
+.home-artwork img,.brand-preview img{display:block;width:100%;height:100%;object-fit:cover}
+.home-artwork figcaption{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:clamp(7px,1.5vw,18px);color:#251710;font:800 clamp(12px,1.7vw,23px)/1 var(--font-display);text-transform:uppercase}
+.home-artwork figcaption span{width:12px;height:1px;background:currentColor}
+.home-feature .home-session{display:grid;grid-template-columns:minmax(90px,.65fr) minmax(0,1fr);align-items:center;border:1px solid var(--line)}
+.home-feature .home-session[hidden]{display:none}
+.home-feature .home-session-image{align-self:stretch;min-height:108px;aspect-ratio:auto}
+.home-feature .home-session-action{inset:auto 8px 8px;padding:8px;gap:4px;font-size:12px}
+.home-feature .home-session-action svg{flex:none;width:14px;height:14px}
+.home-feature .home-session-info{padding:var(--space-3)}
+.home-feature .home-session-info h2{font-size:16px;white-space:normal;overflow-wrap:anywhere}
+.home-feature .home-story-strip{grid-column:1/-1}
+.brand-kit-editor,.brand-saved{padding:var(--space-4);border:1px solid var(--line);border-radius:var(--control-radius)}
+.brand-preview{aspect-ratio:1}
+.brand-preview canvas{position:absolute;inset:0;width:100%;height:100%}
+.brand-preview figcaption{position:absolute;inset:auto var(--space-3) var(--space-3);color:#fff;font-size:13px}
+.brand-saved{grid-column:1/-1}
+.brand-saved ul{margin:0;padding-inline-start:1.25rem}
+.brand-saved li{padding-block:var(--space-2)}
+@media(max-width:900px){
+ .home-artwork{aspect-ratio:3.5}
+ .home-artwork figcaption{font-size:clamp(14px,3.2vw,24px)}
+ .home-feature .home-session{display:none}
+}
+@media(max-width:650px){
+ .brand-kit-page:not([hidden]){grid-template-columns:minmax(0,1fr)}
+ .brand-preview{max-width:360px;width:100%}
+}
+
+.home-panel .home-scroll-cue{position:static;transform:none;margin-block:var(--space-3);max-width:100%}

@@ -1,14 +1,24 @@
+import {drawCaptionFrame} from './caption-render.js';
 import {captionStyleIds,captionStyles} from './caption-styles.js';
 import {requestJson} from './projects.js';import {cleanCaptionLook,captionFonts} from './brand-kit.js';
 export function createBrandControls({getSelected,edit,draw,navigate}){
  const $=id=>document.getElementById(id),panel=document.createElement('section');panel.className='brand-controls';panel.setAttribute('aria-label','Brand style');
  panel.innerHTML=`<h3>Your brand, every clip.</h3><label for="brandKitSelect">Saved brand styles<select id="brandKitSelect"><option value="">Custom style</option></select></label><div class="brand-fields"><label for="captionFont">Font<select id="captionFont">${captionFonts.map(font=>'<option>'+font+'</option>').join('')}</select></label><label for="captionPosition">Placement<select id="captionPosition"><option value="bottom">Bottom</option><option value="middle">Middle</option><option value="top">Top</option></select></label><label for="captionColor">Text colour<input id="captionColor" type="color" value="#ffffff"></label><label for="captionAccent">Highlight colour<input id="captionAccent" type="color" value="#caff45"></label><label for="captionBackground">Caption background<input id="captionBackground" type="color" value="#151419"></label><label for="captionScale">Caption size<input id="captionScale" type="range" min="0.7" max="1.5" step="0.05" value="1"></label></div><button id="manageBrandKits" type="button" class="cd-btn cd-btn-secondary">Manage Brand Kit</button>`;
  $('styleInspector').append(panel);
- $('manageBrandKits').onclick=()=>navigate('brand');
+ $('manageBrandKits').onclick=()=>{const m=getSelected();if(m){$('brandPresetStyle').value=m.captionStyle;$('brandUseClip').checked=true;preview()}navigate('brand')};
  const page=$('brandKitPage');
- page.innerHTML=`<h2>Saved looks</h2><ul id="brandKitList"></ul><h2>Create a preset</h2><form id="brandKitForm"><label>Preset name<input id="brandKitName" class="cd-input" maxlength="80" placeholder="e.g. My show" required></label><label>Caption style<select id="brandPresetStyle">${captionStyleIds.map(id=>'<option value="'+id+'">'+captionStyles[id].label+'</option>').join('')}</select></label><label><input id="brandUseClip" type="checkbox"> Use the open clip’s font, colours and placement</label><button id="saveBrandKit" class="cd-btn cd-btn-primary" type="submit">Save preset</button></form><p id="brandStatus" role="status"></p>`;
+ page.innerHTML=`<div class="brand-kit-editor"><h2>Create a preset</h2><form id="brandKitForm"><label>Preset name<input id="brandKitName" class="cd-input" maxlength="80" placeholder="e.g. My show" required></label><label>Caption style<select id="brandPresetStyle">${captionStyleIds.map(id=>'<option value="'+id+'">'+captionStyles[id].label+'</option>').join('')}</select></label><label><input id="brandUseClip" type="checkbox"> Use the open clip’s font, colours and placement</label><button id="saveBrandKit" class="cd-btn cd-btn-primary" type="submit">Save preset</button></form><p id="brandStatus" role="status"></p></div><figure class="brand-preview"><img src="/assets/story-paper.webp" width="900" height="900" alt=""><canvas id="brandPreviewCanvas" width="480" height="480" aria-label="Sample caption in the selected style">This is the moment.</canvas><figcaption>Sample caption</figcaption></figure><section class="brand-saved"><h2>Saved looks</h2><ul id="brandKitList"></ul></section>`;
+ function preview(){
+  const canvas=$('brandPreviewCanvas'),context=canvas.getContext('2d'),m=getSelected();
+  const styleId=$('brandPresetStyle').value;
+  context.clearRect(0,0,canvas.width,canvas.height);
+  drawCaptionFrame(context,{cue:{start:0,end:2,text:'This is the moment.'},time:1,styleId,look:$('brandUseClip').checked?m?.captionLook:{position:'middle'}});
+ }
+ $('brandPresetStyle').onchange=preview;
+ $('brandUseClip').onchange=preview;
+ preview();
  let brands=[];
- async function list(){try{brands=(await requestJson('/api/brands')).brands;const chosen=$('brandKitSelect').value;$('brandKitSelect').replaceChildren(new Option('Custom style',''),...brands.map(brand=>new Option(brand.name,brand.id))) ;$('brandKitSelect').value=chosen;
+ async function list(){try{brands=(await requestJson('/api/brands')).brands;const chosen=$('brandKitSelect').value;$('brandKitSelect').replaceChildren(new Option('Custom style',''),...brands.map(brand=>new Option(brand.name,brand.id)));$('brandKitSelect').value=chosen;
  const entries=brands.map(brand=>{const li=document.createElement('li');li.textContent=brand.name+' · '+(captionStyles[brand.captionStyle]?.label||'Punch');return li});
  if(!entries.length){const li=document.createElement('li');li.textContent='Your saved presets will appear here.';entries.push(li)}
  $('brandKitList').replaceChildren(...entries);

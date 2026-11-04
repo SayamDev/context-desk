@@ -241,7 +241,7 @@ const palette=createCommandPalette(()=>[
   {group:'Clips',label:'Show discarded clips',run:()=>{$('momentFilter').value='dismissed';renderQueue(false)}},
   {group:'Actions',label:'Settings',run:clickIf('openSettings')}
 ]);
-mountShell({openPalette:palette.open,openBrandKit:()=>{const m=state.moments.find(x=>x.id===state.selected)||state.moments.find(x=>!x.dismissed&&x.status!=='analysing');if(!m){showWorkspace('library');toast('Open a project with clips to style them with your brand kit.');return}const go=()=>{document.getElementById('styleTab')?.click();document.querySelector('.brand-controls')?.scrollIntoView({block:'start',behavior:'smooth'})};if(state.selected===m.id&&document.body.dataset.workspace==='edit')go();else selectMoment(m.id).then(go)}});
+mountShell({openPalette:palette.open});
 $('clipSort').onchange=()=>renderQueue(false);
 $('momentFilter').addEventListener('change',()=>renderQueue(false));
 liveControls=createLiveControls({requestJson,getProject:()=>projectSession?.current,onMessage:message,onJobs:()=>jobsView.refresh(),onChanged:async({projectId})=>{if(projectSession.current?.id===projectId){await projectSession.flush();await projectSession.open(projectId)}await homeView.refresh()},onReview:async projectId=>{await projectSession.open(projectId);$('momentFilter').value='all';renderQueue(false);showWorkspace('clips')}});
