@@ -1,6 +1,6 @@
 // V2 shell, adapted from the selected 12ui screen family. Existing controls are
 // moved once, never cloned: their handlers and durable state remain canonical.
-const iconPaths={play:'m9 5 11 7-11 7Z',pause:'M8 5v14M16 5v14',restart:'M4 10a8 8 0 1 1 1 8M4 4v6h6',export:'M12 16V3m-5 5 5-5 5 5M4 15v6h16v-6',back:'m14 6-6 6 6 6',up:'m6 15 6-6 6 6',down:'m6 9 6 6 6-6',close:'m6 6 12 12M18 6 6 18'};
+const iconPaths={home:'m3 10 9-7 9 7v10H3zM9 20v-6h6v6',library:'M3 7h7l2 2h9v11H3z',exports:'M12 3v12m-4-4 4 4 4-4M4 17v4h16v-4',jobs:'M3 12h4l3-6 4 12 3-6h4',brand:'M12 3v4m0 10v4M3 12h4m10 0h4M8 8l4-4 4 4 4 4-4 4-4 4-4-4-4-4z',play:'m9 5 11 7-11 7Z',pause:'M8 5v14M16 5v14',restart:'M4 10a8 8 0 1 1 1 8M4 4v6h6',export:'M12 16V3m-5 5 5-5 5 5M4 15v6h16v-6',back:'m14 6-6 6 6 6',up:'m6 15 6-6 6 6',down:'m6 9 6 6 6-6',close:'m6 6 12 12M18 6 6 18'};
 export function icon(name){return '<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="'+(iconPaths[name]||iconPaths.play)+'"/></svg>'}
 export function setButtonLabel(id,label,name){const button=document.getElementById(id);button.innerHTML=icon(name);button.append(document.createTextNode(label));}
 export function mountLayout({navigate,onFilter,onView,onTrim,onSource}){
@@ -10,10 +10,11 @@ export function mountLayout({navigate,onFilter,onView,onTrim,onSource}){
   one('.rail')?.remove();
   one('.wordmark').innerHTML='<svg class="brand-symbol" viewBox="0 0 40 44" aria-hidden="true"><path d="M6 15 31 3M6 28 34 14M10 40 34 28" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"/></svg><div>Context Desk<small>Every moment has context.</small></div>';
   const homeButton=element('button','','Home');homeButton.dataset.workspace='home';homeButton.type='button';nav.prepend(homeButton);
-  const labels={home:'Home',library:'Projects',clips:'Clips',edit:'Studio',jobs:'Activity',brand:'Brand Kit',source:'New project'};
-  for(const value of ['home','library','clips','edit','jobs','brand','source']){
+  const exportsButton=element('button','','Exports');exportsButton.type='button';exportsButton.dataset.workspace='exports';nav.append(exportsButton);
+  const labels={home:'Home',library:'Projects',clips:'Clips',edit:'Studio',jobs:'Activity',exports:'Exports',brand:'Brand Kit',source:'New project'};
+  for(const value of ['home','library','clips','edit','exports','jobs','brand','source']){
     const button=nav.querySelector(`[data-workspace="${value}"]`),count=button.querySelector('b');
-    button.replaceChildren(document.createTextNode(labels[value]));if(count)button.append(count);nav.append(button);
+    button.replaceChildren(document.createTextNode(labels[value]));if(['home','library','exports','jobs','brand'].includes(value))button.insertAdjacentHTML('afterbegin',icon(value));if(count)button.append(count);nav.append(button);
   }
   header.insertBefore(nav,one('.top-actions'));
   const trashNotice=element('aside','project-trash-notice','<p id="projectTrashMessage">This project is in Trash. Your media and edits are retained.</p><button id="restoreCurrentProject" type="button">Restore project</button>');trashNotice.id='projectTrashNotice';trashNotice.hidden=true;$('projectBar').after(trashNotice);
@@ -36,7 +37,7 @@ export function mountLayout({navigate,onFilter,onView,onTrim,onSource}){
   dialog.addEventListener('close',()=>{$('importPreferences').prepend(one('.language-quick'));settings.focus()});
   const preferences=element('details','import-preferences','<summary id="importPreferencesSummary">Language & clip preferences</summary>');preferences.id='importPreferences';
   for(const selector of ['.language-quick','.link-support','.auto-generate','.link-options','.link-rights']){const node=one(selector);if(node)preferences.append(node)}$('linkForm').append(preferences);
-  $('linkForm').querySelector('label[for=streamUrl]').textContent='Drop a link. Make a moment.';$('openStream').replaceChildren(document.createTextNode('Make clips →'));$('screenButton').type='button';$('screenButton').replaceChildren(document.createTextNode('Clip live'));
+  $('linkForm').querySelector('label[for=streamUrl]').textContent='Video link';$('openStream').replaceChildren(document.createTextNode('Make clips →'));$('screenButton').type='button';$('screenButton').replaceChildren(document.createTextNode('Clip live'));
   for(const node of $('fileInput').closest('label').childNodes)if(node.nodeType===Node.TEXT_NODE)node.textContent='Upload video';
   // Quick language choices stay beside import; all advanced inputs live once in Settings.
   const setup=element('details','source-setup','<summary>Source & live controls</summary><div class="source-setup-content"></div>');setup.id='sourceSetup';setup.open=true;

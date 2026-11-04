@@ -4,8 +4,8 @@
 export const guideSteps=[
   {id:'video',label:'Add a video'},
   {id:'clip',label:'Pick a clip'},
-  {id:'subtitles',label:'Check English subtitles'},
-  {id:'post',label:'Prepare the post'}
+  {id:'subtitles',label:'Review subtitles'},
+  {id:'post',label:'Export the clip'}
 ];
 // state: {live, scanning, hasSource, finding, clips, selected, toCheck, reviewed, exported}
 export function guideStatus(state){
@@ -17,8 +17,8 @@ export function guideStatus(state){
   if(!s.clips)return s.finding?{step:1,action:null,cta:'Finding clips…',hint:'Clips appear here as soon as they are ready. You can keep working.'}:{step:1,action:'find-clips',cta:'Find clips',hint:'We look for complete moments with a clear start and finish.'};
   if(!s.selected)return {step:1,action:'open-clip',cta:'Open the top clip',hint:`${s.clips} ${s.clips===1?'clip is':'clips are'} ready. The top one has the strongest evidence.`};
   if(!s.reviewed)return {step:2,action:'check-subtitles',cta:s.toCheck?`Check subtitles · ${s.toCheck} ${s.toCheck===1?'line needs':'lines need'} a look`:'Check the subtitles',hint:'Read each line against the speech, fix anything wrong, then tick “I checked every line”.'};
-  if(!s.exported)return {step:3,action:'prepare-post',cta:'Prepare the post',hint:'Choose where it goes. We size it, keep text in the safe area and write a caption.'};
-  return {step:4,action:'prepare-post',cta:'Post it yourself',hint:'Your video is saved. Posting happens in the platform’s own app or website; nothing is posted for you.'};
+  if(!s.exported)return {step:3,action:'prepare-post',cta:'Export the clip',hint:'Choose where it goes. We size it, keep text in the safe area and write a caption.'};
+  return {step:4,action:'open-exports',cta:'Open Exports',hint:'Check the render in Exports. When it is ready, download it or choose Publish; nothing is posted for you.'};
 }
 export function createGuide({getState,run}){
   const bar=document.createElement('nav');bar.className='guide';bar.setAttribute('aria-label','Your progress');
@@ -27,9 +27,9 @@ export function createGuide({getState,run}){
   const hint=document.createElement('p');hint.className='guide-hint';
   const next=document.createElement('button');next.type='button';next.className='cd-btn cd-btn-secondary guide-next';// Secondary: each screen keeps its own single primary action.
   side.append(hint,next);bar.append(list,side);
-  let action=null;next.onclick=()=>{if(action)run(action)};
+  let action=null,previous='';next.onclick=()=>{if(action)run(action)};
   function render(){
-    const status=guideStatus(getState());action=status.action;
+    const status=guideStatus(getState());action=status.action;const key=JSON.stringify(status);if(key===previous)return;previous=key;
     list.replaceChildren(...guideSteps.map((step,i)=>{const li=document.createElement('li');li.className=i<status.step?'is-done':i===status.step?'is-current':'';if(i===status.step)li.setAttribute('aria-current','step');
       const n=document.createElement('span');n.className='guide-n';n.textContent=i<status.step?'✓':String(i+1);n.setAttribute('aria-hidden','true');li.append(n,document.createTextNode(step.label));return li}));
     next.textContent=status.cta;next.disabled=!status.action;hint.textContent=status.hint;

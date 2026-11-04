@@ -1093,3 +1093,49 @@ body:not([data-workspace=full]) :is(.chapters-panel,.ask-panel,.trailer-panel){d
  .publish-desk-head{padding:16px}
  .publish-proof video{max-height:26vh}
 }
+
+/* The cutting desk: footage and useful next steps lead; utilities stay together. */
+.ds-rail .workspace-nav [data-workspace=home]{display:flex}
+body[data-workspace=home] .ds-topdrop,body:is([data-workspace=home],[data-workspace=library],[data-workspace=jobs],[data-workspace=exports]) .guide{display:none}
+body[data-workspace=home] .topbar{justify-content:flex-end}
+.setup-check>summary{font-weight:700;cursor:pointer}
+.setup-check:not([open]){padding:10px 16px;border-color:var(--line)}
+body[data-workspace=home] .home-start{padding:clamp(20px,3.5vw,52px);align-items:center}
+.home-start .home-artwork{aspect-ratio:1.25}
+.home-start .home-artwork figcaption{font-size:clamp(12px,1.6vw,22px)}
+.home-start .home-guide-link{min-height:44px;margin-top:10px;padding-inline:0;border:0;background:transparent;color:var(--text);text-decoration:underline;text-underline-offset:4px}
+.desk-guide:not([hidden]){margin:16px 0 22px;padding:18px 20px;border-block:1px solid var(--line);background:var(--surface)}
+.desk-guide-intro{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.desk-guide-intro h2,.desk-notices h2{margin:0;font:750 20px/1.2 var(--font-display)}
+.desk-guide-intro p{max-width:70ch;margin:8px 0;color:var(--muted)}
+.desk-guide-path{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px 26px;padding-inline-start:20px;margin:16px 0 0}
+.desk-guide-path li::marker{color:var(--accent);font-weight:700}
+.desk-guide-path li span{display:block;color:var(--muted);font-size:13px;margin-top:4px}
+.desk-bell{gap:6px}
+.desk-notice-count{min-width:16px;font-size:12px;font-weight:750;color:var(--text)}
+.desk-notices{position:fixed;inset:58px 16px auto auto;margin:0;padding:16px;width:min(375px,calc(100vw - 32px));max-height:min(540px,80dvh);overflow:auto;box-sizing:border-box;background:var(--surface);color:var(--text);border:1px solid var(--line-strong);border-radius:12px}
+.desk-notices header{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.desk-notices ul{list-style:none;padding:0;margin:12px 0}
+.desk-notices li{border-top:1px solid var(--line)}
+.desk-notices li button{width:100%;display:grid;gap:4px;text-align:start;padding:10px;background:transparent;border:0}
+.desk-notices li span{color:var(--muted);overflow-wrap:anywhere}
+#jobsPanel:has([data-publish-export]) [data-publish-export]{font-weight:750}
+@media(max-width:900px){.home-start .home-artwork{aspect-ratio:3.15}}
+@media(max-width:720px){
+ .ds-rail .workspace-nav{grid-auto-flow:row;grid-template-columns:repeat(3,minmax(0,1fr))}
+ .desk-guide-path{grid-template-columns:repeat(2,minmax(0,1fr))}
+ body.ds-shell .top-actions :is(.desk-bell,.desk-guide-trigger){min-height:44px}
+ .desk-notices{inset:12px 12px auto auto;width:min(375px,calc(100vw - 24px))}
+}
+.ds-rail .workspace-nav button:has(.ui-icon){justify-content:flex-start;gap:10px}
+.ds-rail .workspace-nav .ui-icon{width:18px;height:18px;flex:none}
+.ds-rail .workspace-nav button b{margin-inline-start:auto}
+body:not([data-workspace=home],[data-workspace=source]) .setup-check{display:none}
+@media(max-width:720px){
+ .ds-rail .workspace-nav button:has(.ui-icon){justify-content:center;gap:5px}
+ .ds-rail .workspace-nav .ui-icon{width:15px;height:15px}
+ .ds-rail .workspace-nav button b{margin-inline-start:0}
+}
+.home-cut-notes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;border-block:1px solid var(--line);padding-block:12px;color:var(--muted);font-size:13px}
+.home-cut-notes strong{display:block;margin-bottom:3px;color:var(--text);font-size:14px}
+.home-cut-notes span+span{border-inline-start:1px solid var(--line);padding-inline-start:12px}

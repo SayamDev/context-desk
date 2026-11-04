@@ -1,3 +1,4 @@
+import {mountWorkspaceHelp} from './workspace-help.js';
 import {mountContextCheck} from './context-check.js';
 import {createConnections} from './connections.js';
 import {createDiscoveryTools} from './discovery-tools.js';
@@ -74,6 +75,11 @@ setInterval(()=>{if(activities.size)renderActivity()},1000);
 let renderHookLab=()=>{},syncAccents=()=>{},syncCaptionVariant=()=>{},syncLinkDrop=()=>{};const clipSelection=new Set(),shownScores=new Set();let bulkBar=null,visibleClipIds=[],lastSelected=null,inspectedId=null;
 let titleCards=null,chaptersView=null,askView=null,clipFromRange=null,cultureView=null,trailerView=null,postKitView=null,writePostFor=null,dubView=null;
 let jobsView=null,layout=null,homeView=null,discoveryTools=null,liveControls=null,liveBuffer=null,connectionsView=null,libraryView='list',startupNavigation=true;const entryWorkspace=workspaceFromHash(location.hash);let requestedWorkspace=entryWorkspace;
+let allExports=false,workspaceHelp=null;
+const exportScope=document.createElement('button');
+exportScope.type='button';exportScope.hidden=true;
+document.querySelector('#jobsPanel .library-heading').append(exportScope);
+exportScope.onclick=()=>{allExports=!allExports;syncProjectNavigation()};
 const projectViews=new Set(['clips','full','edit','exports']);
 const projectNav=document.createElement('nav');
 projectNav.className='project-nav';projectNav.setAttribute('aria-label','Project');projectNav.hidden=true;
@@ -81,7 +87,7 @@ projectNav.innerHTML='<button type="button" data-project-view="clips">Clips</but
 $('projectBar').after(projectNav);
 projectNav.onclick=event=>{
   const button=event.target.closest('button');
-  if(button)navigateWorkspace(button.dataset.projectView||'edit');
+  if(button){allExports=false;navigateWorkspace(button.dataset.projectView||'edit')}
 };
 function syncProjectNavigation(view=document.body.dataset.workspace){
   const project=projectSession?.current;
@@ -93,23 +99,24 @@ function syncProjectNavigation(view=document.body.dataset.workspace){
   }
   $('resumeProjectClip').hidden=view!=='clips'||!state.selected;
   const heading=document.querySelector('#jobsPanel .library-heading h2');
-  if(heading)heading.textContent=view==='exports'?'Files for this project':'Activity across projects';
-  jobsView?.setProject(view==='exports'?project:null);
+  if(heading)heading.textContent=view==='exports'?(project&&!allExports?'Files for this project':'Files from all projects'):'Activity across projects';
+  jobsView?.setProject(view==='exports'&&!allExports?project:null,view==='exports');
+  exportScope.hidden=view!=='exports'||!project;exportScope.textContent=allExports?'Show this project only':'Show exports from all projects';
 }
 function showWorkspace(view){
   if(startupNavigation&&projectSession?.restoring)view=requestedWorkspace;
   if(view==='edit'&&!state.selected)view=projectSession?.current?'clips':'library';
-  if(['full','exports'].includes(view)&&!projectSession?.current&&!startupNavigation)view='library';
+  if(view==='full'&&!projectSession?.current&&!startupNavigation)view='library';
   window.scrollTo({top:0});document.body.dataset.workspace=view;layout?.syncWorkspace(view);homeView?.sync(view);liveControls?.sync();liveBuffer?.sync();connectionsView?.sync();discoveryTools?.sync();
   if(!startupNavigation&&location.hash!==workspaceHash(view))history.pushState({workspace:view},'',workspaceHash(view));
   document.querySelectorAll('.workspace-nav button').forEach(button=>{if(button.dataset.workspace===view)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current')});
-  const content={home:['Home','Start a recording or pick up a saved story.'],library:['Library','Your recordings, moments and edits.'],jobs:['Activity','Processing and finished work across projects.'],exports:['Exports','Videos, subtitles and chapter timestamps for this project.'],full:['Full video','Watch the recording, review subtitles and jump to chapters.'],brand:['Brand Kit','Save a caption look once and use it across projects.'],source:['Start a new story.','Paste a link or upload a recording. Clips appear as processing finishes.'],clips:['Clips','Find a story worth sharing. Every suggestion links back to the source.'],edit:['Studio','Your footage. Your words. Your final cut.']}[view];
+  const content={home:['Home','Start a recording or pick up a saved story.'],library:['Library','Your recordings, moments and edits.'],jobs:['Activity','Processing and finished work across projects.'],exports:['Exports','Watch, download or publish finished videos. Find subtitle files and chapter timestamps here too.'],full:['Full video','Watch the recording, review subtitles and jump to chapters.'],brand:['Brand Kit','Save a caption look once and use it across projects.'],source:['Start a new story.','Paste a link or upload a recording. Clips appear as processing finishes.'],clips:['Clips','Find a story worth sharing. Every suggestion links back to the source.'],edit:['Studio','Your footage. Your words. Your final cut.']}[view];
   $('workspaceTitle').textContent=content[0];$('workspaceDescription').textContent=content[1];
   if(view!=='edit')clipVideo.pause();if(!['jobs','exports'].includes(view))jobsView?.closePreview();if(view!=='full')$('wholePreview').pause();if(!['clips','full','source'].includes(view)&&state.sourceType==='file')program.pause();
-  $('brandKitPage').hidden=view!=='brand';if(view==='library')void renderLibrary();syncProjectNavigation(view);if(view==='full'){ $('wholeSubtitleDetails').open=true;renderWholeSubtitles();if(wholeJob)void pollWholeJob();}projectSession?.changed();
+  $('brandKitPage').hidden=view!=='brand';if(view==='library')void renderLibrary();syncProjectNavigation(view);workspaceHelp?.syncGuide();if(view==='full'){ $('wholeSubtitleDetails').open=true;renderWholeSubtitles();if(wholeJob)void pollWholeJob();}projectSession?.changed();
 }
 function navigateWorkspace(view){requestedWorkspace=view;if(startupNavigation){showWorkspace(view);return}if(view==='edit'&&state.selected){if(document.body.dataset.workspace==='edit')return;return selectMoment(state.selected)}showWorkspace(view)}
-document.querySelectorAll('.workspace-nav button').forEach(button=>button.onclick=()=>navigateWorkspace(button.dataset.workspace));
+document.querySelectorAll('.workspace-nav button').forEach(button=>button.onclick=()=>{allExports=button.dataset.workspace==='exports';navigateWorkspace(button.dataset.workspace)});
 $('backToClips').textContent='Back to clips';
 $('backToClips').onclick=()=>showWorkspace('clips');
 const quickLanguages=document.createElement('div');quickLanguages.className='language-quick';for(const id of ['speechLanguage','liveCaptionLanguage']){const label=$(id).closest('label');if(id==='liveCaptionLanguage')label.firstChild.textContent='Output subtitles ';quickLanguages.append(label)}$('linkForm').querySelector('.link-launch-row').after(quickLanguages);
@@ -191,15 +198,16 @@ mountLiveBar({every:(ms,fn)=>bgClock.every(ms,fn),start:()=>startLiveClipping(),
     if(action==='stop-live'){stopLiveClipping();return}
     if(action==='find-clips'){if(state.sourceType==='screen'){startLiveClipping();showWorkspace('clips');return}if(!$('batchButton').disabled)$('batchButton').click();else showWorkspace('clips');return}
     if(action==='open-clip'){const best=[...usableMoments(state.moments)].sort((a,b)=>(b.analysis?.score||0)-(a.analysis?.score||0))[0];if(best){await selectMoment(best.id);showWorkspace('edit')}return}
-    showWorkspace('edit');
+    if(action!=='open-exports')showWorkspace('edit');
     if(action==='check-subtitles'){$('captionTab')?.click();const w=document.querySelector('.caption-workspace');if(w)w.open=true;if(!$('captionQaNext')?.hidden)$('captionQaNext').click();else $('captionLines')?.scrollIntoView({block:'start',behavior:'smooth'})}
+    if(action==='open-exports'){showWorkspace('exports');return}
     if(action==='prepare-post'){$('exportTab')?.click();$('socialDestination')?.closest('section,div')?.scrollIntoView({block:'start',behavior:'smooth'})}
   }});
   const host=document.querySelector('.pagehead')?.parentElement;host?.prepend(guide.element);guide.render();setInterval(guide.render,1000);
   // Setup check: lists anything missing on this computer, what it blocks, and the exact fix.
   void requestJson('/api/health').then(({checks})=>{const missing=checks.filter(c=>!c.ok);if(!missing.length)return;
-    const box=Object.assign(document.createElement('section'),{className:'setup-check'});box.setAttribute('aria-label','Setup check');
-    box.append(Object.assign(document.createElement('h2'),{textContent:missing.some(c=>c.needed)?'Finish setting up this computer':'Optional extras you can turn on'}),
+    const box=Object.assign(document.createElement('details'),{className:'setup-check'});box.setAttribute('aria-label','Setup check');
+    box.append(Object.assign(document.createElement('summary'),{textContent:missing.some(c=>c.needed)?'Finish setting up this computer':'Optional extras you can turn on'}),
       ...missing.map(c=>{const row=document.createElement('div');row.className='setup-item'+(c.needed?' is-needed':'');row.append(Object.assign(document.createElement('strong'),{textContent:c.label+(c.needed?'':' (optional)')}),Object.assign(document.createElement('span'),{textContent:'Needed for: '+c.blocks}),Object.assign(document.createElement('code'),{textContent:c.fix}));return row}),
       Object.assign(document.createElement('p'),{textContent:'Tip: run npm run setup in the project folder; it installs what it can and lists the rest.'}));
     guide.element.after(box)}).catch(()=>{});}
@@ -1430,7 +1438,7 @@ function exportSrt(moments,name){if(!moments.length||moments.some(m=>!timedCues(
 $('srtButton').onclick=()=>{const m=state.moments.find(x=>x.id===state.selected);if(m)exportSrt([m],`context-desk-${Math.floor(m.start)}.srt`)};
 async function queueVideoExport(moments,name,{draft=false,openJobs=true}={}){
   setActivity('export-save','Saving your edit','Preparing a durable render job…');
-  try{const destination=$('socialDestination').value,issue=socialExportIssue(destination,{duration:moments.reduce((n,m)=>n+m.trimOut-m.trimIn,0),aspect:state.aspect,quality:$('exportQuality').value,format:$('exportFormat').value==='webm'?'webm':'mp4'});if(issue)throw Error(issue);for(const m of moments)inheritCaptionTarget(m,projectCaptionTarget());await projectSession.flush();const j=await requestJson('/api/exports',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({projectId:projectSession.current.id,momentIds:moments.map(m=>m.id),aspect:state.aspect,quality:$('exportQuality').value==='source'?'source':Number($('exportQuality').value),format:$('exportFormat').value==='webm'?'webm':'mp4',destination,draft,name})});await jobsView.refresh();if(openJobs)showWorkspace('exports');return j}finally{finishActivity('export-save')}
+  try{const destination=$('socialDestination').value,issue=socialExportIssue(destination,{duration:moments.reduce((n,m)=>n+m.trimOut-m.trimIn,0),aspect:state.aspect,quality:$('exportQuality').value,format:$('exportFormat').value==='webm'?'webm':'mp4'});if(issue)throw Error(issue);for(const m of moments)inheritCaptionTarget(m,projectCaptionTarget());await projectSession.flush();const j=await requestJson('/api/exports',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({projectId:projectSession.current.id,momentIds:moments.map(m=>m.id),aspect:state.aspect,quality:$('exportQuality').value==='source'?'source':Number($('exportQuality').value),format:$('exportFormat').value==='webm'?'webm':'mp4',destination,draft,name})});await jobsView.refresh();if(openJobs){allExports=false;showWorkspace('exports')}return j}finally{finishActivity('export-save')}
 }
 $('exportButton').onclick=async()=>{const m=state.moments.find(x=>x.id===state.selected);if(!m||!validateTrim()||!validateCaptions(m))return;try{await queueVideoExport([m],`context-desk-${Math.floor(m.start)}-edit`);m.exportedAt=Date.now();projectSession?.changed()}catch(error){$('editorStatus').textContent=error.message}};
 
@@ -1682,7 +1690,15 @@ function renderJobDock(job){
   const steps=el('ol','cd-steps');for(const [label,state] of [['Queued',queued?'active':'done'],[total?`${name[1]} ${done}/${total}`:name[1],queued?'':finishing?'done':'active'],[name[2],finishing?'active':'']])steps.append(el('li',state,label));
   box.replaceChildren(head,el('span','cd-label ds-job-pct',`${pct}%`),bar,steps);
 }
-jobsView=createJobsView({panel:$('jobRows'),counts:$('jobCounts'),status:$('jobsStatus'),onPublish:async job=>{if(projectSession.current?.id!==job.projectId)await projectSession.open(job.projectId);showWorkspace('exports');await connectionsView.open(job)},onPlay:video=>claimPlayback(video),onOpen:async id=>{await projectSession.open(id);showWorkspace('clips')},onJobs:async jobs=>{
+workspaceHelp=mountWorkspaceHelp({navigate:view=>navigateWorkspace(view),openJob:async job=>{
+  if(job.projectId&&projectSession.current?.id!==job.projectId)await projectSession.open(job.projectId);
+  allExports=false;
+  const view=job.status!=='complete'?'jobs':job.kind==='discovery'?'clips':'exports';
+  navigateWorkspace(view);
+  if(view!=='clips'){const row=$('jobRows').querySelector('[data-job-row="'+CSS.escape(job.id)+'"]');if(row){row.tabIndex=-1;row.focus()}}
+}});
+jobsView=createJobsView({panel:$('jobRows'),counts:$('jobCounts'),status:$('jobsStatus'),onPublish:async job=>{allExports=false;if(projectSession.current?.id!==job.projectId)await projectSession.open(job.projectId);showWorkspace('exports');await connectionsView.open(job)},onPlay:video=>claimPlayback(video),onOpen:async id=>{await projectSession.open(id);showWorkspace('clips')},onJobs:async jobs=>{
+  workspaceHelp.update(jobs);
   const runningCount=jobs.filter(j=>['queued','running'].includes(j.status)).length;$('navJobCount').textContent=runningCount;$('navJobCount').hidden=!runningCount;renderJobDock(jobs.find(j=>['running','queued'].includes(j.status)));
   const active=jobs.filter(j=>j.kind==='discovery'&&j.projectId===projectSession?.current?.id),running=active.find(j=>['queued','running'].includes(j.status));
   state.batchRunning=Boolean(running);if(!running)finishActivity('batch');$('batchButton').textContent=running?'View processing job ':`Find ${$('clipTarget').value} clips across video `;

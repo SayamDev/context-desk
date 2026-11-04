@@ -17,9 +17,9 @@ test('a fresh install loads cleanly and the setup check names the missing AI key
   const app=await startApp({env:{FFMPEG_PATH:ffmpeg}});
   try{
     const {page,problems}=await watchedPage(browser,app.url);
-    await page.getByRole('button',{name:'Add a video'}).first().waitFor();
+    await page.getByRole('button',{name:'New project',exact:true}).waitFor();
     const setup=page.locator('.setup-check');
-    await setup.waitFor();
+    await setup.locator('summary').click();
     assert.match(await setup.innerText(),/AI key \(Meta\)/);
     assert.doesNotMatch(await setup.innerText(),/FFmpeg/);
     assert.deepEqual(problems,[]);
@@ -30,6 +30,7 @@ test('the setup check lists FFmpeg and captions when FFmpeg is missing',async()=
   const app=await startApp({env:{FFMPEG_PATH:'/nonexistent/ffmpeg'}});
   try{
     const {page}=await watchedPage(browser,app.url);
+    await page.locator('.setup-check summary').click();
     const text=await page.locator('.setup-check').innerText();
     assert.match(text,/FFmpeg \(video processing\)/);
     assert.match(text,/Burned-in captions/);

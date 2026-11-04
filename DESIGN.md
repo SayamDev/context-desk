@@ -380,3 +380,9 @@ Original prior studio artwork remains documented in `public/assets/ARTWORK.md` b
 See `UX-CONTRACT.md` for canonical owners, state/feedback/navigation rules and architecture exceptions. Every visible action must work. Selection/edit/project state stays with existing controllers; these are not static prototype screens. Verification evidence and limits belong in `docs/V2-VERIFICATION.md`; documentation of source styles does not certify browser behavior, accessibility, dialect accuracy, live reliability or competition readiness. Suggested viewport checks remain 1440, 1280, 768 and 390px.
 
 **Not canonized:** the inherited New video entry uses a system-font display treatment and several legacy dense controls remain below 44px; those exceptions are not guidance for new display surfaces or primary actions. This pass records source topology and tokens only, without certifying behavior or repairing those runtime exceptions.
+
+### Workspace wayfinding
+
+Home opens with one source form and the Setup, Turn, Payoff contact sheet. The shared link field is only shown away from Home. The global rail lists Home, Projects, Exports, Activity and Brand Kit. Global Exports opens the files from all projects; the Exports tab inside a project opens that project’s files. Activity shows queue progress and recovery actions. The two surfaces reuse the same underlying records.
+
+Guide opens inline, describes the current screen, and keeps the four-step recording-to-export workflow visible while open. The project progress strip stays on working screens. The bell shows unread job completions and failures noticed by the running app. Its recent history and read state are stored in that browser.
