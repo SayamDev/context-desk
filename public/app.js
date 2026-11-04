@@ -203,11 +203,13 @@ liveBuffer=createLiveBuffer({getUrl:()=>$('streamUrl')?.value,getRecording:()=>s
 enhanceSegmented($('aspectSelect'),{label:'Format',labels:{portrait:['9:16','TikTok'],square:'1:1 Feed'.split(' '),fourfive:['4:5','Feed'],landscape:['16:9','YouTube']},order:['portrait','square','fourfive','landscape']});
 // The live bar shows and controls live clipping from every page (live-bar.js); the monitor window
 // shows the framed picture being recorded (live-monitor.js), with the tab's sound when switched on.
+let liveRecovery=null,connectingLive=false,liveScanGeneration=0;
+const canReconnectLive=()=>Boolean(liveRecovery?.projectId&&liveRecovery.projectId===projectSession?.current?.id&&!state.source);
 const liveMonitor=createLiveMonitor({stop:()=>stopLiveClipping(),getStreams:()=>({video:state.stageCrop&&stageDrawing?stageCanvas.captureStream(30).getVideoTracks()[0]:state.screenStream?.getVideoTracks()[0]?.clone(),audio:state.screenStream?.getAudioTracks()||[]})});
 function announceLiveClip({id,hook}){const open=()=>{showWorkspace('clips');inspectClip(id)};toast('New live clip: '+(hook||'a moment worth checking'),{action:'Open',run:open,timeout:9000});
   if(document.hidden&&window.Notification?.permission==='granted'){try{const n=new Notification('New live clip',{body:hook||'Context Desk found a moment worth checking.',tag:'context-desk-live-clip'});n.onclick=()=>{window.focus();open();n.close()}}catch{/* Notifications are optional. */}}}
-mountLiveBar({every:(ms,fn)=>bgClock.every(ms,fn),start:()=>startLiveClipping(),stop:()=>stopLiveClipping(),open:()=>showWorkspace('clips'),monitor:liveMonitor,onClip:announceLiveClip,
-  getState:()=>({latest:usableMoments(state.moments).filter(m=>m.sourceType==='screen').sort((a,b)=>b.start-a.start)[0]||null,connected:state.sourceType==='screen'&&Boolean(state.screenStream?.getVideoTracks().some(t=>t.readyState==='live')),scanning:state.scanning,framing:state.cropPicking,elapsed:state.liveEpoch?liveTime():0,windows:state.moments.filter(m=>m.sourceType==='screen').length,clips:usableMoments(state.moments).filter(m=>m.sourceType==='screen').length})});
+mountLiveBar({every:(ms,fn)=>bgClock.every(ms,fn),start:()=>startLiveClipping(),reconnect:()=>connectLiveTab(true),stop:()=>stopLiveClipping(),open:()=>showWorkspace('clips'),monitor:liveMonitor,onClip:announceLiveClip,
+  getState:()=>({reconnect:canReconnectLive(),connecting:connectingLive,latest:usableMoments(state.moments).filter(m=>m.sourceType==='screen').sort((a,b)=>b.start-a.start)[0]||null,connected:state.sourceType==='screen'&&Boolean(state.screenStream?.getVideoTracks().some(t=>t.readyState==='live')),scanning:state.scanning,framing:state.cropPicking,elapsed:canReconnectLive()?liveRecovery.elapsed:state.liveEpoch?liveTime():0,windows:state.moments.filter(m=>m.sourceType==='screen').length,clips:usableMoments(state.moments).filter(m=>m.sourceType==='screen').length})});
 // Beginner guide: progress is read from the project; each Next action jumps to the right place.
 {const guide=createGuide({
   getState:()=>{const m=state.moments.find(x=>x.id===state.selected),clips=usableMoments(state.moments).length;
@@ -468,19 +470,35 @@ function liveSessionTitle(){const name=liveSessionName();return name?name+' · L
 // An open live session carries on only for the same stream; a link to a different channel or stream starts its own project.
 const continuesLiveSession=p=>Boolean(p&&!p.sourceId&&(!liveSessionName()||String(p.title||'').startsWith(liveSessionName()+' · Live ')));
 $('captureFallback').onclick=()=>{const page=livePlayerPage||sourcePageUrl;if(page&&!openedSourceLinks.has(page)){window.open(page,'context-desk-source',livePlayerPage?'popup,width=1600,height=900,noopener':'noopener,noreferrer');openedSourceLinks.add(page)}$('screenButton').click()};
-$('screenButton').onclick=async()=>{
+$('screenButton').onclick=()=>connectLiveTab();
+async function connectLiveTab(reconnect=false){
+  if(connectingLive||reconnect&&!canReconnectLive())return;
+  const recovery=reconnect?liveRecovery:null;
+  connectingLive=true;
   let connectingStream;try{
     // Chrome normally jumps to the shared tab, which sends Context Desk to the background and pauses its
     // drawing and timers. Keep the desk in front so framing, recording and new clips stay visible.
     const controller=typeof CaptureController==='function'?new CaptureController():null;
     const stream=connectingStream=await navigator.mediaDevices.getDisplayMedia({video:{displaySurface:'browser',width:{ideal:1920},height:{ideal:1080},frameRate:{ideal:60,max:60}},audio:{suppressLocalAudioPlayback:true},selfBrowserSurface:'exclude',...(controller?{controller}:{})});
     try{controller?.setFocusBehavior?.('no-focus-change')}catch{/* Not supported for this surface; Chrome keeps its default. */}
-    showWorkspace('clips');if(projectSession){await finishCaptureForSwitch();const resume=continuesLiveSession(projectSession.current);if(!resume){await projectSession.beforeSourceChange();state.moments=[];state.cut=[];state.selected=null;state.batchExports=[];state.exportHistory=[];state.aiCalls=0;state.windowCount=0;await projectSession.createLive(liveSessionTitle());}else await projectSession.flush();}setActivity('share','Connecting the live picture','Preparing automatic framing and scanning…');cleanupSource();state.screenStream=stream;state.liveElapsedOffset=Math.max(0,...state.moments.filter(m=>m.sourceType==='screen').map(m=>m.end));state.liveEpoch=performance.now();state.source=stream;state.sourceType='screen';state.sourceName='Shared video tab';program.muted=true;program.volume=0;program.controls=false;program.srcObject=stream;await program.play();if(!program.videoWidth)await mediaReady(program);
-    stream.getVideoTracks()[0].addEventListener('ended',()=>{cleanupSource();message('The shared tab stopped. Captured clips remain available.');});setSourceLabel('Live tab connected');$('emptySource').hidden=true;$('sourceCropRow').hidden=false;updateButtons();beginCrop();state.resumeAfterCrop=true;updateSourceQuality();finishActivity('share');await detectAndApplyCrop();
-  }catch(error){if(connectingStream!==state.screenStream)connectingStream?.getTracks().forEach(track=>track.stop());message(error.name==='NotAllowedError'?'Sharing was cancelled. Choose Connect live tab when you’re ready.':error.message||'The tab could not be connected.');linkStatus(error.name==='NotAllowedError'?'Browser sharing was cancelled. Your other clips are still available.':'Could not connect this tab. Try again with tab audio enabled.');}
-  finally{finishActivity('share')}
-};
-$('disconnectButton').onclick=()=>{cleanupSource();message('Source disconnected. Captured windows remain available for this session.');};
+    const track=stream.getVideoTracks()[0];
+    if(!track||track.readyState!=='live')throw Error('The selected tab stopped sharing. Try connecting again.');
+    if(recovery&&!canReconnectLive())throw Error('Reopen the live project before reconnecting its tab.');
+    showWorkspace('clips');if(projectSession){await finishCaptureForSwitch();const resume=Boolean(recovery&&recovery.projectId===projectSession.current?.id)||continuesLiveSession(projectSession.current);if(!resume){await projectSession.beforeSourceChange();state.moments=[];state.cut=[];state.selected=null;state.batchExports=[];state.exportHistory=[];state.aiCalls=0;state.windowCount=0;await projectSession.createLive(liveSessionTitle());}else await projectSession.flush();}setActivity('share','Connecting the live picture','Preparing automatic framing and scanning…');cleanupSource();state.screenStream=stream;state.liveElapsedOffset=Math.max(recovery?.elapsed||0,...state.moments.filter(m=>m.sourceType==='screen').map(m=>m.end));state.liveEpoch=performance.now();state.source=stream;state.sourceType='screen';state.sourceName='Shared video tab';program.muted=true;program.volume=0;program.controls=false;program.srcObject=stream;
+    track.addEventListener('ended',()=>{if(state.screenStream===stream)disconnectLiveTab();},{once:true});
+    if(track.readyState!=='live')throw Error('The selected tab stopped sharing.');
+    await program.play();if(!program.videoWidth)await mediaReady(program);
+    if(state.screenStream!==stream||track.readyState!=='live')return;
+    liveRecovery=null;setSourceLabel('Live tab connected');$('emptySource').hidden=true;$('sourceCropRow').hidden=false;updateButtons();beginCrop();state.resumeAfterCrop=true;updateSourceQuality();finishActivity('share');await detectAndApplyCrop();
+  }catch(error){if(connectingStream&&connectingStream===state.screenStream)disconnectLiveTab();else connectingStream?.getTracks().forEach(track=>track.stop());message(error.name==='NotAllowedError'?'Sharing was cancelled. You can try again when you’re ready.':error.message||'The tab could not be connected.');linkStatus(error.name==='NotAllowedError'?'Browser sharing was cancelled. Your other clips are still available.':'Could not connect this tab. Try again with tab audio enabled.');}
+  finally{connectingLive=false;finishActivity('share')}
+}
+function disconnectLiveTab(){
+  liveRecovery={projectId:projectSession?.current?.id,elapsed:liveTime()};
+  cleanupSource();
+  message('Tab sharing ended. Your clips stay in this project. Choose Reconnect live tab and share the same tab to continue.');
+}
+$('disconnectButton').onclick=()=>{if(state.sourceType==='screen'){disconnectLiveTab();return}cleanupSource();message('Source disconnected. Captured windows remain available for this session.');};
 $('scanButton').onclick=()=>state.scanning?stopScan('Scan paused. Captured moments remain ready to edit; press Start scan to continue.'):startScan();
 $('markButton').onclick=()=>{if(state.recording?.state==='recording'){state.recording.manual=true;state.recording.stop();message('Moment marked. Finishing this window now.');}};
 function sourceRect(){
@@ -568,15 +586,16 @@ async function detectAndApplyCrop(){
   try{
     const canvas=document.createElement('canvas'),scale=Math.min(1,1280/program.videoWidth);canvas.width=Math.round(program.videoWidth*scale);canvas.height=Math.round(program.videoHeight*scale);canvas.getContext('2d').drawImage(program,0,0,canvas.width,canvas.height);
     const response=await fetch('/api/frame',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image:canvas.toDataURL('image/jpeg',.72)})});const result=await response.json();if(!response.ok)throw Error(result.error||'Detection unavailable');if(job!==state.autoFrameJob||!state.cropPicking)return;
-    if(result.found&&result.confidence>=.75){state.cropDraft={x:result.x,y:result.y,w:result.width,h:result.height};showCropDraft();$('applyCrop').click();$('cropStatus').textContent='Auto framed. Check the picture edges; use Draw area to adjust.';message('Player detected. Start scanning when the picture looks right.');}
+    if(result.found&&result.confidence>=.75){state.cropDraft={x:result.x,y:result.y,w:result.width,h:result.height};showCropDraft();await applyLiveCrop();}
     else throw Error('The player boundaries were uncertain.');
   }catch(error){if(job!==state.autoFrameJob||!state.cropPicking)return;const before=frameSample();await new Promise(resolve=>setTimeout(resolve,800));if(job!==state.autoFrameJob)return;const suggestion=motionCrop(before,frameSample());if(suggestion){state.cropDraft=suggestion;showCropDraft();$('cropStatus').textContent='Review this suggested area, then choose Use this area. You can redraw it.';}else $('cropStatus').textContent='Draw around the video picture, or choose Use full frame if you shared only the video. ';message(error.message+' Manual framing is ready.');}
   finally{finishActivity('frame');updateButtons();}
 }
 window.addEventListener('resize',()=>{if(state.cropPicking&&state.cropDraft)showCropDraft()});
-$('fullFrame').onclick=()=>{state.cropDraft={x:0,y:0,w:1,h:1};$('applyCrop').click()};
+$('fullFrame').onclick=()=>{state.cropDraft={x:0,y:0,w:1,h:1};void applyLiveCrop()};
 $('resetCrop').onclick=()=>{if(state.sourceType!=='screen')return;state.stageCrop=null;state.cropDraft=null;beginCrop();updateButtons();};
-$('applyCrop').onclick=async()=>{
+$('applyCrop').onclick=()=>applyLiveCrop();
+async function applyLiveCrop(){
   if(!state.cropDraft||state.sourceType!=='screen')return;
   state.stageCrop={...state.cropDraft};state.cropPicking=false;
   const rawWidth=Math.round(program.videoWidth*state.stageCrop.w),rawHeight=Math.round(program.videoHeight*state.stageCrop.h);
@@ -607,12 +626,12 @@ function drawStage(){
 function startLiveClipping(){if(state.sourceType!=='screen'||!state.screenStream)return;if(state.scanning)return;
   // Both need the click that started clipping, so they are asked for before anything is awaited.
   if(!liveMonitor.isOpen())void liveMonitor.open();if(window.Notification?.permission==='default')void Notification.requestPermission().catch(()=>{});
-  if(state.cropPicking||!state.stageCrop){state.resumeAfterCrop=true;if(state.cropDraft)$('applyCrop').click();else $('fullFrame').click();return}void startScan()}
+  if(state.cropPicking||!state.stageCrop){state.resumeAfterCrop=true;if(state.cropDraft)void applyLiveCrop();else $('fullFrame').click();return}void startScan()}
 function stopLiveClipping(){if(state.scanning)stopScan('Live clipping stopped. Clips found so far are saved; start again any time.')}
 async function startScan(){
-  if(!state.source||state.sourceType==='screen'&&!state.stageCrop)return;
+  if(state.scanning||!state.source||state.sourceType==='screen'&&!state.stageCrop)return;
   if(!window.MediaRecorder){message('This browser cannot record a live window. Use a current Chrome-based browser.');return;}
-  state.staticSilentWindows=0;state.captureStalled=false;
+  state.staticSilentWindows=0;state.captureStalled=false;liveScanGeneration++;
   try{if(state.sourceType==='file'){program.muted=false;program.volume=1;if(program.ended)program.currentTime=0;state.recordStream=program.captureStream?.()||program.mozCaptureStream?.();if(!state.recordStream?.getVideoTracks().length){await program.play();state.recordStream=program.captureStream?.()||program.mozCaptureStream?.();}}else {
       // Capture only the framed picture; keep tab audio on the same recorded stream.
       if(state.recordStream&&state.recordStream!==state.screenStream)state.recordStream.getVideoTracks().forEach(track=>track.stop());
@@ -638,10 +657,12 @@ function startWindow(){
   if(!state.recording){message(`Recording could not start (${setupError?.name||'unsupported format'}). Share the tab again or try a local video.`);stopScan();return;}
   const recorder=state.recording,frames=[],chunks=[],sourceName=state.sourceName,sourceType=state.sourceType,ownerProjectId=projectSession.current?.id;recorder.saved=new Promise((resolve,reject)=>{recorder.resolveSave=resolve;recorder.rejectSave=reject});recorder.saved.catch(()=>{});
   const start=sourceType==='file'?program.currentTime:liveTime();
+  let windowTimer,frameTimer;
+  const scanGeneration=liveScanGeneration;
   recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
-  recorder.onerror=event=>{message(`Recording stopped: ${event.error?.message||'the source became unavailable'}. Your captured windows remain in the queue.`);state.scanning=false;updateButtons()};
-  recorder.onstop=()=>{bgClock.clear(state.windowTimer);bgClock.clear(state.frameTimer);const blob=new Blob(chunks,{type:recorder.mimeType||'video/webm'});const end=recorder.endTime??(sourceType==='file'?program.currentTime:liveTime());if(blob.size>1000)void processWindow(blob,frames,start,end,Boolean(recorder.manual),sourceName,sourceType,crop,sourcePixels,captureArea,ownerProjectId,recorder.resolveSave).catch(error=>{recorder.rejectSave(error);message('Live window could not be saved: '+error.message)});else recorder.resolveSave();if(state.recording!==recorder)return;if(state.scanning&&state.recordStream?.getVideoTracks().some(track=>track.readyState==='live')&&(sourceType!=='file'||!program.ended))startWindow();else if(state.scanning){stopScan();message(sourceType==='file'?'Video finished. Captured moments are ready to edit.':'The shared tab stopped. Share it again to continue scanning.');}};
-  try{recorder.start();grabFrame(frames,captureArea);state.frameTimer=bgClock.every(4000,()=>grabFrame(frames,captureArea));state.windowTimer=bgClock.after(WINDOW_MS,()=>{if(recorder.state==='recording'){recorder.endTime=sourceType==='file'?program.currentTime:liveTime();recorder.stop();}});}catch(error){message(`Recorder could not continue (${error.name||'unknown error'}). Captured windows remain available.`);stopScan();}
+  recorder.onerror=event=>{if(state.recording!==recorder)return;message(`Recording stopped: ${event.error?.message||'the source became unavailable'}. Your captured windows remain in the queue.`);state.scanning=false;updateButtons()};
+  recorder.onstop=()=>{bgClock.clear(windowTimer);bgClock.clear(frameTimer);const blob=new Blob(chunks,{type:recorder.mimeType||'video/webm'});const end=recorder.endTime??(sourceType==='file'?program.currentTime:liveTime());if(blob.size>1000)void processWindow(blob,frames,start,end,Boolean(recorder.manual),sourceName,sourceType,crop,sourcePixels,captureArea,ownerProjectId,recorder.resolveSave,scanGeneration).catch(error=>{recorder.rejectSave(error);message('Live window could not be saved: '+error.message)});else recorder.resolveSave();if(state.recording!==recorder)return;if(state.scanning&&state.recordStream?.getVideoTracks().some(track=>track.readyState==='live')&&(sourceType!=='file'||!program.ended))startWindow();else if(state.scanning){stopScan();message(sourceType==='file'?'Video finished. Captured moments are ready to edit.':'The shared tab stopped. Share it again to continue scanning.');}};
+  try{recorder.start();grabFrame(frames,captureArea);state.frameTimer=frameTimer=bgClock.every(4000,()=>grabFrame(frames,captureArea));state.windowTimer=windowTimer=bgClock.after(WINDOW_MS,()=>{if(recorder.state==='recording'){recorder.endTime=sourceType==='file'?program.currentTime:liveTime();recorder.stop();}});}catch(error){message(`Recorder could not continue (${error.name||'unknown error'}). Captured windows remain available.`);stopScan();}
 }
 program.addEventListener('ended',()=>{if(state.scanning)stopScan(`Video finished at ${formatTime(program.duration)}. Captured windows are ready to edit.`);});
 program.addEventListener('loadedmetadata',()=>{updateSourceQuality();renderWholeSubtitles();renderScanCoverage()});
@@ -741,7 +762,7 @@ $('batchButton').onclick=async()=>{
   catch(error){batchProgress(error.message)}finally{button.disabled=false;finishActivity('queue')}
 };
 
-async function processWindow(blob,frames,start,end,manual,sourceName,sourceType,crop,sourcePixels,captureArea,ownerProjectId=projectSession.current?.id,onSaved=()=>{}){
+async function processWindow(blob,frames,start,end,manual,sourceName,sourceType,crop,sourcePixels,captureArea,ownerProjectId=projectSession.current?.id,onSaved=()=>{},scanGeneration=liveScanGeneration){
   const id=crypto.randomUUID(),url=URL.createObjectURL(blob);
   const shouldAnalyze=state.meta&&!state.captureStalled&&(manual||!aiLimit()||state.aiCalls<aiLimit());
   const item={id,url,blob,frames:frames.slice(0,3),start,end,sourceName,sourceType,sourceCrop:crop,sourceCaptureArea:captureArea,sourcePixels,cleanCapture:sourceType==='screen',sourceLink:sourceType==='screen'?$('streamUrl').value.trim():'',manual,status:shouldAnalyze?'analysing':state.meta?'budgeted':'needs-key',analysis:null,transcript:'',trimIn:0,trimOut:Math.max(.1,(end-start)),hook:'',alternateHook:'',frameMode:'fit',zoom:1,focusX:50,focusY:50,showHook:true,captionLanguage:'Original',autoCaptionLanguage:$('liveCaptionLanguage').value,captionStyle:'punch',dialectNote:$('sourceDialect').value.trim(),captionCues:{Original:[]},captionReviewed:{},showCaptions:false,captionError:''};
@@ -751,7 +772,7 @@ async function processWindow(blob,frames,start,end,manual,sourceName,sourceType,
   await projectSession.asset(blob);projectSession.changed();await projectSession.flush();onSaved();
   const audioInfo=await audioAsWav(blob);
   item.audioRms=audioInfo?.rms??null;
-  if(sourceType==='screen'){
+  if(sourceType==='screen'&&state.sourceType==='screen'&&scanGeneration===liveScanGeneration&&ownerProjectId===projectSession.current?.id){
     const stillPicture=frames.length>=2&&frames.every(frame=>frame===frames[0]);
     const silentAudio=!sourcePixels.audioTracks||audioInfo?.rms!==null&&audioInfo?.rms!==undefined&&audioInfo.rms<.001;
     state.staticSilentWindows=stillPicture&&silentAudio?state.staticSilentWindows+1:0;
