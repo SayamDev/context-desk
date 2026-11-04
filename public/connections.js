@@ -137,6 +137,7 @@ export function createConnections({requestJson,getProject,onMessage=()=>{}}){
   clearReview();report('Loading publishing options…');$('form').hidden=true;
   find('.publish-clip-title').textContent=picked?.clipTitle||picked?.sourceName||'Connect an account or choose a finished export.';
   find('.publish-proof').hidden=!picked;
+  find('.publish-proof figcaption').textContent=picked?.unreviewedSubtitles?'Finished export with unreviewed subtitles':'Finished export';
   $('title').value=(picked?.clipTitle||picked?.sourceName||'').slice(0,100);
   if(picked)preview.src=picked.output.url;else preview.removeAttribute('src');
   destination.value=job?.destination==='shorts'?'youtube':destinations[job?.destination]?job.destination:'youtube';

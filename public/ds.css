@@ -1191,3 +1191,20 @@ body[data-workspace=exports] .ds-topdrop{display:none}
 }
 body[data-workspace=exports] #jobsPanel .library-heading{justify-content:flex-start;gap:8px}
 body[data-workspace=exports] #jobsPanel .library-heading button.cd-btn-secondary{background:var(--surface-raised);color:var(--text);border-color:var(--line-strong)}
+
+/* Give the transcript a working width on desktop. Keep the viewer full size in fullscreen. */
+@media(min-width:1201px){
+ body[data-workspace=edit] .editor-grid{grid-template-columns:144px minmax(0,1fr) clamp(390px,30vw,600px)}
+}
+@media(min-width:1001px) and (max-width:1200px){
+ body[data-workspace=edit] .editor-grid{grid-template-columns:116px minmax(0,1fr) 370px}
+}
+@media(min-width:761px) and (max-width:1000px){
+ body[data-workspace=edit] .editor-grid{grid-template-columns:minmax(0,1fr) 350px}
+}
+@media(min-width:761px){
+ body[data-workspace=edit] .preview-frame:not(:fullscreen){height:clamp(220px,34vh,390px);min-height:0}
+}
+.export-subtitle-options{display:grid;gap:6px;padding:12px 0;border-top:1px solid var(--line)}
+.export-subtitle-options label{display:grid;gap:6px}
+.export-subtitle-options p{margin:0;color:var(--muted);font-size:13px}

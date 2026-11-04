@@ -1040,6 +1040,7 @@ async function selectMoment(id,{scroll=true}={}){
   const m=state.moments.find(x=>x.id===id);if(!m)return;
   inheritCaptionTarget(m,projectCaptionTarget());queueCaptionTarget(m);
   $('exportFeedback').textContent='';
+  $('exportSubtitleMode').value='current';
   const loadId=++editorLoadId;if(state.sourceType==='file'){if(state.scanning)stopScan('Playback scan paused while editing.');program.pause()}stopCutPreview();clipVideo.pause();state.selected=id;
   layout?.holdFrames(true);showWorkspace('edit');renderQueue();renderEditor();setActivity('preview','Loading clip preview','Opening the selected source window…');
   try{await mediaReady(clipVideo);if(loadId!==editorLoadId)return;await seekPreview(mediaTime(m,m.trimIn));if(loadId!==editorLoadId)return;setPreviewSize();updatePreviewTime();}
@@ -1452,9 +1453,9 @@ function srtTime(seconds){const ms=Math.max(0,Math.round(seconds*1000)),hours=Ma
 function sequenceCues(moments){let offset=0;const cues=[];for(const m of moments){for(const cue of timedCues(m)){const start=Math.max(cue.start,m.trimIn),end=Math.min(cue.end,m.trimOut);if(end-start>.1)cues.push({start:offset+start-m.trimIn,end:offset+end-m.trimIn,text:cue.text});}offset+=m.trimOut-m.trimIn;}return cues}
 function exportSrt(moments,name){if(!moments.length||moments.some(m=>!timedCues(m).some(c=>c.end>m.trimIn&&c.start<m.trimOut)||!m.captionReviewed[m.captionLanguage])){message('Listen through and confirm each subtitle track before exporting SRT.');return;}const lines=sequenceCues(moments).map((cue,index)=>`${index+1}\n${srtTime(cue.start)} --> ${srtTime(cue.end)}\n${cue.text}\n`).join('\n');download(new Blob([lines],{type:'text/plain;charset=utf-8'}),name);}
 $('srtButton').onclick=()=>{const m=state.moments.find(x=>x.id===state.selected);if(m)exportSrt([m],`context-desk-${Math.floor(m.start)}.srt`)};
-async function queueVideoExport(moments,name,{draft=false,openJobs=true}={}){
+async function queueVideoExport(moments,name,{draft=false,openJobs=true,subtitleMode='current'}={}){
   setActivity('export-save','Saving your edit','Preparing a durable render job…');
-  try{const destination=$('socialDestination').value,issue=socialExportIssue(destination,{duration:moments.reduce((n,m)=>n+m.trimOut-m.trimIn,0),aspect:state.aspect,quality:$('exportQuality').value,format:$('exportFormat').value==='webm'?'webm':'mp4'});if(issue)throw Error(issue);for(const m of moments)inheritCaptionTarget(m,projectCaptionTarget());await projectSession.flush();const j=await requestJson('/api/exports',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({projectId:projectSession.current.id,momentIds:moments.map(m=>m.id),aspect:state.aspect,quality:$('exportQuality').value==='source'?'source':Number($('exportQuality').value),format:$('exportFormat').value==='webm'?'webm':'mp4',destination,draft,name})});await jobsView.refresh();if(openJobs){allExports=false;showWorkspace('exports')}return j}finally{finishActivity('export-save')}
+  try{const destination=$('socialDestination').value,issue=socialExportIssue(destination,{duration:moments.reduce((n,m)=>n+m.trimOut-m.trimIn,0),aspect:state.aspect,quality:$('exportQuality').value,format:$('exportFormat').value==='webm'?'webm':'mp4'});if(issue)throw Error(issue);for(const m of moments)inheritCaptionTarget(m,projectCaptionTarget());await projectSession.flush();const j=await requestJson('/api/exports',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({projectId:projectSession.current.id,momentIds:moments.map(m=>m.id),aspect:state.aspect,quality:$('exportQuality').value==='source'?'source':Number($('exportQuality').value),format:$('exportFormat').value==='webm'?'webm':'mp4',destination,draft,subtitleMode,name})});await jobsView.refresh();if(openJobs){allExports=false;showWorkspace('exports')}return j}finally{finishActivity('export-save')}
 }
 $('exportButton').onclick=async()=>{
   const moment=state.moments.find(item=>item.id===state.selected);
@@ -1462,7 +1463,8 @@ $('exportButton').onclick=async()=>{
   if(!moment||button.disabled)return;
   feedback.textContent='';
   if(!validateTrim()){feedback.textContent='Set the clip start before the end, then try again.';return}
-  if(!validateCaptions(moment)){
+  const subtitleMode=$('exportSubtitleMode').value;
+  if(subtitleMode==='current'&&!validateCaptions(moment)){
     feedback.textContent=$('captionStatus').textContent+' ';
     const review=document.createElement('button');
     review.type='button';review.textContent='Review subtitles';
@@ -1472,7 +1474,7 @@ $('exportButton').onclick=async()=>{
   }
   button.disabled=true;
   try{
-    await queueVideoExport([moment],`context-desk-${Math.floor(moment.start)}-edit`);
+    await queueVideoExport([moment],`context-desk-${Math.floor(moment.start)}-edit`,{subtitleMode});
     moment.exportedAt=Date.now();projectSession?.changed();
   }catch(error){feedback.textContent=error.message}
   finally{button.disabled=false}

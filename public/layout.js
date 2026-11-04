@@ -77,7 +77,9 @@ export function mountLayout({navigate,onFilter,onView,onTrim,onSource}){
   const storyPanel=element('div','story-panel');storyPanel.id='storyInspector';
   const exportPanel=element('div','studio-export');
   exportPanel.insertAdjacentHTML('afterbegin','<div class="social-export"><div><h3>Video file settings</h3><p>Create a video file from your current trim. You can download or publish it when it’s ready.</p></div><label for="socialDestination">Export for<select id="socialDestination"><option value="custom">Custom export</option><option value="tiktok">TikTok</option><option value="instagram">Instagram Reels</option><option value="facebook">Facebook Reels</option><option value="shorts">YouTube Shorts</option><option value="youtube">YouTube video</option></select></label><button id="applySocialPreset" type="button">Apply preset</button><p id="socialExportHint" role="status">Your current edit and export settings.</p></div>');
-  const exportFeedback=element('p','export-feedback');exportFeedback.id='exportFeedback';exportFeedback.setAttribute('role','alert');exportPanel.append(exportFeedback);
+  const subtitleOptions=element('div','export-subtitle-options','<label for="exportSubtitleMode">Subtitles<select id="exportSubtitleMode"><option value="current">Use clip settings</option><option value="unreviewed">Include unreviewed subtitles</option><option value="none">Export without subtitles</option></select></label><p>Unreviewed subtitles may contain errors. This choice applies to this export only.</p>');
+  exportPanel.append(subtitleOptions);
+  const exportFeedback=element('p','export-feedback');exportFeedback.id='exportFeedback';exportFeedback.setAttribute('role','alert');exportPanel.append(exportFeedback);$('exportSubtitleMode').onchange=()=>{exportFeedback.textContent=''};
   for(const selector of ['.export-settings','.export-actions','#lastExport','#approveBatch','#addToCut','.export-hint']){const node=one(selector);if(node)exportPanel.append(node)}
   for(const child of [...story.children])if(child!==caption)storyPanel.append(child);storyPanel.prepend(viewSource);
   const stylePanel=element('section','style-panel','<h3>Make it your own.</h3><p>Caption styles and framing, with the same treatment in preview and export.</p><div id="captionTemplates" class="caption-templates"></div>');stylePanel.id='styleInspector';
@@ -87,7 +89,7 @@ export function mountLayout({navigate,onFilter,onView,onTrim,onSource}){
   const panels={caption,style:stylePanel,story:storyPanel,export:exportPanel};
   function inspector(active){for(const [name,panel]of Object.entries(panels)){panel.hidden=name!==active;$(name+'Tab').setAttribute('aria-pressed',String(name===active))}}
   for(const name of Object.keys(panels))$(name+'Tab').onclick=()=>inspector(name);inspector('caption');
-  const exportTrigger=element('button','studio-export-trigger',icon('export')+'Export clip');exportTrigger.id='studioExportTrigger';exportTrigger.type='button';exportTrigger.onclick=()=>{inspector('export');$('socialDestination').focus()};one('.editor-title').append(exportTrigger);
+  const exportTrigger=element('button','studio-export-trigger',icon('export')+'Export clip');exportTrigger.id='studioExportTrigger';exportTrigger.type='button';exportTrigger.onclick=()=>{inspector('export');$('exportSubtitleMode').focus()};one('.editor-title').append(exportTrigger);
   const cover=element('button','','Download cover frame');cover.id='saveCoverFrame';cover.type='button';exportPanel.append(cover);
   const navigator=element('aside','studio-clips','<div class="studio-clips-heading"><h3>Clips</h3><span id="studioClipCount"></span></div><div id="studioClipList"></div>');navigator.setAttribute('aria-label','Switch clips');one('.editor-grid').prepend(navigator);
   const advanced=element('details','caption-advanced','<summary>Timing, dialect & advanced tools</summary>');
