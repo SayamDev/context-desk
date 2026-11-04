@@ -29,3 +29,14 @@ test('a repeated context check reuses the Muse result and falls back to saved di
   key='';
   assert.deepEqual((await run()).beats.map(beat=>beat.role),['Before the cut','Inside the cut','After the cut']);
 });
+
+test('only a supported subtitle correction can carry a replacement draft',()=>{
+  const {lines}=contextLines(moment);
+  const beats=contextBeats({beats:[
+    {line:0,role:'Setup',suggestion:'Discard me'},
+    {line:1,role:'Subtitle to check',suggestion:'Yes, I did.'}
+  ]},lines);
+  assert.equal(beats[0].suggestion,'');
+  assert.equal(beats[1].suggestion,'Yes, I did.');
+  assert.equal(contextBeats({beats:[{line:2,role:'Subtitle to check',suggestion:'Missing translation'}]},lines)[0].suggestion,'');
+});

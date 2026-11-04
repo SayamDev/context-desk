@@ -124,6 +124,21 @@ const contextCheck=mountContextCheck({
     stopCutPreview();clipVideo.pause();await mediaReady(clipVideo);
     if(state.selected===moment.id)await seekPreview(mediaTime(moment,time));
   },
+  applySubtitle:(moment,language,beat)=>{
+    const normalize=value=>String(value??'').replace(/\s+/g,' ').trim();
+    const source=moment.captionCues.Original.find(cue=>cue.start===beat.start&&cue.end===beat.end);
+    const candidates=(moment.captionCues[language]||[]).filter(cue=>cue.start===beat.start&&normalize(cue.text)===beat.translation);
+    if(state.moments.find(m=>m.id===state.selected)!==moment||moment.captionLanguage!==language||
+       language==='Original'||normalize(source?.text)!==beat.original||candidates.length!==1)
+      throw Error('This line or its language has changed. Run Check the Context again.');
+    performEdit('context-subtitle',()=>{
+      const cue=candidates[0];
+      cue.text=beat.suggestion;delete cue.words;cue.uncertain=true;
+      cue.reviewReason='Suggested by Muse Spark. Verify this wording against the original audio.';
+      moment.captionReviewed[language]=false;
+      renderEditor();
+    });
+  },
   include:(moment,time)=>{
     if(state.selected!==moment.id||time<0||time>=moment.trimIn)return false;
     performEdit('include-setup',()=>{moment.trimIn=time;renderQueue(false);renderEditor();updatePreviewTime()});

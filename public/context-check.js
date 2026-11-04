@@ -1,4 +1,4 @@
-export function mountContextCheck({after,getMoment,request,seek,include,formatTime}){
+export function mountContextCheck({after,getMoment,request,seek,include,applySubtitle,formatTime}){
   const panel=document.createElement('details');
   panel.className='context-check';
   panel.innerHTML='<summary>Check the Context</summary><p>Review the dialogue around your cut and compare it with the draft subtitles.</p><button type="button" class="cd-btn cd-btn-secondary">Find story beats</button><p role="status"></p><ol></ol>';
@@ -25,6 +25,16 @@ export function mountContextCheck({after,getMoment,request,seek,include,formatTi
       };
       action('Jump to line',()=>seek(moment,beat.start));
       if(beat.start<moment.trimIn&&['Setup','Before the cut'].includes(beat.role))action('Include setup',async()=>{if(include(moment,beat.start)){await seek(moment,beat.start);status.textContent='Setup included. Press Play to review the new start.'}});
+      if(beat.suggestion&&result.language){
+        const proposal=document.createElement('p');
+        const label=document.createElement('strong'),wording=document.createElement('span');
+        label.textContent='Suggested subtitle ';wording.dir='auto';wording.textContent=beat.suggestion;
+        proposal.append(label,wording);row.append(proposal);
+        action('Use as draft',()=>{
+          applySubtitle(moment,result.language,beat);
+          status.textContent='Draft updated. Listen back and review before export.';
+        });
+      }
       return row;
     }));
   }
