@@ -77,7 +77,18 @@ let titleCards=null,chaptersView=null,askView=null,clipFromRange=null,cultureVie
 let jobsView=null,layout=null,homeView=null,discoveryTools=null,liveControls=null,liveBuffer=null,connectionsView=null,libraryView='list',startupNavigation=true;const entryWorkspace=workspaceFromHash(location.hash);let requestedWorkspace=entryWorkspace;
 let allExports=false,workspaceHelp=null;
 const exportScope=document.createElement('button');
-exportScope.type='button';exportScope.hidden=true;
+const exportStart=document.createElement('section');
+exportStart.className='export-start';
+exportStart.hidden=true;
+exportStart.innerHTML='<div><h2 id="exportScopeTitle">Finished files</h2><p id="exportNextStep"></p></div><button id="beginExport" type="button" class="cd-btn cd-btn-primary"></button>';
+$('jobsPanel').prepend(exportStart);
+$('beginExport').onclick=async()=>{
+  if(!projectSession.current){navigateWorkspace('library');return}
+  if(!state.selected){navigateWorkspace('clips');return}
+  await navigateWorkspace('edit');
+  if(document.body.dataset.workspace==='edit')$('studioExportTrigger').click();
+};
+exportScope.type='button';exportScope.className='cd-btn cd-btn-secondary';exportScope.hidden=true;
 document.querySelector('#jobsPanel .library-heading').append(exportScope);
 exportScope.onclick=()=>{allExports=!allExports;syncProjectNavigation()};
 const projectViews=new Set(['clips','full','edit','exports']);
@@ -101,6 +112,10 @@ function syncProjectNavigation(view=document.body.dataset.workspace){
   const heading=document.querySelector('#jobsPanel .library-heading h2');
   if(heading)heading.textContent=view==='exports'?(project&&!allExports?'Files for this project':'Files from all projects'):'Activity across projects';
   jobsView?.setProject(view==='exports'&&!allExports?project:null,view==='exports');
+  exportStart.hidden=view!=='exports';
+  $('exportScopeTitle').textContent=project&&!allExports?'Files for this project':'Files from all projects';
+  $('exportNextStep').textContent=state.selected&&project?'Create a video from your selected clip, or download a finished file below.':project?'Pick a clip to create a video file. Finished files appear below.':'Open a project and pick a clip to create a video file.';
+  $('beginExport').textContent=state.selected&&project?'Export selected clip':project?'Choose a clip':'Open a project';
   exportScope.hidden=view!=='exports'||!project;exportScope.textContent=allExports?'Show this project only':'Show exports from all projects';
 }
 function showWorkspace(view){
@@ -365,7 +380,7 @@ function updateSourceQuality(){
   $('sourceQuality').textContent=`Source ${width} × ${height}${fps?' · '+Math.round(fps)+' FPS':''} · ${audio}${height<1080?' · 1080p export will upscale this picture':''}`;
   $('sourceQuality').hidden=false;
 }
-function updateButtons(){ renderWholeSubtitles();program.hidden=!state.source;if(!state.source){$('emptySource').querySelector('strong').textContent=state.moments.length?'Your recorded windows are saved.':'One source. All the possibilities.';$('emptySource').querySelector('p').textContent=state.moments.length?'Open a window below to review and edit its saved video and audio.':'Paste a video link above. We’ll prepare it and start looking for clips.';} $('sourceSummary').hidden=!state.source;$('sourceSummary').textContent=state.source?'Source · '+state.sourceName:''; $('fullFrame').disabled=state.sourceType!=='screen'; document.body.classList.toggle('is-scanning',state.scanning);document.body.classList.toggle('has-source',Boolean(state.source));$('scanButton').disabled=!state.source||(state.sourceType==='screen'&&!state.stageCrop); $('disconnectButton').disabled=!state.source; $('markButton').disabled=!state.scanning; $('autoCrop').disabled=state.sourceType!=='screen'; $('pickCrop').disabled=state.sourceType!=='screen'; $('applyCrop').disabled=!state.cropDraft; $('resetCrop').disabled=state.sourceType!=='screen'; $('scanButton').innerHTML=state.scanning?'Stop scan <b></b>':state.sourceType==='file'?'Scan as it plays <b></b>':'Start scan <b></b>'; $('liveIndicator').textContent=state.scanning?'● Monitoring':'● Standby'; $('liveIndicator').classList.toggle('on',state.scanning); }
+function updateButtons(){ renderWholeSubtitles();program.hidden=!state.source;if(!state.source){$('emptySource').querySelector('strong').textContent=state.moments.length?'Your recorded windows are saved.':'One source. All the possibilities.';$('emptySource').querySelector('p').textContent=state.moments.length?'Open a window below to review and edit its saved video and audio.':'Paste a video link above. We’ll prepare it and start looking for clips.';} $('sourceSummary').hidden=!state.source;$('sourceSummary').textContent=state.source?'Source · '+state.sourceName:''; $('fullFrame').disabled=state.sourceType!=='screen'; document.body.classList.toggle('is-scanning',state.scanning);document.body.classList.toggle('has-source',Boolean(state.source));$('scanButton').disabled=!state.source||(state.sourceType==='screen'&&!state.stageCrop); $('disconnectButton').disabled=!state.source; $('markButton').disabled=!state.scanning; $('autoCrop').disabled=state.sourceType!=='screen'; $('pickCrop').disabled=state.sourceType!=='screen'; $('applyCrop').disabled=!state.cropDraft; $('resetCrop').disabled=state.sourceType!=='screen'; $('scanButton').innerHTML=state.scanning?'Stop scan <b></b>':state.sourceType==='file'?'Scan as it plays <b></b>':'Start scan <b></b>'; $('liveIndicator').textContent=state.scanning?'Monitoring':state.sourceType==='screen'?'Live feed':state.source?'Recording':'No source'; $('liveIndicator').classList.toggle('on',state.scanning); }
 // Shown when the server runs older code than the files on disk (or is too old to say): newer
 // app files would call endpoints it lacks, so saves are refused and kept as a recovery copy.
 function showServerStale(stale){let banner=$('serverStale');if(!stale){banner?.remove();return}if(banner)return;banner=Object.assign(document.createElement('div'),{id:'serverStale',className:'server-stale',role:'alert'});banner.append(Object.assign(document.createElement('strong'),{textContent:'Restart Context Desk to finish updating. '}),document.createTextNode('The local server is running older code. Stop it in its terminal (Ctrl+C) and start it again with npm run dev (or npm start). Until then, saving is paused and your edits are kept as a recovery copy in the Library.'));document.body.prepend(banner)}
@@ -389,7 +404,7 @@ function noteDuplicate(job){if(job?.duplicate)toast(job.restored?'This video was
 async function loadVideoFile(file,{sourceLink='',auto=true}={}){
   if(!projectSession?.restoring){try{await finishCaptureForSwitch();await projectSession?.beforeSourceChange();editHistory.reset()}catch(error){message(error.message);return}}
   cleanupSource();if(!projectSession?.restoring){state.moments=[];state.cut=[];state.selected=null;state.batchExports=[];state.exportHistory=[];state.aiCalls=0;state.windowCount=0;}const loadToken=state.sourceLoadToken;setActivity('source','Opening your video','Preparing the picture and original audio…');
-  state.sourceUrl=URL.createObjectURL(file);sourceUrls.add(state.sourceUrl);program.controls=true;program.muted=true;program.src=state.sourceUrl;state.source=file;state.sourceType='file';state.sourceName=file.name;state.sourcePageUrl=sourceLink;state.batchId=crypto.randomUUID();state.batchCancel=false;$('batchPanel').hidden=false;$('batchResults').innerHTML='';setSourceLabel(file.name);$('emptySource').hidden=true;updateButtons();
+  state.sourceUrl=URL.createObjectURL(file);sourceUrls.add(state.sourceUrl);program.controls=true;program.muted=false;program.volume=1;program.src=state.sourceUrl;state.source=file;state.sourceType='file';state.sourceName=file.name;state.sourcePageUrl=sourceLink;state.batchId=crypto.randomUUID();state.batchCancel=false;$('batchPanel').hidden=false;$('batchResults').innerHTML='';setSourceLabel(file.name);$('emptySource').hidden=true;updateButtons();
   try{await mediaReady(program);if(loadToken!==state.sourceLoadToken)return;if(program.duration>21600||file.size>20*1024*1024*1024)throw Error('Choose a recording up to 6 hours and 20 GB.');{ setActivity('source','Preparing your long recording','Copying the file into the local processing cache. The original stays on this computer.');state.sourceUploadAbort=new AbortController();const job=await stageLocalFile(file,{name:file.name,signal:state.sourceUploadAbort.signal});if(loadToken!==state.sourceLoadToken)return;noteDuplicate(job);state.source={importId:job.id,size:file.size,type:file.type,name:file.name};const previousUrl=state.sourceUrl;state.sourceUrl=job.mediaUrl;program.src=job.mediaUrl;await mediaReady(program);URL.revokeObjectURL(previousUrl);sourceUrls.delete(previousUrl);if(await projectSession.adopt(job.projectId||job.id))return;}$('batchButton').disabled=false;batchProgress(`${formatTime(program.duration)} ready · preparing your clip drop`);updateSourceQuality();await connectionReady;if(loadToken!==state.sourceLoadToken)return;renderQueue();showWorkspace('clips');if(auto&&pendingIntent==='translate'){finishActivity('source');batchProgress('Video ready. Subtitles for the whole video are below.');subtitleWholeVideo(projectCaptionTarget())}else if(auto&&$('autoGenerate').checked&&state.meta){finishActivity('source');await $('batchButton').onclick();}else batchProgress(state.meta?'Video ready. Choose Find clips to begin.':'Video ready. Add a Meta API key to enable automatic clip selection.');}
   catch(error){if(loadToken!==state.sourceLoadToken)return;showWorkspace('source');$('linkStatus').hidden=false;$('linkStatus').textContent=error.message||'This file could not be opened. Try an MP4 or WebM.';}
   finally{if(loadToken===state.sourceLoadToken)finishActivity('source')}
@@ -397,7 +412,7 @@ async function loadVideoFile(file,{sourceLink='',auto=true}={}){
 async function loadImportedVideo(job,sourceLink,{auto=true}={}){
   if(!projectSession?.restoring){try{await finishCaptureForSwitch();await projectSession?.beforeSourceChange();editHistory.reset()}catch(error){message(error.message);return}}
   cleanupSource();if(!projectSession?.restoring){state.moments=[];state.cut=[];state.selected=null;state.batchExports=[];state.exportHistory=[];state.aiCalls=0;state.windowCount=0;}const loadToken=state.sourceLoadToken;setActivity('source','Opening your recording','Streaming the video from this computer. Preparing a bounded clip scan…');
-  state.sourceUrl=job.mediaUrl;state.source={importId:job.id,size:job.size,type:job.mime,name:job.title};state.sourceType='file';state.sourceName=job.title;state.sourcePageUrl=sourceLink;state.batchId=crypto.randomUUID();state.batchCancel=false;program.controls=true;program.muted=true;program.src=job.mediaUrl;$('emptySource').hidden=true;$('batchPanel').hidden=false;$('batchResults').innerHTML='';setSourceLabel(job.title);updateButtons();
+  state.sourceUrl=job.mediaUrl;state.source={importId:job.id,size:job.size,type:job.mime,name:job.title};state.sourceType='file';state.sourceName=job.title;state.sourcePageUrl=sourceLink;state.batchId=crypto.randomUUID();state.batchCancel=false;program.controls=true;program.muted=false;program.volume=1;program.src=job.mediaUrl;$('emptySource').hidden=true;$('batchPanel').hidden=false;$('batchResults').innerHTML='';setSourceLabel(job.title);updateButtons();
   try{await mediaReady(program);if(loadToken!==state.sourceLoadToken)return;if(!projectSession?.restoring&&await projectSession.adopt(job.projectId||job.id))return;$('batchButton').disabled=false;updateSourceQuality();await connectionReady;if(loadToken!==state.sourceLoadToken)return;renderQueue();showWorkspace('clips');finishActivity('source');await afterImport(auto);}finally{if(loadToken===state.sourceLoadToken)finishActivity('source')}
 }
 // The home choice applies to imports started from Home; anywhere else they make clips.
@@ -933,10 +948,10 @@ function discardClips(ids){
 }
 function restoreClip(id){const m=state.moments.find(x=>x.id===id);if(!m)return;delete m.dismissed;renderQueue();toast('Clip restored.')}
 function inspectClip(id){inspectedId=id;renderInspector();$('queue').querySelector(`[data-card="${id}"]`)?.focus()}
-// Discover inspector: the clip in focus, its evidence and one-key actions, above the source monitor.
+// Discover inspector: the clip in focus, its evidence and one-key actions, below the source picture.
 function renderInspector(){
   let box=$('clipInspector');const host=document.querySelector('.monitor-panel');if(!host)return;
-  if(!box){box=el('section','ds-inspector');box.id='clipInspector';box.setAttribute('aria-label','Clip inspector');host.prepend(box)}
+  if(!box){box=el('section','ds-inspector');box.id='clipInspector';box.setAttribute('aria-label','Clip inspector');$('monitor').after(box)}
   const m=state.moments.find(x=>x.id===inspectedId);box.hidden=!m;if(!m){box.replaceChildren();box.dataset.clip='';return}
   if(box.dataset.clip===m.id&&box.dataset.rev===String(m.trimIn)+m.trimOut+m.captionStyle+state.aspect+clipState(m))return;
   box.dataset.clip=m.id;box.dataset.rev=String(m.trimIn)+m.trimOut+m.captionStyle+state.aspect+clipState(m);box.replaceChildren();
@@ -1024,6 +1039,7 @@ let editorLoadId=0;
 async function selectMoment(id,{scroll=true}={}){
   const m=state.moments.find(x=>x.id===id);if(!m)return;
   inheritCaptionTarget(m,projectCaptionTarget());queueCaptionTarget(m);
+  $('exportFeedback').textContent='';
   const loadId=++editorLoadId;if(state.sourceType==='file'){if(state.scanning)stopScan('Playback scan paused while editing.');program.pause()}stopCutPreview();clipVideo.pause();state.selected=id;
   layout?.holdFrames(true);showWorkspace('edit');renderQueue();renderEditor();setActivity('preview','Loading clip preview','Opening the selected source window…');
   try{await mediaReady(clipVideo);if(loadId!==editorLoadId)return;await seekPreview(mediaTime(m,m.trimIn));if(loadId!==editorLoadId)return;setPreviewSize();updatePreviewTime();}
@@ -1440,7 +1456,27 @@ async function queueVideoExport(moments,name,{draft=false,openJobs=true}={}){
   setActivity('export-save','Saving your edit','Preparing a durable render job…');
   try{const destination=$('socialDestination').value,issue=socialExportIssue(destination,{duration:moments.reduce((n,m)=>n+m.trimOut-m.trimIn,0),aspect:state.aspect,quality:$('exportQuality').value,format:$('exportFormat').value==='webm'?'webm':'mp4'});if(issue)throw Error(issue);for(const m of moments)inheritCaptionTarget(m,projectCaptionTarget());await projectSession.flush();const j=await requestJson('/api/exports',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({projectId:projectSession.current.id,momentIds:moments.map(m=>m.id),aspect:state.aspect,quality:$('exportQuality').value==='source'?'source':Number($('exportQuality').value),format:$('exportFormat').value==='webm'?'webm':'mp4',destination,draft,name})});await jobsView.refresh();if(openJobs){allExports=false;showWorkspace('exports')}return j}finally{finishActivity('export-save')}
 }
-$('exportButton').onclick=async()=>{const m=state.moments.find(x=>x.id===state.selected);if(!m||!validateTrim()||!validateCaptions(m))return;try{await queueVideoExport([m],`context-desk-${Math.floor(m.start)}-edit`);m.exportedAt=Date.now();projectSession?.changed()}catch(error){$('editorStatus').textContent=error.message}};
+$('exportButton').onclick=async()=>{
+  const moment=state.moments.find(item=>item.id===state.selected);
+  const button=$('exportButton'),feedback=$('exportFeedback');
+  if(!moment||button.disabled)return;
+  feedback.textContent='';
+  if(!validateTrim()){feedback.textContent='Set the clip start before the end, then try again.';return}
+  if(!validateCaptions(moment)){
+    feedback.textContent=$('captionStatus').textContent+' ';
+    const review=document.createElement('button');
+    review.type='button';review.textContent='Review subtitles';
+    review.onclick=()=>{$('captionTab').click();$('captionTab').focus()};
+    feedback.append(review);
+    return;
+  }
+  button.disabled=true;
+  try{
+    await queueVideoExport([moment],`context-desk-${Math.floor(moment.start)}-edit`);
+    moment.exportedAt=Date.now();projectSession?.changed();
+  }catch(error){feedback.textContent=error.message}
+  finally{button.disabled=false}
+};
 
 let lastExportUrl=null;
 function download(blob,name){if(lastExportUrl)URL.revokeObjectURL(lastExportUrl);lastExportUrl=URL.createObjectURL(blob);const a=$('lastExport');a.href=lastExportUrl;a.download=name;a.textContent=`Download ${name.toUpperCase()}  `;a.hidden=false;a.click();void preserveExport(blob,name);}

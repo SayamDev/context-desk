@@ -104,7 +104,8 @@ test('a trashed video is deleted for good, and Empty Trash also clears leftover 
     assert.equal(await page.locator('#program').isVisible(),true);
     await projectNav.getByRole('button',{name:'Exports',exact:true}).click();
     await page.waitForURL(/#\/exports$/);
-    assert.equal(await page.getByRole('heading',{name:'Chapter timestamps',exact:true}).isVisible(),true);
+    await page.getByRole('button',{name:'Choose a clip',exact:true}).waitFor();
+    assert.equal(await page.getByRole('heading',{name:'Chapter timestamps',exact:true}).isVisible(),false);
     await projectNav.getByRole('button',{name:'Clips',exact:true}).click();
 
     const [uploaded]=(await (await fetch(app.url+'/api/projects')).json()).projects,sourceDir=path.join(app.dataDir,'sources',uploaded.sourceId);
@@ -148,7 +149,7 @@ test('Home > Subtitles for the whole video opens the whole-video track instead o
   }finally{await app.stop();await fs.rm(dir,{recursive:true,force:true})}
 });
 
-test('keyboard and screen readers: skip link, one main region, clip list before the monitor, Arabic titles keep their direction',async()=>{
+test('keyboard and screen readers: skip link, one main region, monitor before the clip list, Arabic titles keep their direction',async()=>{
   const app=await startApp({env:{FFMPEG_PATH:ffmpeg}});
   try{
     const {page,problems}=await watchedPage(browser,app.url);
@@ -159,7 +160,7 @@ test('keyboard and screen readers: skip link, one main region, clip list before 
     assert.equal(await page.evaluate(()=>document.activeElement.id),'main');assert.equal(await page.evaluate(()=>location.hash),hash);
     await page.goto(app.url+'/#/discover');
     await page.waitForFunction(()=>document.body.dataset.workspace==='clips');
-    assert.equal(await page.evaluate(()=>Boolean(document.querySelector('.queue-panel').compareDocumentPosition(document.querySelector('.monitor-panel'))&Node.DOCUMENT_POSITION_FOLLOWING)),true);
+    assert.equal(await page.evaluate(()=>Boolean(document.querySelector('.monitor-panel').compareDocumentPosition(document.querySelector('.queue-panel'))&Node.DOCUMENT_POSITION_FOLLOWING)),true);
     assert.equal(await page.evaluate(()=>getComputedStyle(document.getElementById('projectTitle')).unicodeBidi),'plaintext');
     assert.deepEqual(problems,[]);
   }finally{await app.stop()}

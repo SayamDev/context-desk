@@ -52,7 +52,11 @@ export function mountLayout({navigate,onFilter,onView,onTrim,onSource}){
   const batch=$('batchPanel');monitor.append(batch);monitor.append(setup);
   one('.batch-head h2').textContent='Find the story';one('.batch-head p').textContent='Scan across your recording. Each suggestion stays linked to its source.';
   $('clipTarget').closest('label').firstChild.textContent='Moment target ';
-  const queue=one('.queue-panel');queue.querySelector('.panel-heading>span').textContent='Story discovery';
+  const queue=one('.queue-panel');
+  const jumpClips=element('button','monitor-jump','Jump to clips');
+  jumpClips.type='button';
+  monitor.querySelector('.panel-heading').append(jumpClips);
+  jumpClips.onclick=()=>{queue.tabIndex=-1;queue.focus({preventScroll:true});queue.scrollIntoView({block:'start'})};queue.querySelector('.panel-heading>span').textContent='Story discovery';
   one('.queue-intro').replaceChildren();
   const filter=element('div','moment-filters','<label class="sr-only" for="momentSearch">Search retained moments</label><input id="momentSearch" type="search" placeholder="Search dialogue or evidence…"><label for="momentFilter">Show<select id="momentFilter"><option value="supported">Clip suggestions</option><option value="all">All saved windows</option><option value="attention">Needs attention</option></select></label><span id="momentResultCount" role="status"></span>');
   queue.insertBefore(filter,$('queue'));$('momentSearch').oninput=onFilter;$('momentFilter').onchange=onFilter;
@@ -72,7 +76,8 @@ export function mountLayout({navigate,onFilter,onView,onTrim,onSource}){
   const tabs=element('div','inspector-tabs','<button id="captionTab" type="button" aria-pressed="true">Captions</button><button id="styleTab" type="button" aria-pressed="false">Style</button><button id="storyTab" type="button" aria-pressed="false">Story</button><button id="exportTab" type="button" aria-pressed="false">Export</button>');
   const storyPanel=element('div','story-panel');storyPanel.id='storyInspector';
   const exportPanel=element('div','studio-export');
-  exportPanel.insertAdjacentHTML('afterbegin','<div class="social-export"><div><h3>Made for your next post.</h3><p>Choose a destination, export, then upload your finished file.</p></div><label for="socialDestination">Export for<select id="socialDestination"><option value="custom">Custom export</option><option value="tiktok">TikTok</option><option value="instagram">Instagram Reels</option><option value="facebook">Facebook Reels</option><option value="shorts">YouTube Shorts</option><option value="youtube">YouTube video</option></select></label><button id="applySocialPreset" type="button">Apply preset</button><p id="socialExportHint" role="status">Your current edit and export settings.</p></div>');
+  exportPanel.insertAdjacentHTML('afterbegin','<div class="social-export"><div><h3>Video file settings</h3><p>Create a video file from your current trim. You can download or publish it when it’s ready.</p></div><label for="socialDestination">Export for<select id="socialDestination"><option value="custom">Custom export</option><option value="tiktok">TikTok</option><option value="instagram">Instagram Reels</option><option value="facebook">Facebook Reels</option><option value="shorts">YouTube Shorts</option><option value="youtube">YouTube video</option></select></label><button id="applySocialPreset" type="button">Apply preset</button><p id="socialExportHint" role="status">Your current edit and export settings.</p></div>');
+  const exportFeedback=element('p','export-feedback');exportFeedback.id='exportFeedback';exportFeedback.setAttribute('role','alert');exportPanel.append(exportFeedback);
   for(const selector of ['.export-settings','.export-actions','#lastExport','#approveBatch','#addToCut','.export-hint']){const node=one(selector);if(node)exportPanel.append(node)}
   for(const child of [...story.children])if(child!==caption)storyPanel.append(child);storyPanel.prepend(viewSource);
   const stylePanel=element('section','style-panel','<h3>Make it your own.</h3><p>Caption styles and framing, with the same treatment in preview and export.</p><div id="captionTemplates" class="caption-templates"></div>');stylePanel.id='styleInspector';
@@ -82,7 +87,7 @@ export function mountLayout({navigate,onFilter,onView,onTrim,onSource}){
   const panels={caption,style:stylePanel,story:storyPanel,export:exportPanel};
   function inspector(active){for(const [name,panel]of Object.entries(panels)){panel.hidden=name!==active;$(name+'Tab').setAttribute('aria-pressed',String(name===active))}}
   for(const name of Object.keys(panels))$(name+'Tab').onclick=()=>inspector(name);inspector('caption');
-  const exportTrigger=element('button','studio-export-trigger',icon('export')+'Export clip ↗');exportTrigger.id='studioExportTrigger';exportTrigger.type='button';exportTrigger.onclick=()=>{inspector('export');$('socialDestination').focus()};one('.editor-title').append(exportTrigger);
+  const exportTrigger=element('button','studio-export-trigger',icon('export')+'Export clip');exportTrigger.id='studioExportTrigger';exportTrigger.type='button';exportTrigger.onclick=()=>{inspector('export');$('socialDestination').focus()};one('.editor-title').append(exportTrigger);
   const cover=element('button','','Download cover frame');cover.id='saveCoverFrame';cover.type='button';exportPanel.append(cover);
   const navigator=element('aside','studio-clips','<div class="studio-clips-heading"><h3>Clips</h3><span id="studioClipCount"></span></div><div id="studioClipList"></div>');navigator.setAttribute('aria-label','Switch clips');one('.editor-grid').prepend(navigator);
   const advanced=element('details','caption-advanced','<summary>Timing, dialect & advanced tools</summary>');
@@ -97,7 +102,7 @@ export function mountLayout({navigate,onFilter,onView,onTrim,onSource}){
   const originalEvidence=one('.evidence');originalEvidence.querySelector('summary').textContent='Source evidence & story shape';
   one('.more-exports summary').textContent='Other exports';
   $('backToClips').textContent='Clips';
-  setButtonLabel('backToClips','Clips','back');setButtonLabel('playPause','Play','play');setButtonLabel('restartClip','Restart','restart');setButtonLabel('exportButton','Export clip','export');
+  setButtonLabel('backToClips','Clips','back');setButtonLabel('playPause','Play','play');setButtonLabel('restartClip','Restart','restart');setButtonLabel('exportButton','Create video file','export');
   one('footer').innerHTML='<span>Context Desk · Open-source production studio</span><span>Local projects. Source-linked stories.</span>';
   // Newly mounted navigation uses the same owning workspace controller.
   nav.querySelectorAll('button').forEach(button=>button.onclick=()=>navigate(button.dataset.workspace));
@@ -110,7 +115,7 @@ export function mountLayout({navigate,onFilter,onView,onTrim,onSource}){
       // On Clips the list sits left of the monitor; put it first in the page too, so keyboard and
       // screen-reader order match what is seen. Only the list moves: moving the monitor's video would pause it.
       const desk=one('.desk'),queue=one('.queue-panel'),monitor=one('.monitor-panel');
-      if(desk&&queue&&monitor&&queue.parentElement===desk&&monitor.parentElement===desk){if(view==='clips')desk.insertBefore(queue,monitor);else monitor.after(queue)}},
+      if(desk&&queue&&monitor&&queue.parentElement===desk&&monitor.parentElement===desk){if(view==='clips')desk.insertBefore(monitor,queue);else monitor.after(queue)}},
     inspector,
     setLibraryView(view){$('libraryRows').dataset.view=view;for(const [id,value] of [['libraryGrid','grid'],['libraryList','list']])$(id).setAttribute('aria-pressed',String(value===view));},
     syncPlayhead(moment,time){if(!moment)return;const duration=Math.max(.1,moment.end-moment.start);$('timelinePlayhead').style.left=Math.max(0,Math.min(100,time/duration*100))+'%';},

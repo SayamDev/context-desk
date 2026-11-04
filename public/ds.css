@@ -1164,3 +1164,30 @@ body[data-workspace=brand] .pagehead{max-width:68rem;margin-inline:auto}
  .brand-preview{border-inline-start:0;border-block-start:1px solid var(--line);border-radius:0 0 12px 12px}
  .brand-preview-frame{width:min(100%,136px)}
 }
+
+/* Keep the recording and its controls in the main reading order. */
+body.ds-shell[data-workspace=clips] .monitor-panel{position:static;max-height:none;overflow:visible}
+body.ds-shell[data-workspace=clips] .queue-panel{order:0}
+body.ds-shell[data-workspace=clips] .monitor{min-height:0}
+.monitor video[hidden],.monitor video[controls]~.monitor-overlay{display:none}
+.monitor{scroll-margin-top:80px}
+.export-start:not([hidden]){display:flex;justify-content:space-between;align-items:center;gap:16px;padding:16px;margin-block:12px;border-block:1px solid var(--line)}
+.export-start h2{font-size:18px;margin:0}
+.export-start p{color:var(--muted);margin:4px 0 0}
+.export-start button{flex:none}
+.export-feedback:empty{display:none}
+.export-feedback{padding:12px;border:1px solid var(--line-strong);color:var(--text);margin:0 0 12px}
+.export-feedback button{margin-inline-start:4px}
+body[data-workspace=exports] .job-actions a[download]:first-of-type{font-weight:750}
+@media(max-width:720px){.export-start:not([hidden]){align-items:flex-start;flex-direction:column}}
+.monitor-jump{display:none}
+.queue-panel{scroll-margin-top:80px}
+@media(max-width:1099px){
+ body[data-workspace=clips] .monitor-jump{display:inline-flex;min-height:44px;align-items:center}
+}
+body[data-workspace=exports] .ds-topdrop{display:none}
+@media(max-width:720px){
+ body[data-workspace=clips] :is(.ds-topdrop,.guide,.source-summary){display:none}
+}
+body[data-workspace=exports] #jobsPanel .library-heading{justify-content:flex-start;gap:8px}
+body[data-workspace=exports] #jobsPanel .library-heading button.cd-btn-secondary{background:var(--surface-raised);color:var(--text);border-color:var(--line-strong)}
