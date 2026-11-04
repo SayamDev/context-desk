@@ -383,6 +383,6 @@ See `UX-CONTRACT.md` for canonical owners, state/feedback/navigation rules and a
 
 ### Workspace wayfinding
 
-Home opens with one source form and the Setup, Turn, Payoff contact sheet. The shared link field is only shown away from Home. The global rail lists Home, Projects, Exports, Activity and Brand Kit. Global Exports opens the files from all projects; the Exports tab inside a project opens that project’s files. Activity shows queue progress and recovery actions. The two surfaces reuse the same underlying records.
+Home opens with one source form and a Setup, Turn, Payoff story breakdown linked to the editing guide. The shared link field is only shown away from Home. The global rail lists Home, Projects, Exports, Activity and Brand Kit. Global Exports opens the files from all projects; the Exports tab inside a project opens that project’s files. Activity shows queue progress and recovery actions. The two surfaces reuse the same underlying records.
 
 Guide opens inline, describes the current screen, and keeps the four-step recording-to-export workflow visible while open. The project progress strip stays on working screens. The bell shows unread job completions and failures noticed by the running app. Its recent history and read state are stored in that browser.
