@@ -17,9 +17,9 @@ test('a fresh install loads cleanly and the setup check names the missing AI key
   const app=await startApp({env:{FFMPEG_PATH:ffmpeg}});
   try{
     const {page,problems}=await watchedPage(browser,app.url);
-    await page.getByRole('button',{name:'Add a video'}).first().waitFor();
+    await page.getByRole('button',{name:'New project',exact:true}).waitFor();
     const setup=page.locator('.setup-check');
-    await setup.waitFor();
+    await setup.locator('summary').click();
     assert.match(await setup.innerText(),/AI key \(Meta\)/);
     assert.doesNotMatch(await setup.innerText(),/FFmpeg/);
     assert.deepEqual(problems,[]);
@@ -30,6 +30,7 @@ test('the setup check lists FFmpeg and captions when FFmpeg is missing',async()=
   const app=await startApp({env:{FFMPEG_PATH:'/nonexistent/ffmpeg'}});
   try{
     const {page}=await watchedPage(browser,app.url);
+    await page.locator('.setup-check summary').click();
     const text=await page.locator('.setup-check').innerText();
     assert.match(text,/FFmpeg \(video processing\)/);
     assert.match(text,/Burned-in captions/);
@@ -43,7 +44,7 @@ test('every workspace opens without errors, and Studio waits for a clip',async()
     const {page,problems}=await watchedPage(browser,app.url);
     const nav=workspace=>page.locator(`.workspace-nav [data-workspace=${workspace}]`);
     assert.ok(await nav('edit').isDisabled());
-    for(const workspace of ['library','clips','jobs']){
+    for(const workspace of ['library','jobs','brand']){
       await nav(workspace).click();
       await page.waitForFunction(w=>document.body.dataset.workspace===w,workspace);
     }
@@ -74,7 +75,25 @@ test('an uploaded video becomes a saved project that survives a reload',async()=
   const app=await startApp({env:{FFMPEG_PATH:ffmpeg}});
   try{
     const {page,problems}=await watchedPage(browser,app.url);
+    const uploadButton=page.locator('#homeSourceActions .upload-button');
+    const target=await uploadButton.boundingBox();
+    let resumeUpload;
+    const uploadPaused=new Promise(resolve=>{resumeUpload=resolve});
+    await page.route('**/api/import/upload',async route=>{await uploadPaused;await route.continue()});
     await page.setInputFiles('#fileInput',file);
+    const loader=page.getByRole('dialog',{name:'Preparing your long recording'});
+    try{
+      await loader.waitFor();
+      assert.equal(await page.locator('#activityPanel').isVisible(),false);
+      await loader.getByRole('button',{name:'Cancel',exact:true}).waitFor();
+      await page.keyboard.press('Escape');
+      assert.equal(await loader.isVisible(),true);
+      let chooserOpened=false;
+      page.once('filechooser',()=>{chooserOpened=true});
+      await page.mouse.click(target.x+target.width/2,target.y+target.height/2);
+      assert.equal(chooserOpened,false);
+    }finally{resumeUpload()}
+    await loader.waitFor({state:'hidden'});
     await page.waitForURL(/#\/discover$/);
     await page.getByText('Video ready. Add a Meta API key').waitFor();
     await page.getByText('All changes saved',{exact:false}).first().waitFor();
@@ -82,9 +101,29 @@ test('an uploaded video becomes a saved project that survives a reload',async()=
     assert.equal(projects.length,1);
     assert.equal(projects[0].title,'sample.mp4');
     assert.equal(Math.round(projects[0].duration),6);
-    await page.reload({waitUntil:'networkidle'});
+    let resumeRestore;
+    const restorePaused=new Promise(resolve=>{resumeRestore=resolve});
+    await page.route('**/api/preferences',async route=>{await restorePaused;await route.continue()});
+    await page.reload({waitUntil:'domcontentloaded'});
+    const restoring=page.getByRole('dialog',{name:'Opening your saved workspace'});
+    try{
+      await restoring.waitFor();
+      assert.equal(await page.locator('.workspace-nav').isVisible(),false);
+      assert.equal(await page.locator('#activityPanel').isVisible(),false);
+    }finally{resumeRestore()}
+    await restoring.waitFor({state:'hidden'});
     await page.waitForFunction(()=>document.querySelector('#projectTitle')?.value==='sample.mp4');
     assert.equal(await page.evaluate(()=>document.body.dataset.workspace),'clips');
+    await page.getByRole('navigation',{name:'Project',exact:true}).getByRole('button',{name:'Full video',exact:true}).click();
+    await page.getByRole('button',{name:'Edit video in Studio'}).click();
+    await page.waitForURL(/#\/studio$/);
+    await page.waitForFunction(()=>document.getElementById('clipVideo').readyState>=2);
+    await page.locator('#trimOut').fill('4');
+    await page.locator('#trimOut').blur();
+    await page.waitForFunction(async id=>{
+      const project=await (await fetch('/api/projects/'+id)).json();
+      return project.state.moments.some(moment=>moment.trimOut===4);
+    },projects[0].id);
     assert.deepEqual(problems,[]);
   }finally{await app.stop();await fs.rm(dir,{recursive:true,force:true})}
 });
@@ -97,10 +136,24 @@ test('a trashed video is deleted for good, and Empty Trash also clears leftover 
   try{
     const {page,problems}=await watchedPage(browser,app.url);
     await page.setInputFiles('#fileInput',file);await page.getByText('All changes saved',{exact:false}).first().waitFor();
+    const projectNav=page.getByRole('navigation',{name:'Project',exact:true});
+    await projectNav.getByRole('button',{name:'Full video',exact:true}).click();
+    await page.waitForURL(/#\/full-video$/);
+    assert.equal(await page.locator('#program').isVisible(),true);
+    await projectNav.getByRole('button',{name:'Exports',exact:true}).click();
+    await page.waitForURL(/#\/exports$/);
+    await page.getByRole('button',{name:'Choose a clip',exact:true}).waitFor();
+    assert.equal(await page.getByRole('heading',{name:'Chapter timestamps',exact:true}).isVisible(),false);
+    await projectNav.getByRole('button',{name:'Clips',exact:true}).click();
+
     const [uploaded]=(await (await fetch(app.url+'/api/projects')).json()).projects,sourceDir=path.join(app.dataDir,'sources',uploaded.sourceId);
     assert.ok(await exists(sourceDir));
     await api('/api/projects/'+uploaded.id,{action:'trash',trashed:true});
-    await page.locator('.workspace-nav [data-workspace=library]').click();await page.locator('#showProjectTrash').check();
+    await page.getByRole('navigation',{name:'Workspace',exact:true}).getByRole('button',{name:'Home',exact:true}).click();
+    const actions=page.locator('.home-project-actions');
+    await actions.getByRole('button',{name:'All projects'}).waitFor();
+    await actions.getByRole('button',{name:'Trash (1)',exact:true}).click();
+    await page.getByRole('button',{name:'Delete forever'}).waitFor();
     page.once('dialog',dialog=>dialog.accept());
     await page.getByRole('button',{name:'Delete forever'}).click();
     await page.waitForFunction(()=>location.hash==='#/home');await page.waitForLoadState('networkidle');
@@ -131,14 +184,19 @@ test('Home > Subtitles for the whole video opens the whole-video track instead o
     // No AI key in tests: it explains what is needed instead of starting a clip scan.
     await page.getByText('Translating the whole recording needs the Meta key',{exact:false}).waitFor();
     assert.equal(await page.locator('#batchProgress').innerText(),'Video ready. Subtitles for the whole video are below.');
+    await page.waitForURL(/#\/full-video$/);
+    await page.locator('#program').evaluate(video=>{video.currentTime=1.5});
+    await page.waitForFunction(()=>!document.getElementById('program').seeking&&Object.entries(localStorage).some(([key,value])=>key.startsWith('context-desk:playhead:source:')&&Number(value)===1.5));
     await page.reload({waitUntil:'networkidle'});
+    await page.waitForFunction(()=>Math.abs(document.getElementById('program').currentTime-1.5)<.05);
+    assert.equal(await page.locator('#program').evaluate(video=>video.paused),true);
     await page.locator('.ds-rail .brand-home, a[aria-label="Context Desk home"]').first().click();
     assert.equal(await page.getByRole('radio',{name:'Subtitles for the whole video'}).isChecked(),true);
     assert.deepEqual(problems,[]);
   }finally{await app.stop();await fs.rm(dir,{recursive:true,force:true})}
 });
 
-test('keyboard and screen readers: skip link, one main region, clip list before the monitor, Arabic titles keep their direction',async()=>{
+test('keyboard and screen readers: skip link, one main region, recorded video is separate from clips, Arabic titles keep their direction',async()=>{
   const app=await startApp({env:{FFMPEG_PATH:ffmpeg}});
   try{
     const {page,problems}=await watchedPage(browser,app.url);
@@ -147,8 +205,9 @@ test('keyboard and screen readers: skip link, one main region, clip list before 
     assert.equal(await page.evaluate(()=>document.activeElement.textContent),'Skip to content');
     const hash=await page.evaluate(()=>location.hash);await page.keyboard.press('Enter');
     assert.equal(await page.evaluate(()=>document.activeElement.id),'main');assert.equal(await page.evaluate(()=>location.hash),hash);
-    await page.locator('.workspace-nav [data-workspace=clips]').click();
-    assert.equal(await page.evaluate(()=>Boolean(document.querySelector('.queue-panel').compareDocumentPosition(document.querySelector('.monitor-panel'))&Node.DOCUMENT_POSITION_FOLLOWING)),true);
+    await page.goto(app.url+'/#/discover');
+    await page.waitForFunction(()=>document.body.dataset.workspace==='clips');
+    assert.equal(await page.locator('#monitor').isVisible(),false);
     assert.equal(await page.evaluate(()=>getComputedStyle(document.getElementById('projectTitle')).unicodeBidi),'plaintext');
     assert.deepEqual(problems,[]);
   }finally{await app.stop()}

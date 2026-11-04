@@ -1,6 +1,6 @@
 // V2 shell, adapted from the selected 12ui screen family. Existing controls are
 // moved once, never cloned: their handlers and durable state remain canonical.
-const iconPaths={play:'m9 5 11 7-11 7Z',pause:'M8 5v14M16 5v14',restart:'M4 10a8 8 0 1 1 1 8M4 4v6h6',export:'M12 16V3m-5 5 5-5 5 5M4 15v6h16v-6',back:'m14 6-6 6 6 6',up:'m6 15 6-6 6 6',down:'m6 9 6 6 6-6',close:'m6 6 12 12M18 6 6 18'};
+const iconPaths={home:'m3 10 9-7 9 7v10H3zM9 20v-6h6v6',library:'M3 7h7l2 2h9v11H3z',exports:'M12 3v12m-4-4 4 4 4-4M4 17v4h16v-4',jobs:'M3 12h4l3-6 4 12 3-6h4',brand:'M12 3v4m0 10v4M3 12h4m10 0h4M8 8l4-4 4 4 4 4-4 4-4 4-4-4-4-4z',play:'m9 5 11 7-11 7Z',pause:'M8 5v14M16 5v14',restart:'M4 10a8 8 0 1 1 1 8M4 4v6h6',export:'M12 16V3m-5 5 5-5 5 5M4 15v6h16v-6',back:'m14 6-6 6 6 6',up:'m6 15 6-6 6 6',down:'m6 9 6 6 6-6',close:'m6 6 12 12M18 6 6 18'};
 export function icon(name){return '<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="'+(iconPaths[name]||iconPaths.play)+'"/></svg>'}
 export function setButtonLabel(id,label,name){const button=document.getElementById(id);button.innerHTML=icon(name);button.append(document.createTextNode(label));}
 export function mountLayout({navigate,onFilter,onView,onTrim,onSource}){
@@ -10,10 +10,11 @@ export function mountLayout({navigate,onFilter,onView,onTrim,onSource}){
   one('.rail')?.remove();
   one('.wordmark').innerHTML='<svg class="brand-symbol" viewBox="0 0 40 44" aria-hidden="true"><path d="M6 15 31 3M6 28 34 14M10 40 34 28" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"/></svg><div>Context Desk<small>Every moment has context.</small></div>';
   const homeButton=element('button','','Home');homeButton.dataset.workspace='home';homeButton.type='button';nav.prepend(homeButton);
-  const labels={home:'Home',library:'Library',clips:'Clips',edit:'Studio',jobs:'Exports',source:'New video'};
-  for(const value of ['home','library','clips','edit','jobs','source']){
+  const exportsButton=element('button','','Exports');exportsButton.type='button';exportsButton.dataset.workspace='exports';nav.append(exportsButton);
+  const labels={home:'Home',library:'Projects',clips:'Clips',edit:'Studio',jobs:'Activity',exports:'Exports',brand:'Brand Kit',source:'New project'};
+  for(const value of ['home','library','clips','edit','exports','jobs','brand','source']){
     const button=nav.querySelector(`[data-workspace="${value}"]`),count=button.querySelector('b');
-    button.replaceChildren(document.createTextNode(labels[value]));if(count)button.append(count);nav.append(button);
+    button.replaceChildren(document.createTextNode(labels[value]));if(['home','library','exports','jobs','brand'].includes(value))button.insertAdjacentHTML('afterbegin',icon(value));if(count)button.append(count);nav.append(button);
   }
   header.insertBefore(nav,one('.top-actions'));
   const trashNotice=element('aside','project-trash-notice','<p id="projectTrashMessage">This project is in Trash. Your media and edits are retained.</p><button id="restoreCurrentProject" type="button">Restore project</button>');trashNotice.id='projectTrashNotice';trashNotice.hidden=true;$('projectBar').after(trashNotice);
@@ -21,7 +22,7 @@ export function mountLayout({navigate,onFilter,onView,onTrim,onSource}){
   const settings=element('button','settings-trigger','Settings');settings.id='openSettings';settings.type='button';one('.top-actions').append(settings);
   one('.workspace-brand').remove();
   one('.library-heading h2').textContent='Your projects';
-  one('.library-heading p').textContent='Pick up where you left off. Your media, moments and edits stay together.';
+  one('.library-heading p').textContent='Open a project to watch its saved clips or edit them in Studio. Finished video files are in Exports.';
   const bundle=element('button','','Download selected ZIP');bundle.id='bundleSelected';bundle.type='button';bundle.disabled=true;one('#jobsPanel .library-heading').append(bundle);one('#jobsPanel .library-heading h2').textContent='Your work, in one place.';one('#jobsPanel .library-heading p').textContent='Follow processing and collect your finished videos. This page is here when you need it.';const jobDetails=element('details','job-overview-details','<summary>Queue overview</summary>');$('jobCounts').before(jobDetails);jobDetails.append($('jobCounts'));$('refreshJobs').textContent='Refresh';one('#jobsPanel .library-heading>div').hidden=true;
   $('newRecording').textContent='Add video';
   const modes=element('div','view-switch','<button type="button" id="libraryGrid" aria-pressed="false">Grid</button><button type="button" id="libraryList" aria-pressed="true">List</button>');one('.library-toolbar').append(modes);
@@ -36,7 +37,7 @@ export function mountLayout({navigate,onFilter,onView,onTrim,onSource}){
   dialog.addEventListener('close',()=>{$('importPreferences').prepend(one('.language-quick'));settings.focus()});
   const preferences=element('details','import-preferences','<summary id="importPreferencesSummary">Language & clip preferences</summary>');preferences.id='importPreferences';
   for(const selector of ['.language-quick','.link-support','.auto-generate','.link-options','.link-rights']){const node=one(selector);if(node)preferences.append(node)}$('linkForm').append(preferences);
-  $('linkForm').querySelector('label[for=streamUrl]').textContent='Drop a link. Make a moment.';$('openStream').replaceChildren(document.createTextNode('Make clips →'));$('screenButton').type='button';$('screenButton').replaceChildren(document.createTextNode('Clip live'));
+  $('linkForm').querySelector('label[for=streamUrl]').textContent='Video link';$('openStream').replaceChildren(document.createTextNode('Make clips →'));$('screenButton').type='button';$('screenButton').replaceChildren(document.createTextNode('Clip live'));
   for(const node of $('fileInput').closest('label').childNodes)if(node.nodeType===Node.TEXT_NODE)node.textContent='Upload video';
   // Quick language choices stay beside import; all advanced inputs live once in Settings.
   const setup=element('details','source-setup','<summary>Source & live controls</summary><div class="source-setup-content"></div>');setup.id='sourceSetup';setup.open=true;
@@ -51,7 +52,14 @@ export function mountLayout({navigate,onFilter,onView,onTrim,onSource}){
   const batch=$('batchPanel');monitor.append(batch);monitor.append(setup);
   one('.batch-head h2').textContent='Find the story';one('.batch-head p').textContent='Scan across your recording. Each suggestion stays linked to its source.';
   $('clipTarget').closest('label').firstChild.textContent='Moment target ';
-  const queue=one('.queue-panel');queue.querySelector('.panel-heading>span').textContent='Story discovery';
+  const queue=one('.queue-panel');
+  const jumpClips=element('button','monitor-jump','Jump to clips');
+  jumpClips.type='button';
+  monitor.querySelector('.panel-heading').append(jumpClips);
+  jumpClips.onclick=()=>{queue.tabIndex=-1;queue.focus({preventScroll:true});queue.scrollIntoView({block:'start'})};
+  const fullVideo=element('button','clips-full-video','Open full video');
+  fullVideo.type='button';fullVideo.onclick=()=>navigate('full');
+  queue.insertBefore(fullVideo,$('queue'));queue.querySelector('.panel-heading>span').textContent='Story discovery';
   one('.queue-intro').replaceChildren();
   const filter=element('div','moment-filters','<label class="sr-only" for="momentSearch">Search retained moments</label><input id="momentSearch" type="search" placeholder="Search dialogue or evidence…"><label for="momentFilter">Show<select id="momentFilter"><option value="supported">Clip suggestions</option><option value="all">All saved windows</option><option value="attention">Needs attention</option></select></label><span id="momentResultCount" role="status"></span>');
   queue.insertBefore(filter,$('queue'));$('momentSearch').oninput=onFilter;$('momentFilter').onchange=onFilter;
@@ -59,6 +67,12 @@ export function mountLayout({navigate,onFilter,onView,onTrim,onSource}){
   $('batchResults').classList.add('batch-summary');
   one('.editor-title h2').textContent='Studio';one('.editor-title').append($('historyStatus'));
   const preview=one('.clip-preview'),timeline=element('section','edit-timeline','<div class="timeline-heading"><h3>Trim the moment</h3><span id="trimDuration"></span></div><div class="timeline-track"><div id="timelineFrames" class="timeline-frames" aria-label="Sampled source frames"></div><div id="timelinePlayhead" class="timeline-playhead" aria-hidden="true"></div></div><div id="timelineRuler" class="timeline-ruler" aria-label="Source time ruler"></div><div class="timeline-selection" id="timelineSelection"></div><div class="trim-handles"><label>Start<input id="trimStartRange" type="range" min="0" max="1" step="0.1" value="0"></label><label>End<input id="trimEndRange" type="range" min="0" max="1" step="0.1" value="1"></label></div>');
+  const frameControls=element('div','studio-frame-summary','<strong id="studioFrameRatio">16:9 widescreen</strong><div role="group" aria-label="Preview framing"><button type="button" id="studioFramefit" aria-pressed="true">Fit</button><button type="button" id="studioFramefill" aria-pressed="false">Fill</button></div><span id="studioFrameHint"></span>');
+  preview.querySelector('.preview-frame').before(frameControls);
+  for(const mode of ['fit','fill'])$('studioFrame'+mode).onclick=()=>{
+    const select=$('frameMode');
+    if(select.value!==mode){select.value=mode;select.dispatchEvent(new Event('change',{bubbles:true}))}
+  };
   timeline.id='editTimeline';preview.querySelector('.trim-row').before(timeline);
   const playback=element('div','playback-options','<button id="mutePreview" type="button" aria-pressed="false">Mute</button><label for="previewVolume">Volume<input id="previewVolume" type="range" min="0" max="100" step="1" value="100"></label><label for="previewSpeed">Speed<select id="previewSpeed"><option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="1" selected>1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label><button id="previewFullscreen" type="button">Fullscreen</button><span id="previewBufferStatus" role="status"></span>');
   const playbackDetails=element('details','playback-details','<summary>Volume & playback settings</summary>');playbackDetails.id='playbackDetails';const widePlayback=matchMedia('(min-width:761px)');playbackDetails.open=widePlayback.matches;widePlayback.addEventListener('change',event=>{playbackDetails.open=event.matches});playbackDetails.append(playback,one('.shortcut-hint'));one('.transport').after(playbackDetails);
@@ -71,7 +85,11 @@ export function mountLayout({navigate,onFilter,onView,onTrim,onSource}){
   const tabs=element('div','inspector-tabs','<button id="captionTab" type="button" aria-pressed="true">Captions</button><button id="styleTab" type="button" aria-pressed="false">Style</button><button id="storyTab" type="button" aria-pressed="false">Story</button><button id="exportTab" type="button" aria-pressed="false">Export</button>');
   const storyPanel=element('div','story-panel');storyPanel.id='storyInspector';
   const exportPanel=element('div','studio-export');
-  exportPanel.insertAdjacentHTML('afterbegin','<div class="social-export"><div><h3>Made for your next post.</h3><p>Choose a destination, export, then upload your finished file.</p></div><label for="socialDestination">Export for<select id="socialDestination"><option value="custom">Custom export</option><option value="tiktok">TikTok</option><option value="instagram">Instagram Reels</option><option value="facebook">Facebook Reels</option><option value="shorts">YouTube Shorts</option><option value="youtube">YouTube video</option></select></label><button id="applySocialPreset" type="button">Apply preset</button><p id="socialExportHint" role="status">Your current edit and export settings.</p></div>');
+  exportPanel.insertAdjacentHTML('afterbegin','<div class="social-export"><div><h3>Video file settings</h3><p>Create a video file from your current trim. You can download or publish it when it’s ready.</p></div><label for="socialDestination">Export for<select id="socialDestination"><option value="custom">Custom export</option><option value="tiktok">TikTok</option><option value="instagram">Instagram Reels</option><option value="facebook">Facebook Reels</option><option value="shorts">YouTube Shorts</option><option value="youtube">YouTube video</option></select></label><button id="applySocialPreset" type="button">Apply preset</button><p id="socialExportHint" role="status">Your current edit and export settings.</p></div>');
+  const subtitleOptions=element('div','export-subtitle-options','<label for="exportSubtitleMode">Subtitles<select id="exportSubtitleMode"><option value="current">Use clip settings</option><option value="unreviewed">Include unreviewed subtitles</option><option value="none">Export without subtitles</option></select></label><p>Unreviewed subtitles may contain errors. This choice applies to this export only.</p>');
+  exportPanel.append(subtitleOptions);
+  const exportFeedback=element('p','export-feedback');exportFeedback.id='exportFeedback';exportFeedback.setAttribute('role','alert');exportPanel.append(exportFeedback);
+  subtitleOptions.querySelector('select').onchange=()=>{exportFeedback.textContent=''};
   for(const selector of ['.export-settings','.export-actions','#lastExport','#approveBatch','#addToCut','.export-hint']){const node=one(selector);if(node)exportPanel.append(node)}
   for(const child of [...story.children])if(child!==caption)storyPanel.append(child);storyPanel.prepend(viewSource);
   const stylePanel=element('section','style-panel','<h3>Make it your own.</h3><p>Caption styles and framing, with the same treatment in preview and export.</p><div id="captionTemplates" class="caption-templates"></div>');stylePanel.id='styleInspector';
@@ -81,7 +99,7 @@ export function mountLayout({navigate,onFilter,onView,onTrim,onSource}){
   const panels={caption,style:stylePanel,story:storyPanel,export:exportPanel};
   function inspector(active){for(const [name,panel]of Object.entries(panels)){panel.hidden=name!==active;$(name+'Tab').setAttribute('aria-pressed',String(name===active))}}
   for(const name of Object.keys(panels))$(name+'Tab').onclick=()=>inspector(name);inspector('caption');
-  const exportTrigger=element('button','studio-export-trigger',icon('export')+'Export clip ↗');exportTrigger.id='studioExportTrigger';exportTrigger.type='button';exportTrigger.onclick=()=>{inspector('export');$('socialDestination').focus()};one('.editor-title').append(exportTrigger);
+  const exportTrigger=element('button','studio-export-trigger',icon('export')+'Export clip');exportTrigger.id='studioExportTrigger';exportTrigger.type='button';exportTrigger.onclick=()=>{inspector('export');$('exportSubtitleMode').focus()};one('.editor-title').append(exportTrigger);
   const cover=element('button','','Download cover frame');cover.id='saveCoverFrame';cover.type='button';exportPanel.append(cover);
   const navigator=element('aside','studio-clips','<div class="studio-clips-heading"><h3>Clips</h3><span id="studioClipCount"></span></div><div id="studioClipList"></div>');navigator.setAttribute('aria-label','Switch clips');one('.editor-grid').prepend(navigator);
   const advanced=element('details','caption-advanced','<summary>Timing, dialect & advanced tools</summary>');
@@ -96,7 +114,7 @@ export function mountLayout({navigate,onFilter,onView,onTrim,onSource}){
   const originalEvidence=one('.evidence');originalEvidence.querySelector('summary').textContent='Source evidence & story shape';
   one('.more-exports summary').textContent='Other exports';
   $('backToClips').textContent='Clips';
-  setButtonLabel('backToClips','Clips','back');setButtonLabel('playPause','Play','play');setButtonLabel('restartClip','Restart','restart');setButtonLabel('exportButton','Export clip','export');
+  setButtonLabel('backToClips','Clips','back');setButtonLabel('playPause','Play','play');setButtonLabel('restartClip','Restart','restart');setButtonLabel('exportButton','Create video file','export');
   one('footer').innerHTML='<span>Context Desk · Open-source production studio</span><span>Local projects. Source-linked stories.</span>';
   // Newly mounted navigation uses the same owning workspace controller.
   nav.querySelectorAll('button').forEach(button=>button.onclick=()=>navigate(button.dataset.workspace));
@@ -106,10 +124,12 @@ export function mountLayout({navigate,onFilter,onView,onTrim,onSource}){
   return {
     holdFrames(held){framesHeld=held;if(!held)loadFrames()},
     syncWorkspace(view){setup.open=view==='source';
-      // On Clips the list sits left of the monitor; put it first in the page too, so keyboard and
-      // screen-reader order match what is seen. Only the list moves: moving the monitor's video would pause it.
-      const desk=one('.desk'),queue=one('.queue-panel'),monitor=one('.monitor-panel');
-      if(desk&&queue&&monitor&&queue.parentElement===desk&&monitor.parentElement===desk){if(view==='clips')desk.insertBefore(queue,monitor);else monitor.after(queue)}},
+      // Move the list only. Reparenting the active video can interrupt playback.
+      const desk=one('.desk');
+      if(desk&&queue.parentElement===desk&&monitor.parentElement===desk){
+        if(view==='clips'&&!document.body.classList.contains('has-live-source'))desk.insertBefore(queue,monitor);
+        else if(monitor.nextElementSibling!==queue)monitor.after(queue);
+      }},
     inspector,
     setLibraryView(view){$('libraryRows').dataset.view=view;for(const [id,value] of [['libraryGrid','grid'],['libraryList','list']])$(id).setAttribute('aria-pressed',String(value===view));},
     syncPlayhead(moment,time){if(!moment)return;const duration=Math.max(.1,moment.end-moment.start);$('timelinePlayhead').style.left=Math.max(0,Math.min(100,time/duration*100))+'%';},

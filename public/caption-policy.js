@@ -1,6 +1,11 @@
-export const outputLanguages=['Original','English','Arabic','French','Spanish','Hindi','Portuguese','German','Turkish','Urdu'];
+import {needsTranslation} from './languages.js';
+import {captionLanguages} from './locales.js';
+
+export const outputLanguages=['Original',...captionLanguages];
 export function captionTarget(moment,projectTarget,userDefault='Original'){
-  return [moment.captionLanguageOverride,projectTarget,userDefault,'Original'].find(value=>outputLanguages.includes(value));
+  const requested=[moment.captionLanguageOverride,projectTarget,userDefault,'Original'].find(value=>outputLanguages.includes(value));
+  // Keep reviewed tracks and explicit per-clip choices intact.
+  return !moment.captionLanguageOverride&&!moment.captionCues?.[requested]?.length&&!needsTranslation(requested,moment.detectedLanguage)?'Original':requested;
 }
 export function inheritCaptionTarget(moment,projectTarget,userDefault){
   const target=captionTarget(moment,projectTarget,userDefault);

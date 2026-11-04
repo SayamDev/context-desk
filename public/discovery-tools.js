@@ -23,7 +23,7 @@ export function createDiscoveryTools({requestJson,getProject,getSelected=()=>nul
 
   const discovery=node('section','',{id:'discoveryToolOptions',class:'discovery-tool-options','aria-label':'Discovery strategy and request preview'});
   const strategy=node('select','',{id:'discoveryStrategy','aria-describedby':'discoveryModeHelp'});
-  strategy.append(option('sampled','Sampled discovery · bounded shortlist'),option('transcript','Deep discovery · full source transcript'));strategy.value='sampled';
+  strategy.append(option('sampled','Sampled discovery · bounded shortlist'),option('transcript','Meta · full transcript and picture checks'),option('local','Local · VoiceStudio and Ollama'));strategy.value='sampled';
   const minimum=number('discoveryClipMin',15,10,45),maximum=number('discoveryClipMax',90,30,120),modeHelp=node('p','',{id:'discoveryModeHelp',class:'depth-help'});
   const lengths=node('div','',{class:'brand-fields'});lengths.append(label('Minimum clip seconds',minimum),label('Maximum clip seconds',maximum));
   const previewButton=button('Preview request limits · no AI call','discoveryPreviewButton'),previewStatus=status('discoveryPreviewStatus');
@@ -31,9 +31,9 @@ export function createDiscoveryTools({requestJson,getProject,getSelected=()=>nul
   function discoveryOptions(){
     const clipMinSeconds=Number(minimum.value),clipMaxSeconds=Number(maximum.value);
     if(!minimum.value||!maximum.value||!Number.isFinite(clipMinSeconds)||clipMinSeconds<10||clipMinSeconds>45||!Number.isFinite(clipMaxSeconds)||clipMaxSeconds<30||clipMaxSeconds>120||clipMaxSeconds<clipMinSeconds)throw Error('Choose a minimum from 10–45 seconds and a maximum from 30–120 seconds, with maximum at least minimum.');
-    return {strategy:strategy.value==='transcript'?'transcript':'sampled',clipMinSeconds,clipMaxSeconds};
+    return {strategy:strategy.value,clipMinSeconds,clipMaxSeconds};
   }
-  function modeDescription(){const deep=strategy.value==='transcript';modeHelp.textContent=deep?'Transcribe every source-audio section before ranking complete stories. Speech and ranking requests are additional to your visual story-check limit. Preview the bounds before starting.':'Sample pictures across the source and transcribe a bounded shortlist. Unchecked speech can contain stories this mode misses.';lengths.hidden=!deep}
+  function modeDescription(){const deep=strategy.value!=='sampled';modeHelp.textContent=strategy.value==='local'?'Find complete exchanges from the dialogue. Open VoiceStudio and Ollama first. Speech, ranking and subtitles run on this computer.':deep?'Transcribe every source-audio section before ranking complete stories. Speech and ranking requests are additional to your visual story-check limit. Preview the bounds before starting.':'Sample pictures across the source and transcribe a bounded shortlist. Unchecked speech can contain stories this mode misses.';lengths.hidden=!deep}
   function optionsChanged(){previewEpoch++;previewStatus.textContent='Options changed. Preview the request limits before starting.';modeDescription()}
   strategy.onchange=optionsChanged;minimum.onchange=optionsChanged;maximum.onchange=optionsChanged;
   for(const id of ['aiBudget','clipTarget','scanDepth'])listen($(id),'change',()=>{previewEpoch++;previewStatus.textContent='Limits changed. Preview again for the current settings.'});
@@ -42,14 +42,14 @@ export function createDiscoveryTools({requestJson,getProject,getSelected=()=>nul
     const project=getProject(),sourceId=project?.sourceId||project?.state?.sourceId;
     if(!project?.id||!sourceId){previewStatus.textContent='Open a saved recording before previewing discovery requests.';return}
     let options;try{options=discoveryOptions()}catch(error){previewStatus.textContent=error.message;return}
-    const limit=Number($('aiBudget')?.value)||0,used=Math.max(0,Number(project.state?.aiCalls)||0),remaining=limit?Math.max(0,limit-used):100,budget=Math.min(100,remaining,(Number($('clipTarget')?.value)||5)*3);
+    const limit=Number($('aiBudget')?.value)||0,used=Math.max(0,Number(project.state?.aiCalls)||0),remaining=options.strategy!=='local'&&limit?Math.max(0,limit-used):100,budget=Math.min(100,remaining,(Number($('clipTarget')?.value)||5)*3);
     if(budget<1){previewStatus.textContent='Your story-check limit is reached. Raise the limit or review existing clips.';return}
     const flight={projectId:project.id,sourceId,epoch:++previewEpoch};previewFlight=flight;previewButton.disabled=true;previewStatus.textContent='Calculating saved-source request bounds…';discovery.setAttribute('aria-busy','true');
     try{
-      const result=await requestJson('/api/discovery-preview',post({sourceId,projectId:project.id,...options,strategy:options.strategy==='transcript'?'transcript':'fast',budget,depth:Number($('scanDepth')?.value)||80}));
+      const result=await requestJson('/api/discovery-preview',post({sourceId,projectId:project.id,...options,strategy:options.strategy==='sampled'?'fast':options.strategy,budget,depth:Number($('scanDepth')?.value)||80}));
       if(destroyed||previewFlight!==flight||flight.epoch!==previewEpoch||getProject()?.id!==flight.projectId)return;
-      const count=key=>Math.max(0,Number(result[key])||0),coverage=Number.isFinite(result.scanSeconds)?`${time(result.scanSeconds)} of source audio`:options.strategy==='transcript'?'the selected source audio':'the sampled shortlist';
-      previewStatus.textContent=`Up to ${count('speechRequestsMax')} speech + ${count('rankingRequestsMax')} ranking + ${count('storyRequestsMax')} visual story requests, covering ${coverage}. ${result.fullSource?'Full source audio is included. ':''}Translation depends on retained dialogue. Cached work may reduce usage. This preview makes no AI call; provider prices are not estimated.`;
+      const count=key=>Math.max(0,Number(result[key])||0),coverage=Number.isFinite(result.scanSeconds)?`${time(result.scanSeconds)} of source audio`:options.strategy!=='sampled'?'the selected source audio':'the sampled shortlist';
+      previewStatus.textContent=`Up to ${count('speechRequestsMax')} speech + ${count('rankingRequestsMax')} ranking + ${count('storyRequestsMax')} visual story requests, covering ${coverage}. ${result.fullSource?'Full source audio is included. ':''}${options.strategy==='local'?'No Meta requests. '+(result.reusedTranscript?'Uses saved subtitles.':''):'Translation depends on retained dialogue. Cached work may reduce usage.'} This preview makes no AI call.`;
     }catch(error){if(!destroyed&&flight.epoch===previewEpoch&&getProject()?.id===flight.projectId)previewStatus.textContent=error.message||'Could not preview discovery limits.'}
     finally{if(previewFlight===flight){previewFlight=null;previewButton.disabled=!getProject()?.sourceId;discovery.setAttribute('aria-busy','false')}}
   }

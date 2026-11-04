@@ -1,3 +1,5 @@
+/* Hallmark · locked Context Desk palette · scope: app · redesign: Brand Kit and Home story board */
+/* Critique: replace an oversized decorative image with a caption proof and a readable story sequence. */
 /* Context Desk design-system components (ported from the published system's bundle.css onto studio tokens). */
 :root {
   --space-1:4px; --space-2:8px; --space-3:12px; --space-4:16px; --space-6:24px; --space-8:32px; --space-12:48px;
@@ -512,7 +514,6 @@ body.ds-shell[data-workspace=clips] .moment-filters,body.ds-shell[data-workspace
 .ds-rail .workspace-nav [data-workspace=home],.ds-rail .workspace-nav [data-workspace=edit] {display:none}
 body[data-workspace=edit] .ds-rail .workspace-nav [data-workspace=clips] {color:var(--text);background:var(--surface-raised)}
 body[data-workspace=edit] .ds-rail .workspace-nav [data-workspace=clips]::after {content:"";position:absolute;left:-12px;top:8px;bottom:8px;width:3px;border-radius:2px;background:var(--accent)}
-.ds-rail #railBrandKit {justify-content:flex-start}
 #navLibraryCount[hidden] {display:none}
 .ds-job-dock {padding:var(--space-3);gap:var(--space-2)}
 label.caption-roman[hidden] {display:none!important}
@@ -599,12 +600,7 @@ label.caption-roman[hidden] {display:none!important}
 .guide-steps li.is-done .guide-n{border-color:var(--success);color:var(--success-text)}
 .guide-side{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px}
 .guide-hint{margin:0;max-width:44ch;font-size:13px;color:var(--muted)}
-.guide-simple{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
 @media (max-width:720px){.guide{flex-direction:column;align-items:stretch}.guide-next{width:100%}}
-/* Simple mode folds advanced controls away (switch it off to see everything) */
-body.simple-mode .frame-details,body.simple-mode .playback-details,body.simple-mode .caption-advanced,body.simple-mode .raw-caption-timing,
-body.simple-mode .cut-section,body.simple-mode .hook-lab,body.simple-mode .caption-accents,body.simple-mode #cutTools,body.simple-mode .production-tool,
-body.simple-mode .memory-panel,body.simple-mode .more-exports,body.simple-mode .caption-line-meta input{display:none!important}
 /* Export destinations: our own frame artwork (no platform logos) and an honest posting note */
 .destinations-label select{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
 .destinations{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px;margin:8px 0 4px}
@@ -735,7 +731,7 @@ input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color])
 .library-row {transition:background var(--dur-fast) var(--ease-out),border-color var(--dur-fast) var(--ease-out)}
 .library-row:hover {background:var(--surface-raised);border-color:var(--line-strong)}
 .library-row .project-state {text-transform:none;display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2);color:var(--muted);font-size:12.5px}
-.library-rows:not([data-view=grid]) .library-row {grid-template-columns:176px minmax(0,1fr) 60px 60px auto}
+.library-rows:not([data-view=grid]) .library-row {grid-template-columns:176px minmax(0,1fr) 60px auto}
 .library-row .project-open {font:800 18px/1.15 var(--font-display);letter-spacing:-.015em;text-align:start}
 .library-clips strong {font:900 28px/1 var(--font-display);letter-spacing:-.03em}
 .library-clips span {font:500 11px/14px var(--font-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
@@ -763,30 +759,22 @@ input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color])
 .title-card-status {margin:0;color:var(--warning);font-size:12.5px}
 @media (max-width:600px) {.title-card-fields {grid-template-columns:1fr}.title-card-actions .cd-btn {flex:1}}
 
-/* Chapters (chapters.js): a strip of stills, each a jump into the source recording */
+/* Chapter timecodes jump into the source recording. */
 .chapters-panel {margin:var(--space-6) 0;padding:var(--space-4) var(--space-4) var(--space-6);border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--surface)}
 .chapters-head {display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:var(--space-3);margin-bottom:var(--space-4)}
 .chapters-head h2 {margin:0;font:900 32px/.95 var(--font-display);letter-spacing:-.03em}
 .chapters-head p {margin:var(--space-2) 0 0;color:var(--muted);font-size:13px;max-width:62ch}
 .chapters-status:empty {display:none}
 .chapters-status {margin:0 0 var(--space-3);color:var(--cue);font-size:13px}
-.chapters-list {list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:var(--space-4)}
-.chapter button {display:grid;gap:var(--space-2);width:100%;padding:0;border:0;background:none;color:inherit;text-align:start;cursor:pointer;border-radius:var(--radius-md)}
-.chapter-thumb {position:relative;display:block;aspect-ratio:16/9;overflow:hidden;border-radius:var(--radius-md);background:var(--surface-3);outline:2px solid transparent;outline-offset:2px;transition:outline-color var(--dur-fast) var(--ease-out)}
-.chapter-thumb img {width:100%;height:100%;object-fit:cover;transition:transform var(--dur-base) var(--ease-out)}
-.chapter-thumb .cd-dur {position:absolute;left:var(--space-2);bottom:var(--space-2)}
-.chapter button:hover .chapter-thumb img {transform:scale(1.03)}
-.chapter.is-current .chapter-thumb {outline-color:var(--cue)}
+.chapters-list {list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--space-2)}
+.chapter button {display:grid;grid-template-columns:minmax(4.5rem,auto) minmax(0,1fr);align-items:start;width:100%;padding:var(--space-3);gap:var(--space-3);border:1px solid var(--line);background:none;color:inherit;text-align:start;cursor:pointer;border-radius:var(--radius-md)}
+.chapter button:hover,.chapter.is-current button{background:var(--surface-raised);border-color:var(--line-strong)}
+.chapter.is-current .chapter-time{color:var(--text)}
 .chapter.is-current .cd-dur {background:var(--cue);color:var(--cue-ink)}
 .chapter-body {display:grid;gap:var(--space-1)}
 .chapter-body b {font:800 16px/1.2 var(--font-display);letter-spacing:-.01em}
 .chapter-body span {color:var(--muted);font-size:13px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .chapter-body small {font:500 11px/14px var(--font-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
-.chapter.is-loading .chapter-thumb {animation:cd-chapter-pulse 1.4s ease-in-out infinite}
-.chapter.is-loading b, .chapter.is-loading i {display:block;height:14px;border-radius:var(--radius-xs);background:var(--surface-3)}
-.chapter.is-loading i {width:70%}
-@keyframes cd-chapter-pulse {50% {opacity:.55}}
-@media (prefers-reduced-motion:reduce) {.chapter-thumb img, .chapter-thumb {transition:none}.chapter.is-loading .chapter-thumb {animation:none}.chapter button:hover .chapter-thumb img {transform:none}}
 
 /* Ask the episode (ask.js): question, answer, then the moments that show it */
 .ask-panel {margin:var(--space-6) 0;padding:var(--space-6);border:1px solid var(--line);border-radius:var(--radius-lg);background:linear-gradient(180deg,var(--surface-raised),var(--surface) 140px)}
@@ -860,7 +848,6 @@ input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color])
 @media (max-width:700px) {.trailer-head h2 {font-size:32px}.trailer-panel {padding:var(--space-4)}}
 @media (prefers-reduced-motion:reduce) {.trailer-beat.is-loading .trailer-still {animation:none}}
 /* Simple mode hides the story cut, except once one exists (a trailer, or clips added to the cut) */
-body.simple-mode.has-cut[data-workspace=edit] .cut-section {display:block!important}
 
 /* Post kit (post-kit.js): one action, a step list while it works, then the kit to copy or download */
 .post-kit-panel {display:grid;gap:var(--space-3);padding:var(--space-4);margin-bottom:var(--space-6);border:1px solid var(--line-strong);border-radius:var(--radius-md);background:linear-gradient(180deg,var(--surface-raised),var(--surface))}
@@ -905,14 +892,21 @@ body.simple-mode.has-cut[data-workspace=edit] .cut-section {display:block!import
 .activity-spinner, .ds-rail-dock .activity-spinner {width:40px;height:40px;flex:none;border:0!important;border-radius:0;background:none!important;animation:none!important}
 .activity-spinner svg, .busy-loader svg {display:block}
 .loader-fallback {border-radius:var(--radius-sm);background:var(--surface-3)!important}
-.busy-overlay {position:fixed;inset:0;z-index:60;display:grid;place-items:center;background:var(--scrim);opacity:0;transition:opacity var(--dur-base) var(--ease-out);pointer-events:none}
-.busy-overlay.is-on {opacity:1;pointer-events:auto}
-.busy-card {display:grid;justify-items:center;gap:var(--space-2);min-width:260px;max-width:min(380px,calc(100vw - 32px));padding:var(--space-6) var(--space-8);border:1px solid var(--line-strong);border-radius:var(--radius-lg);background:var(--surface);box-shadow:var(--shadow-pop);text-align:center;transform:translateY(8px) scale(.98);transition:transform var(--dur-base) var(--ease-out)}
-.busy-overlay.is-on .busy-card {transform:none}
-.busy-loader {width:88px;height:88px}
-.busy-card strong {font:800 20px/1.15 var(--font-display);letter-spacing:-.015em}
-.busy-card p {margin:0;color:var(--muted);font-size:13px;line-height:1.45}
-@media (prefers-reduced-motion:reduce) {.busy-overlay, .busy-card {transition:none}}
+.busy-overlay {position:fixed;inset:0;width:100%;height:100%;max-width:none;max-height:none;margin:0;padding:24px;border:0;background:transparent;color:var(--text);overflow:auto}
+.busy-overlay[open] {display:grid;place-items:center}
+.busy-overlay::backdrop {background:var(--scrim);animation:busy-reveal 160ms ease-out 220ms both}
+.busy-card {display:grid;justify-items:center;gap:16px;width:min(100%,480px);padding:clamp(22px,6vw,48px);border:1px solid var(--line-strong);border-radius:var(--radius-lg);background:var(--surface);box-shadow:var(--shadow-pop);text-align:center;animation:busy-reveal 180ms ease-out 220ms both}
+.busy-loader {width:104px;height:104px}
+.busy-copy {display:grid;gap:8px}
+.busy-card strong {font:800 clamp(23px,4vw,30px)/1.15 var(--font-display);letter-spacing:-.02em}
+.busy-card p {margin:0;color:var(--muted);font-size:15px;line-height:1.5;overflow-wrap:anywhere}
+.busy-track {width:min(100%,200px);height:3px;border-radius:var(--radius-pill);background:var(--surface-raised);overflow:hidden}
+.busy-track::after {content:"";display:block;width:42%;height:100%;background:var(--accent);animation:busy-travel 1.6s ease-in-out infinite alternate}
+.busy-elapsed {min-height:1em;color:var(--muted);font-size:12px}
+.busy-cancel {min-height:44px}
+@keyframes busy-reveal {from{opacity:0}to{opacity:1}}
+@keyframes busy-travel {from{transform:translateX(0)}to{transform:translateX(138%)}}
+@media (prefers-reduced-motion:reduce) {.busy-card,.busy-overlay::backdrop{animation-duration:1ms}.busy-track::after{animation:none}}
 .activity-spinner::before, .activity-spinner::after {content:none!important;display:none!important}
 .dub-engine {display:grid;gap:var(--space-1);font-size:12.5px;color:var(--muted)}
 .trailer-video {display:grid;gap:var(--space-3);margin-bottom:var(--space-4)}
@@ -1014,3 +1008,289 @@ body.has-live-bar .home-scroll-cue {bottom:calc(var(--space-4) + 64px)}
   #studioClipList .studio-clip-button {flex:0 0 min(240px,70vw);margin-bottom:0;display:grid;grid-template-columns:72px minmax(0,1fr);gap:4px 10px;align-items:center}
   #studioClipList .studio-clip-button img {grid-row:span 2;margin:0}
 }
+
+.caption-pager:not([hidden]){display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-block:8px}
+
+body[data-workspace=brand] :is(.setup-check,.desk,.project-bar,.source-summary,.whole-subtitles,.project-trash-notice,.guide){display:none!important}
+.brand-kit-page form,.brand-kit-page form>label{display:grid;gap:var(--space-2)}
+.brand-kit-page form>label:has(input[type=checkbox]){display:flex;align-items:center}
+.brand-kit-page form button{justify-self:start}
+.context-check{padding:var(--space-3);border:1px solid var(--line);border-radius:var(--control-radius)}
+.context-check summary{cursor:pointer;font-weight:600}
+.context-check ol{padding-inline-start:var(--space-4)}
+.context-check li{margin-block:var(--space-3)}
+.context-check li button{margin-inline-end:var(--space-2)}
+
+.home-feature{display:grid;gap:var(--space-3);min-width:0}
+.brand-preview{position:relative;isolation:isolate;margin:0;overflow:hidden;border-radius:var(--control-radius);background:var(--media-black,#0b0b0d)}
+.home-feature .home-session{display:grid;grid-template-columns:minmax(90px,.65fr) minmax(0,1fr);align-items:center;border:1px solid var(--line)}
+.home-feature .home-session[hidden]{display:none}
+.home-feature .home-session-image{align-self:stretch;min-height:108px;aspect-ratio:auto}
+.home-feature .home-session-action{inset:auto 8px 8px;padding:8px;gap:4px;font-size:12px}
+.home-feature .home-session-action svg{flex:none;width:14px;height:14px}
+.home-feature .home-session-info{padding:var(--space-3)}
+.home-feature .home-session-info h2{font-size:16px;white-space:normal;overflow-wrap:anywhere}
+.home-feature .home-story-strip{grid-column:1/-1}
+.brand-preview canvas{position:absolute;inset:0;width:100%;height:100%}
+.brand-saved{grid-column:1/-1}
+.brand-saved ul{margin:0;padding-inline-start:1.25rem}
+.brand-saved li{padding-block:var(--space-2)}
+@media(max-width:900px){
+ .home-feature .home-session{display:none}
+}
+@media(max-width:650px){
+ .brand-kit-page:not([hidden]){grid-template-columns:minmax(0,1fr)}
+}
+
+.home-panel .home-scroll-cue{position:static;transform:none;margin-block:var(--space-3);max-width:100%}
+
+.chapter-time{font-variant-numeric:tabular-nums;color:var(--cue);font-weight:700}
+.chapters-panel .chapter-body{padding:0;overflow-wrap:anywhere}
+
+/* Global navigation manages projects. The open project owns its workflow. */
+.ds-rail .workspace-nav [data-workspace=clips]{display:none}
+.project-nav:not([hidden]){display:flex;flex-wrap:wrap;gap:var(--space-2);margin-block:0 var(--space-4);padding-block:var(--space-2);border-block-end:1px solid var(--line)}
+.project-nav button{padding:8px 12px;min-height:44px;white-space:nowrap}
+.project-nav button[aria-current]{background:var(--surface-raised);border-color:var(--line-strong);color:var(--text);font-weight:700}
+.project-nav .project-resume{margin-inline-start:auto}
+body[data-workspace=full] .desk{grid-template-columns:minmax(0,1fr)}
+body[data-workspace=full] .desk :is(.queue-panel,.source-setup,#batchPanel){display:none!important}
+body[data-workspace=full] .monitor-panel{max-width:72rem}
+body[data-workspace=full] .monitor{max-height:65vh}
+body[data-workspace=exports] .jobs-panel{display:block}
+body[data-workspace=exports] :is(.desk,.source-summary,.whole-subtitles,.job-overview-details,.job-technical){display:none!important}
+body:not([data-workspace=full]) :is(.chapters-panel,.ask-panel,.trailer-panel){display:none!important}
+@media(max-width:600px){
+  .project-nav:not([hidden]){display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}
+  .project-nav button{font-size:12px;padding-inline:4px}
+  .project-nav .project-resume{grid-column:1/-1;margin-inline-start:0;justify-self:start}
+}
+
+/* A finished clip stays beside its publishing instructions like a review print. */
+.publish-desk{width:min(58rem,calc(100% - 24px));max-height:calc(100dvh - 24px);padding:0;overflow:auto;background:var(--surface);color:var(--text);border:1px solid var(--line-strong);border-radius:var(--control-radius)}
+.publish-desk::backdrop{background:#11141dd9}
+.publish-desk-head{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-4);padding:var(--space-6);border-bottom:1px solid var(--line)}
+.publish-desk-head h2{margin:0;font:800 clamp(24px,4vw,36px)/1.1 var(--font-display);letter-spacing:-.03em}
+.publish-desk-head p{margin:8px 0 0;color:var(--muted);overflow-wrap:anywhere}
+.publish-desk-grid{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);gap:var(--space-6);padding:var(--space-6);align-items:start}
+.publish-proof{margin:0;padding:12px;background:#171d29;border-block:5px double #73809b;color:#f0f3fa}
+.publish-proof video{width:100%;display:block;max-height:52vh;background:#10151f}
+.publish-proof figcaption{padding-top:10px;font:600 12px/1.4 var(--font-mono)}
+.publish-destination{min-width:0}
+.publish-destination>label,.publish-workflow label:not([hidden]){display:block;margin-block:8px}
+.publish-destination>select,.publish-workflow :is(select,textarea){width:100%}
+.publish-method{font-weight:700;margin:14px 0 4px}
+.publish-help{color:var(--muted);margin:0 0 12px}
+.publish-manual{display:flex;flex-wrap:wrap;gap:8px;padding-bottom:14px}
+.publish-workflow fieldset{min-width:0;margin-block:8px}
+.publish-workflow [data-social=reviewPanel]{margin-top:16px;border-top:1px solid var(--line);padding-top:12px;overflow-wrap:anywhere}
+.publish-workflow [data-social=reviewPanel] button{margin:4px}
+.publish-desk-grid:has(.publish-proof[hidden]){grid-template-columns:minmax(0,1fr)}
+@media(max-width:700px){
+ .publish-desk-grid{grid-template-columns:minmax(0,1fr);gap:12px;padding:16px}
+ .publish-desk-head{padding:16px}
+ .publish-proof video{max-height:26vh}
+}
+
+/* The cutting desk: footage and useful next steps lead; utilities stay together. */
+.ds-rail .workspace-nav [data-workspace=home]{display:flex}
+body[data-workspace=home] .ds-topdrop,body:is([data-workspace=home],[data-workspace=library],[data-workspace=jobs],[data-workspace=exports]) .guide{display:none}
+body[data-workspace=home] .topbar{justify-content:flex-end}
+.setup-check>summary{font-weight:700;cursor:pointer}
+.setup-check:not([open]){padding:10px 16px;border-color:var(--line)}
+body[data-workspace=home] .home-start{padding:clamp(20px,3.5vw,52px);align-items:center}
+.home-start .home-guide-link{min-height:44px;margin-top:10px;padding-inline:0;border:0;background:transparent;color:var(--text);text-decoration:underline;text-underline-offset:4px}
+.desk-guide:not([hidden]){margin:16px 0 22px;padding:18px 20px;border-block:1px solid var(--line);background:var(--surface)}
+.desk-guide-intro{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.desk-guide-intro h2,.desk-notices h2{margin:0;font:750 20px/1.2 var(--font-display)}
+.desk-guide-intro p{max-width:70ch;margin:8px 0;color:var(--muted)}
+.desk-guide-path{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px 26px;padding-inline-start:20px;margin:16px 0 0}
+.desk-guide-path li::marker{color:var(--accent);font-weight:700}
+.desk-guide-path li span{display:block;color:var(--muted);font-size:13px;margin-top:4px}
+.desk-bell{gap:6px}
+.desk-notice-count{min-width:16px;font-size:12px;font-weight:750;color:var(--text)}
+.desk-notices{position:fixed;inset:58px 16px auto auto;margin:0;padding:16px;width:min(375px,calc(100vw - 32px));max-height:min(540px,80dvh);overflow:auto;box-sizing:border-box;background:var(--surface);color:var(--text);border:1px solid var(--line-strong);border-radius:12px}
+.desk-notices header{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.desk-notices ul{list-style:none;padding:0;margin:12px 0}
+.desk-notices li{border-top:1px solid var(--line)}
+.desk-notices li button{width:100%;display:grid;gap:4px;text-align:start;padding:10px;background:transparent;border:0}
+.desk-notices li span{color:var(--muted);overflow-wrap:anywhere}
+#jobsPanel:has([data-publish-export]) [data-publish-export]{font-weight:750}
+@media(max-width:720px){
+ .ds-rail .workspace-nav{grid-auto-flow:row;grid-template-columns:repeat(3,minmax(0,1fr))}
+ .desk-guide-path{grid-template-columns:repeat(2,minmax(0,1fr))}
+ body.ds-shell .top-actions :is(.desk-bell,.desk-guide-trigger){min-height:44px}
+ .desk-notices{inset:12px 12px auto auto;width:min(375px,calc(100vw - 24px))}
+}
+.ds-rail .workspace-nav button:has(.ui-icon){justify-content:flex-start;gap:10px}
+.ds-rail .workspace-nav .ui-icon{width:18px;height:18px;flex:none}
+.ds-rail .workspace-nav button b{margin-inline-start:auto}
+body:not([data-workspace=home],[data-workspace=source]) .setup-check{display:none}
+@media(max-width:720px){
+ .ds-rail .workspace-nav button:has(.ui-icon){justify-content:center;gap:5px}
+ .ds-rail .workspace-nav .ui-icon{width:15px;height:15px}
+ .ds-rail .workspace-nav button b{margin-inline-start:0}
+}
+
+/* Brand Kit uses the same controls and caption renderer as Studio. */
+body[data-workspace=brand] .ds-topdrop{display:none}
+body[data-workspace=brand] .topbar{justify-content:flex-end}
+body[data-workspace=brand] .pagehead{max-width:68rem;margin-inline:auto}
+
+.brand-kit-page:not([hidden]){display:block;max-width:68rem;margin-inline:auto}
+.brand-workbench{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.brand-kit-editor,.brand-saved{border:0;padding:clamp(16px,2.2vw,30px)}
+.brand-kit-editor h2,.brand-saved h2{margin:0;font-size:22px;overflow-wrap:break-word}
+.brand-kit-editor>p,.brand-saved>p,.brand-field-note{margin:6px 0 16px;color:var(--muted)}
+.brand-kit-editor form{gap:14px;max-width:30rem}
+.brand-kit-editor form select{width:100%;min-height:44px}
+.brand-kit-editor .brand-field-note{margin:-8px 0 0;font-size:13px}
+#brandStatus:empty{display:none}
+#brandStatus:not(:empty){margin:12px 0 0}
+.brand-preview{display:grid;grid-template-rows:auto 1fr;gap:12px;justify-items:center;align-items:center;aspect-ratio:auto;max-width:none;padding:16px;background:var(--surface-raised);border-inline-start:1px solid var(--line);border-radius:0 12px 12px 0}
+.brand-preview figcaption{position:static;display:flex;justify-content:space-between;align-items:baseline;gap:10px;width:100%;color:var(--text)}
+.brand-preview figcaption span{color:var(--muted)}
+.brand-preview-frame{position:relative;width:min(100%,176px);aspect-ratio:9/16;background:var(--canvas);border:1px solid var(--line-strong);border-radius:var(--control-radius)}
+.brand-preview-frame img:not([hidden]){position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:inherit}
+.brand-preview-frame::before{content:"";position:absolute;inset:10% 8% 22%;border:1px dashed var(--line-strong);pointer-events:none;z-index:1}
+.brand-saved{padding-inline:0;padding-block:20px}
+.brand-saved ul{padding:0;list-style:none;border-block-start:1px solid var(--line)}
+.brand-saved li{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 0;border-block-end:1px solid var(--line)}
+.brand-saved li>span{min-width:0;overflow-wrap:anywhere}
+.brand-saved li>span span{display:block;color:var(--muted);font-size:13px}
+.brand-saved button{flex:none}
+.home-story-board{min-width:0;padding:clamp(16px,2vw,26px);border-block:1px solid var(--line-strong)}
+.home-story-board h2{margin:0 0 12px;font:750 22px/1.2 var(--font-display);overflow-wrap:break-word}
+.home-story-board ol{padding-inline-start:24px;margin:0 0 16px}
+.home-story-board li{padding:10px 0 10px 8px;border-block-end:1px solid var(--line)}
+.home-story-board li::marker{color:var(--accent-text);font-weight:750}
+.home-story-board li span{display:block;margin-top:2px;color:var(--muted)}
+:is(.brand-kit-page,.home-story-board) :is(button,select,input):focus-visible{outline:2px solid var(--focus);outline-offset:3px}
+@media(max-width:640px){
+ .brand-workbench{grid-template-columns:minmax(0,1fr)}
+ .brand-preview{border-inline-start:0;border-block-start:1px solid var(--line);border-radius:0 0 12px 12px}
+ .brand-preview-frame{width:min(100%,136px)}
+}
+
+/* Keep the recording and its controls in the main reading order. */
+body.ds-shell[data-workspace=clips] .monitor-panel{position:static;max-height:none;overflow:visible}
+body.ds-shell[data-workspace=clips] .queue-panel{order:0}
+body.ds-shell[data-workspace=clips] .monitor{min-height:0}
+.monitor video[hidden],.monitor video[controls]~.monitor-overlay{display:none}
+.monitor{scroll-margin-top:80px}
+.export-start:not([hidden]){display:flex;justify-content:space-between;align-items:center;gap:16px;padding:16px;margin-block:12px;border-block:1px solid var(--line)}
+.export-start h2{font-size:18px;margin:0}
+.export-start p{color:var(--muted);margin:4px 0 0}
+.export-start button{flex:none}
+.export-feedback:empty{display:none}
+.export-feedback{padding:12px;border:1px solid var(--line-strong);color:var(--text);margin:0 0 12px}
+.export-feedback button{margin-inline-start:4px}
+body[data-workspace=exports] .job-actions a[download]:first-of-type{font-weight:750}
+@media(max-width:720px){.export-start:not([hidden]){align-items:flex-start;flex-direction:column}}
+.monitor-jump{display:none}
+.queue-panel{scroll-margin-top:80px}
+@media(max-width:1099px){
+ body[data-workspace=clips] .monitor-jump{display:inline-flex;min-height:44px;align-items:center}
+}
+body[data-workspace=exports] .ds-topdrop{display:none}
+@media(max-width:720px){
+ body[data-workspace=clips] :is(.ds-topdrop,.guide,.source-summary){display:none}
+}
+body[data-workspace=exports] #jobsPanel .library-heading{justify-content:flex-start;gap:8px}
+body[data-workspace=exports] #jobsPanel .library-heading button.cd-btn-secondary{background:var(--surface-raised);color:var(--text);border-color:var(--line-strong)}
+
+/* Give the transcript a working width on desktop. Keep the viewer full size in fullscreen. */
+@media(min-width:1201px){
+ body[data-workspace=edit] .editor-grid{grid-template-columns:144px minmax(0,1fr) clamp(390px,30vw,600px)}
+}
+@media(min-width:1001px) and (max-width:1200px){
+ body[data-workspace=edit] .editor-grid{grid-template-columns:116px minmax(0,1fr) 370px}
+}
+@media(min-width:761px) and (max-width:1000px){
+ body[data-workspace=edit] .editor-grid{grid-template-columns:minmax(0,1fr) 350px}
+}
+@media(min-width:761px){
+ body[data-workspace=edit] .preview-frame:not(:fullscreen){height:clamp(220px,34vh,390px);min-height:0}
+}
+.export-subtitle-options{display:grid;gap:6px;padding:12px 0;border-top:1px solid var(--line)}
+.export-subtitle-options label{display:grid;gap:6px}
+.export-subtitle-options p{margin:0;color:var(--muted);font-size:13px}
+
+/* Recordings have their own player in Full video. Clips keeps a live feed when connected. */
+.clips-full-video{display:none}
+body[data-workspace=clips].has-source:not(.has-live-source) .clips-full-video{display:inline-flex;margin:0 12px 12px}
+body[data-workspace=clips]:not(.has-live-source) .monitor-panel > :is(.panel-heading,.monitor){display:none}
+body[data-workspace=clips]:not(.has-live-source) .monitor-panel:not(:has(#batchPanel:not([hidden]),#clipInspector:not([hidden]),#momentMap:not([hidden]))){display:none}
+body[data-workspace=full] :is(#clipInspector,#momentMap){display:none}
+.clip-play-action{align-self:flex-start}
+
+.clip-card-preview{width:min(700px,calc(100% - 28px));max-height:calc(100dvh - 28px);padding:16px;background:var(--surface);color:var(--text);border:1px solid var(--line-strong);border-radius:12px}
+.clip-card-preview::backdrop{background:var(--scrim)}
+.clip-card-preview header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:12px}
+.clip-card-preview h2{margin:0;overflow-wrap:anywhere}
+.clip-card-preview header p{margin:4px 0 0;color:var(--muted)}
+.clip-card-preview video{display:block;width:100%;aspect-ratio:16/9;max-height:52dvh;object-fit:contain;background:var(--canvas);border-radius:var(--control-radius)}
+.clip-card-controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px}
+.clip-card-controls input{flex:1;min-width:90px}
+.clip-card-controls output{font-variant-numeric:tabular-nums}
+.clip-card-preview [role=status]:empty{display:none}
+
+.clip-play-action{justify-content:center;width:100%;min-height:44px;margin:4px 0;gap:8px}
+.clip-play-action .ui-icon{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2}
+.studio-frame-summary{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:8px 12px;border-bottom:1px solid var(--line)}
+.studio-frame-summary>div{display:flex;gap:4px}
+.studio-frame-summary button{min-height:36px;padding:4px 12px}
+.studio-frame-summary button[aria-pressed=true]{border-color:var(--cue);color:var(--text)}
+.studio-frame-summary span{color:var(--muted);font-size:13px}
+body[data-workspace=edit] .preview-frame:not(:fullscreen){height:auto;aspect-ratio:auto;min-height:0;padding:12px;background:var(--surface)}
+body[data-workspace=edit] .preview-frame:not(:fullscreen) #previewCanvas{width:min(100%,calc(clamp(220px,42dvh,480px) * var(--preview-ratio,1.77778)));height:auto;max-height:none;border-radius:6px;outline:1px solid var(--line-strong)}
+
+.library-clip-entry{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px;color:var(--muted);font-size:13px}
+.library-clip-entry button{min-height:44px;white-space:normal;text-align:start}
+
+.library-inventory{margin-top:8px;font-size:14px;color:var(--text)}
+.library-clip-entry{margin-top:10px}
+.activity-overview:not([hidden]),.export-start:not([hidden]){display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px 20px;padding:18px 20px;background:var(--surface);border:1px solid var(--line);border-radius:12px}
+.activity-overview h2,.export-start h2{margin:0 0 4px;font-size:20px}
+.activity-overview p,.export-start p{margin:0;color:var(--muted)}
+body[data-workspace=jobs] .job-overview-details{display:none}
+body[data-workspace=jobs] #jobsPanel .library-heading{justify-content:flex-start;gap:8px}
+body[data-workspace=jobs] #jobsStatus:not(:empty){color:var(--muted)}
+body:is([data-workspace=jobs],[data-workspace=exports]) .job-group{border-top:1px solid var(--line);padding-top:16px;margin-top:20px}
+body[data-workspace=jobs] .job-group .job-thumb{max-width:112px}
+body[data-workspace=exports] .job-actions a.cd-btn-primary{min-height:44px;justify-content:center}
+.job-group-empty{margin:0;padding:16px;background:var(--surface);border:1px dashed var(--line-strong);border-radius:var(--control-radius)}
+.brand-kit-page:not([hidden]){max-width:74rem}
+body[data-workspace=brand] .pagehead{max-width:74rem}
+.brand-workbench{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.brand-saved{margin-top:16px;padding:16px 20px;background:var(--surface);border:1px solid var(--line);border-radius:12px}
+.brand-preset-swatches{display:flex;gap:4px;margin-inline-start:auto}
+.brand-preset-swatches i{width:15px;height:15px;border-radius:50%;border:1px solid var(--line-strong)}
+@media(max-width:640px){
+ .brand-workbench{grid-template-columns:minmax(0,1fr)}
+ .brand-saved{padding:14px}
+ .brand-preset-swatches{display:none}
+}
+
+.studio-frame-summary #trackClip{margin-inline-start:auto}
+.studio-frame-summary #trackingStatus{flex-basis:100%;margin:0;color:var(--muted);font-size:13px}
+.studio-frame-summary #trackingStatus:empty{display:none}
+
+.home-project-copy h3{font-size:16px;line-height:1.35;margin:8px 0;overflow-wrap:anywhere}
+.home-project-copy .home-view-clips,.home-session-info .home-view-clips{min-height:44px;padding:6px 10px;white-space:normal}
+.home-project-image .home-project-duration,.home-session-image .home-project-duration{max-width:calc(100% - 12px);white-space:normal;text-align:end;font-size:12px}
+.home-session-image .home-project-duration{position:absolute;right:6px;bottom:6px}
+
+.live-player-help{position:fixed;inset:auto 12px 84px;margin-inline:auto;width:min(390px,calc(100% - 24px));padding:16px;background:var(--surface);color:var(--text);border:1px solid var(--line-strong);border-radius:12px}
+.live-player-help h2{margin:0 0 8px;font-size:18px}
+.live-player-help p{margin:0 0 12px}
+@media(max-width:720px){
+ .live-bar{width:max-content;max-width:calc(100% - 20px);flex-wrap:wrap;justify-content:center;gap:4px 8px;border-radius:12px;bottom:108px}
+ .live-bar-text{flex:1 1 calc(100% - 32px)}
+ .live-bar-text strong,.live-bar-text span{white-space:normal}
+ .live-player-help{bottom:205px}
+ body.has-live-bar .main{padding-bottom:220px}
+}
+
+/* Keep the initial workspace markup off screen until the requested view is restored. */
+body[data-restoring] > :not(#busyOverlay) {visibility:hidden}
