@@ -89,8 +89,25 @@ function renderBusy(){
   if(!overlay.open){button.disabled=false;overlay.showModal();mountLoader(overlay.querySelector('.busy-loader'))}
 }
 function workStrip(){let s=$('workStrip');if(!s){s=document.createElement('div');s.id='workStrip';s.className='work-strip';s.hidden=true;s.setAttribute('aria-hidden','true');document.body.append(s)}return s}
-function renderStrip(){const background=[...activities.entries()].reverse().find(([k])=>!blockingActivities.has(k)),strip=workStrip();strip.hidden=!background;if(background)strip.title=background[1].title}
-function renderActivity(){renderBusy();renderStrip();const current=[...activities.values()].at(-1);$('activityPanel').hidden=!current;if(!current)return;mountLoader($('activityPanel').querySelector('.activity-spinner'));{const id=[...activities.keys()].at(-1),cancel=$('cancelImport'),btn=$('activityCancel');if(btn)btn.hidden=!(id==='import'&&cancel&&!cancel.hidden)}$('activityTitle').textContent=current.title;$('activityDetail').textContent=current.detail;$('activityElapsed').textContent=clock((Date.now()-current.started)/1000)}
+const backgroundRevealDelay=650;
+let backgroundRevealTimer;
+function renderActivity(){
+  renderBusy();
+  clearTimeout(backgroundRevealTimer);
+  const now=Date.now();
+  const background=[...activities.entries()].filter(([id])=>!blockingActivities.has(id));
+  const current=background.findLast(([,activity])=>now-activity.started>=backgroundRevealDelay)?.[1];
+  const nextReveal=Math.min(...background.map(([,activity])=>activity.started+backgroundRevealDelay).filter(time=>time>now));
+  if(Number.isFinite(nextReveal))backgroundRevealTimer=setTimeout(renderActivity,nextReveal-now);
+  const panel=$('activityPanel'),strip=workStrip();
+  panel.hidden=strip.hidden=!current;
+  if(!current)return;
+  mountLoader(panel.querySelector('.activity-spinner'));
+  strip.title=current.title;
+  $('activityTitle').textContent=current.title;
+  $('activityDetail').textContent=current.detail;
+  $('activityElapsed').textContent=clock((now-current.started)/1000);
+}
 setInterval(()=>{if(activities.size)renderActivity()},1000);
 let renderHookLab=()=>{},syncAccents=()=>{},syncCaptionVariant=()=>{},syncLinkDrop=()=>{};const clipSelection=new Set(),shownScores=new Set();let bulkBar=null,visibleClipIds=[],lastSelected=null,inspectedId=null;
 let titleCards=null,chaptersView=null,askView=null,clipFromRange=null,cultureView=null,trailerView=null,postKitView=null,writePostFor=null,dubView=null;

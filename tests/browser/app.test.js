@@ -84,6 +84,7 @@ test('an uploaded video becomes a saved project that survives a reload',async()=
     const loader=page.getByRole('dialog',{name:'Preparing your long recording'});
     try{
       await loader.waitFor();
+      assert.equal(await page.locator('#activityPanel').isVisible(),false);
       await loader.getByRole('button',{name:'Cancel',exact:true}).waitFor();
       await page.keyboard.press('Escape');
       assert.equal(await loader.isVisible(),true);
