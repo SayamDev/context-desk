@@ -22,7 +22,7 @@ export function mountLayout({navigate,onFilter,onView,onTrim,onSource}){
   const settings=element('button','settings-trigger','Settings');settings.id='openSettings';settings.type='button';one('.top-actions').append(settings);
   one('.workspace-brand').remove();
   one('.library-heading h2').textContent='Your projects';
-  one('.library-heading p').textContent='Pick up where you left off. Your media, moments and edits stay together.';
+  one('.library-heading p').textContent='Open a project to watch its saved clips or edit them in Studio. Finished video files are in Exports.';
   const bundle=element('button','','Download selected ZIP');bundle.id='bundleSelected';bundle.type='button';bundle.disabled=true;one('#jobsPanel .library-heading').append(bundle);one('#jobsPanel .library-heading h2').textContent='Your work, in one place.';one('#jobsPanel .library-heading p').textContent='Follow processing and collect your finished videos. This page is here when you need it.';const jobDetails=element('details','job-overview-details','<summary>Queue overview</summary>');$('jobCounts').before(jobDetails);jobDetails.append($('jobCounts'));$('refreshJobs').textContent='Refresh';one('#jobsPanel .library-heading>div').hidden=true;
   $('newRecording').textContent='Add video';
   const modes=element('div','view-switch','<button type="button" id="libraryGrid" aria-pressed="false">Grid</button><button type="button" id="libraryList" aria-pressed="true">List</button>');one('.library-toolbar').append(modes);
