@@ -413,7 +413,22 @@ async function loadImportedVideo(job,sourceLink,{auto=true}={}){
   if(!projectSession?.restoring){try{await finishCaptureForSwitch();await projectSession?.beforeSourceChange();editHistory.reset()}catch(error){message(error.message);return}}
   cleanupSource();if(!projectSession?.restoring){state.moments=[];state.cut=[];state.selected=null;state.batchExports=[];state.exportHistory=[];state.aiCalls=0;state.windowCount=0;}const loadToken=state.sourceLoadToken;setActivity('source','Opening your recording','Streaming the video from this computer. Preparing a bounded clip scan…');
   state.sourceUrl=job.mediaUrl;state.source={importId:job.id,size:job.size,type:job.mime,name:job.title};state.sourceType='file';state.sourceName=job.title;state.sourcePageUrl=sourceLink;state.batchId=crypto.randomUUID();state.batchCancel=false;program.controls=true;program.muted=false;program.volume=1;program.src=job.mediaUrl;$('emptySource').hidden=true;$('batchPanel').hidden=false;$('batchResults').innerHTML='';setSourceLabel(job.title);updateButtons();
-  try{await mediaReady(program);if(loadToken!==state.sourceLoadToken)return;if(!projectSession?.restoring&&await projectSession.adopt(job.projectId||job.id))return;$('batchButton').disabled=false;updateSourceQuality();await connectionReady;if(loadToken!==state.sourceLoadToken)return;renderQueue();showWorkspace('clips');finishActivity('source');await afterImport(auto);}finally{if(loadToken===state.sourceLoadToken)finishActivity('source')}
+  try{await mediaReady(program);if(loadToken!==state.sourceLoadToken)return;if(!projectSession?.restoring&&await projectSession.adopt(job.projectId||job.id)){
+    if(auto&&pendingIntent==='clips'&&$('autoGenerate').checked){
+      const saved=await requestJson('/api/discovery');
+      const existing=saved.jobs.filter(scan=>scan.projectId===projectSession.current?.id).sort((a,b)=>b.createdAt-a.createdAt)[0];
+      if(existing?.status==='error'){
+        await requestJson('/api/discovery/'+existing.id,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'resume'})});
+        showWorkspace('clips');
+        await jobsView.refresh();
+      }else if(!existing&&!usableMoments(state.moments).length){
+        showWorkspace('clips');
+        await connectionReady;
+        await afterImport(true);
+      }
+    }
+    return;
+  }$('batchButton').disabled=false;updateSourceQuality();await connectionReady;if(loadToken!==state.sourceLoadToken)return;renderQueue();showWorkspace('clips');finishActivity('source');await afterImport(auto);}finally{if(loadToken===state.sourceLoadToken)finishActivity('source')}
 }
 // The home choice applies to imports started from Home; anywhere else they make clips.
 const noteIntent=()=>{pendingIntent=document.body.dataset.workspace==='home'?importIntent:'clips'};
