@@ -39,10 +39,10 @@ test('transient provider errors are retried with backoff; rate limits wait longe
   assert.equal(await withRetry(async()=>{if(++n<3)throw Object.assign(Error('busy'),{status:n===1?503:429});return 'ok'},{wait:async ms=>waits.push(ms)}),'ok');
   assert.deepEqual(waits,[2000,16000]);
 });
-test('a whole-video job with a flaky translator still completes, with the failing line flagged',async()=>{
+test('a whole-video job requires translated lines before completing a section',async()=>{
   const service=createSubtitleService({wait:instant,claimSource:()=>({file:'fixture',duration:40,title:'Flaky',release(){}}),extract:async()=>({data:'data:audio/wav;base64,AAAA'}),transcribe:async()=>({turns:[{startMs:0,endMs:900,text:'أهلا'},{startMs:1000,endMs:1900,text:'غامض'}]}),translate:async cues=>{if(cues.some(c=>c.text==='غامض'))throw SyntaxError('Unexpected end of JSON input');return cues.map(c=>({...c,text:'Hello'}))}});
   const job=await service.start({sourceId:'source',language:'English',keywords:[]});const result=await settle(service,job.id);
-  assert.equal(result.status,'complete');const track=service.track(job.id);assert.equal(track[0].text,'Hello');assert.equal(track[1].text,'غامض');assert.equal(track[1].untranslated,true);
+  assert.equal(result.status,'error');assert.match(result.error,/Translation could not be verified/);assert.equal(result.sectionsDone,0);assert.deepEqual(service.track(job.id),[]);
 });
 
 test('a mixed-language recording keeps matching speech and translates only the requested output',async()=>{

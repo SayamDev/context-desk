@@ -53,7 +53,7 @@ const mime = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset
 if(process.env.NODE_ENV!=='test')await recoverLegacySubtitles(studioStore(),path.join(root,'.runtime/subtitle-jobs'));
 const subtitleService=createSubtitleService({claimSource:claimImportSource,extract:extractAudio,store:studioStore(),
   validate:body=>{if(!process.env.MODEL_API_KEY&&(body.speechProvider!=='voicestudio'||(body.language!=='Original'&&body.translationProvider!=='voicestudio')))throw Error('Configure Meta, or choose VoiceStudio for both speech and translation.');},
-  transcribe:(bytes,j)=>j.speechProvider==='voicestudio'?transcribeVoiceStudio(bytes,j.speechLanguage,j.keywords):transcribe(bytes,j.speechLanguage,j.keywords),
+  transcribe:(bytes,j)=>j.speechProvider==='voicestudio'?transcribeVoiceStudio(bytes,j.speechLanguage,j.keywords,{requireTimedSubtitles:j.requireTimedSubtitles}):transcribe(bytes,j.speechLanguage,j.keywords),
   translate:(cues,j,context=[])=>j.translationProvider==='voicestudio'?translateVoiceStudio(cues,j.language,j.speechLanguage,j.dialectNote):translate(cues,j.language,j.dialectNote,j.translationMode,j.glossary,{variant:j.variant,script:j.script,context})});
 const chapterService=createChapterService({store:studioStore(),subtitles:subtitleService});
 const trailerService=createTrailerService({store:studioStore(),subtitles:subtitleService,claimSource:claimImportSource}),askService=createAskService({store:studioStore(),subtitles:subtitleService}),cultureService=createCultureService({store:studioStore()}),dubService=createDubService({store:studioStore(),claimSource:claimImportSource});
@@ -241,7 +241,7 @@ let shuttingDown=false;for(const signal of ['SIGTERM','SIGINT'])process.on(signa
 server.listen(port,'127.0.0.1',()=>console.log(`Context Desk: http://localhost:${port}`));
 
 function json(res,code,value){res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(value));}
-async function transcribeVoiceStudio(bytes,speechLanguage,keywords) {
+async function transcribeVoiceStudio(bytes,speechLanguage,keywords,{requireTimedSubtitles=false}={}) {
   const form=new FormData();
   form.append('file',new Blob([bytes],{type:'audio/wav'}),'window.wav');
   form.append('model','whisper-1');
@@ -263,7 +263,7 @@ async function transcribeVoiceStudio(bytes,speechLanguage,keywords) {
   })).filter(turn=>turn.text&&turn.endMs>turn.startMs);
   const text=clean(data.text,4000).trim();
   const words=(Array.isArray(data.words)?data.words:[]).slice(0,300).map(word=>({text:clean(word.word,60).trim(),start:Number(word.start),end:Number(word.end)})).filter(word=>word.text&&Number.isFinite(word.start)&&Number.isFinite(word.end)&&word.end>word.start&&word.start>=0&&word.end<=duration+.2);
-  if(!turns.length&&text)turns.push({startMs:0,endMs:Math.round(duration*1000),speaker:'',text});
+  if(!requireTimedSubtitles&&!turns.length&&text)turns.push({startMs:0,endMs:Math.round(duration*1000),speaker:'',text});
   const transcript=turns.length?turns.map(turn=>`[${Math.floor(turn.startMs/1000)}s] ${turn.text}`).join('\n').slice(0,4000):text;
   return {transcript,turns,words,speechSource:'VoiceStudio local',detectedLanguage:clean(data.language,20)};
 }

@@ -184,7 +184,12 @@ test('Home > Subtitles for the whole video opens the whole-video track instead o
     // No AI key in tests: it explains what is needed instead of starting a clip scan.
     await page.getByText('Translating the whole recording needs the Meta key',{exact:false}).waitFor();
     assert.equal(await page.locator('#batchProgress').innerText(),'Video ready. Subtitles for the whole video are below.');
+    await page.waitForURL(/#\/full-video$/);
+    await page.locator('#program').evaluate(video=>{video.currentTime=1.5});
+    await page.waitForFunction(()=>!document.getElementById('program').seeking&&Object.entries(localStorage).some(([key,value])=>key.startsWith('context-desk:playhead:source:')&&Number(value)===1.5));
     await page.reload({waitUntil:'networkidle'});
+    await page.waitForFunction(()=>Math.abs(document.getElementById('program').currentTime-1.5)<.05);
+    assert.equal(await page.locator('#program').evaluate(video=>video.paused),true);
     await page.locator('.ds-rail .brand-home, a[aria-label="Context Desk home"]').first().click();
     assert.equal(await page.getByRole('radio',{name:'Subtitles for the whole video'}).isChecked(),true);
     assert.deepEqual(problems,[]);
