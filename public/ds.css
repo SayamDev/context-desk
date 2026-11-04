@@ -1010,3 +1010,14 @@ body.has-live-bar .home-scroll-cue {bottom:calc(var(--space-4) + 64px)}
 }
 
 .caption-pager:not([hidden]){display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-block:8px}
+
+body[data-workspace=brand] :is(.desk,.project-bar,.source-summary,.whole-subtitles,.project-trash-notice,.guide){display:none!important}
+.brand-kit-page:not([hidden]){max-width:42rem;display:grid;gap:var(--space-3)}
+.brand-kit-page form,.brand-kit-page form>label{display:grid;gap:var(--space-2)}
+.brand-kit-page form>label:has(input[type=checkbox]){display:flex;align-items:center}
+.brand-kit-page form button{justify-self:start}
+.context-check{padding:var(--space-3);border:1px solid var(--line);border-radius:var(--control-radius)}
+.context-check summary{cursor:pointer;font-weight:600}
+.context-check ol{padding-inline-start:var(--space-4)}
+.context-check li{margin-block:var(--space-3)}
+.context-check li button{margin-inline-end:var(--space-2)}

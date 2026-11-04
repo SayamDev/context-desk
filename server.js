@@ -1,3 +1,4 @@
+import {createContextCheck} from './lib/context-check.js';
 import {createChapterService} from './lib/chapters.js';
 import {createAskService} from './lib/ask.js';
 import {createTrailerService} from './lib/trailer.js';
@@ -83,11 +84,13 @@ async function analyseLiveWindow({projectId,moment,asset}){
  catch(error){store.putRecord('live_analysis_completion',projectId+'/'+moment.id,{id:randomUUID(),baseline:moment,result:{status:'error',error:'Live analysis stopped: '+error.message}})}
 }
 const captionTranslationCache=createDurableTranslationCache(studioStore());
+const contextCheck=createContextCheck({store:studioStore()});
 const server = http.createServer(async (req,res) => {
   if(await productApi(req,res,json))return;
   if(await handleImport(req,res,json))return;
   if(await projectApi(req,res,json))return;
   if(await memoryApi(req,res,json))return;
+  if(await contextCheck(req,res,json))return;
   if(await brandApi(req,res,json))return;
   if(await timelineApi(req,res,json))return;
   if(await reframeApi(req,res,json))return;

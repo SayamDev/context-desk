@@ -10,8 +10,8 @@ export function mountLayout({navigate,onFilter,onView,onTrim,onSource}){
   one('.rail')?.remove();
   one('.wordmark').innerHTML='<svg class="brand-symbol" viewBox="0 0 40 44" aria-hidden="true"><path d="M6 15 31 3M6 28 34 14M10 40 34 28" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"/></svg><div>Context Desk<small>Every moment has context.</small></div>';
   const homeButton=element('button','','Home');homeButton.dataset.workspace='home';homeButton.type='button';nav.prepend(homeButton);
-  const labels={home:'Home',library:'Library',clips:'Clips',edit:'Studio',jobs:'Exports',source:'New video'};
-  for(const value of ['home','library','clips','edit','jobs','source']){
+  const labels={home:'Home',library:'Library',clips:'Clips',edit:'Studio',jobs:'Exports',brand:'Brand Kit',source:'New video'};
+  for(const value of ['home','library','clips','edit','jobs','brand','source']){
     const button=nav.querySelector(`[data-workspace="${value}"]`),count=button.querySelector('b');
     button.replaceChildren(document.createTextNode(labels[value]));if(count)button.append(count);nav.append(button);
   }
