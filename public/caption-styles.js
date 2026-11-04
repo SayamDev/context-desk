@@ -33,8 +33,8 @@ export const captionStyles={
 export const captionStyleIds=Object.keys(captionStyles);
 export const styleOf=id=>({chunk:0,active:'none',future:'show',past:'normal',enter:'none',stroke:0,shadow:0,size:1,...(captionStyles[id]||captionStyles.punch)});
 
-// Only matching speech timestamps can drive word animation. A translated or edited
-// line without matching word timings can still use the selected look for the whole cue.
+// Use measured word timings when they match the text. For translations, pace the
+// animation within the cue and give the final word a short hold before the line ends.
 const timingToken=text=>String(text||'').normalize('NFKC').toLocaleLowerCase().replace(/[^\p{L}\p{N}\p{M}]/gu,'');
 export function wordTimes(cue,offset=0){
   const rows=String(cue.text||'').trim().split('\n');
@@ -44,8 +44,17 @@ export function wordTimes(cue,offset=0){
     word&&!word.estimated&&timingToken(word.text)&&timingToken(word.text)===timingToken(words[i].text)
     &&Number.isFinite(word.start)&&Number.isFinite(word.end)&&word.end>word.start
     &&(!i||word.start>=real[i-1].start));
-  if(!matched)return words.map(word=>({...word,start:cue.start,end:cue.end,estimated:true}));
-  return words.map((word,i)=>({...word,start:real[i].start+offset,end:real[i].end+offset}));
+  if(matched)return words.map((word,i)=>({...word,start:real[i].start+offset,end:real[i].end+offset}));
+  const start=cue.animationStart??cue.start,end=cue.animationEnd??cue.end,span=end-start;
+  const animatedSpan=span-Math.min(.35,span*.15);
+  const weights=words.map(word=>Math.min(8,Array.from(word.text).length)+4);
+  const total=weights.reduce((sum,weight)=>sum+weight,0);
+  let elapsed=0;
+  return words.map((word,i)=>{
+    const wordStart=start+elapsed;
+    elapsed+=animatedSpan*weights[i]/total;
+    return {...word,start:wordStart,end:i===words.length-1?end:start+elapsed,estimated:true};
+  });
 }
 const display=(style,text)=>style.upper?text.toLocaleUpperCase():style.lower?text.toLocaleLowerCase():text;
 // Deterministic line breaking shared by both renderers (character budget, not pixels),
@@ -64,11 +73,11 @@ export function fitFont(words,{width,fontSize,style}){const longest=Math.max(...
 // preview can draw any frame by finding its segment.
 export function captionSegments(cue,styleId,{offset=0,keyword=''}={}){
   const style=styleOf(styleId),words=wordTimes(cue,offset).map(w=>({...w,text:display(style,w.text)}));if(!words.length)return [];
-  const timed=!words[0].estimated;
+  const animateWords=!words.some(word=>word.br);
   const kw=display(style,keyword||'').trim(),chunks=[];
-  const size=timed?(style.chunk||words.length):words.length;
+  const size=animateWords?(style.chunk||words.length):words.length;
   for(let i=0;i<words.length;i+=size)chunks.push(words.slice(i,i+size));
-  const perWord=timed&&(style.active!=='none'||style.future!=='show'||style.past!=='normal'),segments=[];
+  const perWord=animateWords&&(style.active!=='none'||style.future!=='show'||style.past!=='normal'),segments=[];
   chunks.forEach((chunk,c)=>{
     const chunkStart=Math.max(cue.start,c?chunk[0].start:cue.start);
     const chunkEnd=Math.min(cue.end,chunks[c+1]?.[0].start??cue.end);
