@@ -1227,3 +1227,13 @@ body[data-workspace=full] :is(#clipInspector,#momentMap){display:none}
 .clip-card-controls input{flex:1;min-width:90px}
 .clip-card-controls output{font-variant-numeric:tabular-nums}
 .clip-card-preview [role=status]:empty{display:none}
+
+.clip-play-action{justify-content:center;width:100%;min-height:44px;margin:4px 0;gap:8px}
+.clip-play-action .ui-icon{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2}
+.studio-frame-summary{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:8px 12px;border-bottom:1px solid var(--line)}
+.studio-frame-summary>div{display:flex;gap:4px}
+.studio-frame-summary button{min-height:36px;padding:4px 12px}
+.studio-frame-summary button[aria-pressed=true]{border-color:var(--cue);color:var(--text)}
+.studio-frame-summary span{color:var(--muted);font-size:13px}
+body[data-workspace=edit] .preview-frame:not(:fullscreen){height:auto;aspect-ratio:auto;min-height:0;padding:12px;background:var(--surface)}
+body[data-workspace=edit] .preview-frame:not(:fullscreen) #previewCanvas{width:min(100%,calc(clamp(220px,42dvh,480px) * var(--preview-ratio,1.77778)));height:auto;max-height:none;border-radius:6px;outline:1px solid var(--line-strong)}

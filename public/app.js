@@ -988,7 +988,7 @@ function renderQueue(markDirty=true){
     ${reading?'':`<div class="cd-quick"><button type="button" class="cd-btn cd-btn-sm cd-btn-primary" data-export-moment="${m.id}">Export<kbd class="cd-kbd">E</kbd></button><button type="button" class="cd-btn cd-btn-sm cd-btn-secondary" data-discard-moment="${m.id}" aria-label="Discard clip">✕</button></div>`}</div>
     <div class="cd-card-body"><div class="cd-card-meta" data-card-status="${m.id}"></div>
     <h3 class="cd-card-title">${escapeHtml(m.hook||({'analysing':'Reading this moment…','interrupted':'Analysis interrupted','not-selected':'No strong beat found',error:'Analysis needs attention'}[m.status]||'Review this window'))}</h3>
-    ${!reading&&m.url?`<button type="button" class="cd-btn cd-btn-sm cd-btn-secondary clip-play-action" data-play-moment="${m.id}">Play clip</button>`:''}
+    ${!reading&&m.url?`<button type="button" class="cd-btn cd-btn-primary clip-play-action" data-play-moment="${m.id}">${icon('play')}Play clip</button>`:''}
     <p class="cd-card-why">${escapeHtml(m.analysis?.rankingReason||m.analysis?.reason||m.error||'Watch the original window and decide whether it deserves a clip.')}</p>
     <div class="cd-card-meta"><span class="cd-tc">${formatTime(m.start+(m.trimIn||0))} → ${formatTime(m.start+(m.trimOut??m.end-m.start))}</span><span>${escapeHtml((m.sourceName||state.sourceName||$('projectTitle')?.value||'').slice(0,24))}</span></div></div></article>`}).join(''):
     '<div class="queue-empty"><h3>'+(state.moments.length?'No matching windows':state.source?'Ready to find a story':'Add your first video')+'</h3><p>'+(state.moments.length?'Try another search or show all windows.':state.source?'Choose Find clips. You can play each result as soon as it appears.':'Choose Add video to load a recording or connect a live tab.')+'</p></div>';
@@ -1187,7 +1187,14 @@ function drawCaption(context,moment,sourceTime){
   drawCaptionFrame(context,{cue,time:sourceTime,styleId:moment.captionStyle,look:moment.captionLook,offset:moment.captionOffset||0,accent:accentFor(moment,cue.text)});
 }
 // Fullscreen draws at 1080p; the page preview stays at 540p to keep editing light.
-function setPreviewSize(){const canvas=$('previewCanvas'),[width,height]=outputDimensions(document.fullscreenElement?.contains(canvas)?1080:'preview');if(canvas.width!==width||canvas.height!==height){canvas.width=width;canvas.height=height;}updateFrameControls()}
+function setPreviewSize(){
+  const canvas=$('previewCanvas');
+  const [width,height]=outputDimensions(document.fullscreenElement?.contains(canvas)?1080:'preview');
+  if(canvas.width!==width||canvas.height!==height){canvas.width=width;canvas.height=height}
+  canvas.style.setProperty('--preview-ratio',width/height);
+  $('studioFrameRatio').textContent={portrait:'9:16 vertical',square:'1:1 square',fourfive:'4:5 portrait',landscape:'16:9 widescreen'}[state.aspect]||'16:9 widescreen';
+  updateFrameControls();
+}
 // Complete the thought: warns when the cut starts or ends mid-sentence, starts on a connecting
 // word, or stops before the answer to a question, and fixes it in one undoable step.
 {const box=Object.assign(document.createElement('div'),{id:'thoughtCheck',className:'thought-check',hidden:true});box.setAttribute('role','status');$('cutTools').before(box);let shown='';
@@ -1238,7 +1245,9 @@ $('cutPauses').onclick=async()=>{const m=state.moments.find(x=>x.id===state.sele
 $('cutFillers').onclick=()=>{const m=state.moments.find(x=>x.id===state.selected);if(!m)return;const offset=m.captionOffset||0,words=Object.values(m.captionCues||{}).flat().flatMap(cue=>cue?.words||[]).map(w=>({...w,start:w.start+offset,end:w.end+offset}));
   if(!words.length){toast('Word timings are needed. Transcribe this clip with word timing first.');return}performEdit('remove-fillers',()=>addCuts(m,fillerCuts(words),'ums and uhs'))};
 $('cutRestore').onclick=()=>performEdit('restore-cuts',()=>{const m=state.moments.find(x=>x.id===state.selected);if(m){m.cuts=[];projectSession?.changed();renderCutStatus();drawPreview()}});
-function updateFrameControls(){const m=state.moments.find(x=>x.id===state.selected),disabled=!m||m.frameMode==='fit',split=m?.frameMode==='split';for(const id of ['zoomRange','focusX','focusY'])$(id).disabled=disabled||(split&&id!=='focusX');$('splitCamControls').hidden=!split;if(split){const c=splitGeometry(1,1,m.splitCam).cam;$('camX').value=c.x;$('camY').value=c.y;$('camSize').value=c.w}}
+function updateFrameControls(){const m=state.moments.find(x=>x.id===state.selected),disabled=!m||m.frameMode==='fit',split=m?.frameMode==='split';for(const id of ['zoomRange','focusX','focusY'])$(id).disabled=disabled||(split&&id!=='focusX');$('splitCamControls').hidden=!split;if(split){const c=splitGeometry(1,1,m.splitCam).cam;$('camX').value=c.x;$('camY').value=c.y;$('camSize').value=c.w}for(const mode of ['fit','fill'])$('studioFrame'+mode).setAttribute('aria-pressed',String(m?.frameMode===mode));
+  $('studioFrameHint').textContent=split?'Split view uses two crops.':m?.frameMode==='fill'?'Fill crops the source to cover the frame.':'Fit keeps the full picture and may add bars.';
+}
 for(const [id,key] of [['camX','x'],['camY','y'],['camSize','w']])$(id).oninput=e=>{const m=state.moments.find(x=>x.id===state.selected);if(m){m.splitCam={...splitGeometry(1,1,m.splitCam).cam,[key]:Number(e.target.value)};drawPreview()}};
 function drawComposedFrame(context,video,moment,elapsed,clock=video.currentTime||0){
   const width=context.canvas.width,height=context.canvas.height;
