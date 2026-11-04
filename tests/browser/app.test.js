@@ -86,6 +86,16 @@ test('an uploaded video becomes a saved project that survives a reload',async()=
     await page.reload({waitUntil:'networkidle'});
     await page.waitForFunction(()=>document.querySelector('#projectTitle')?.value==='sample.mp4');
     assert.equal(await page.evaluate(()=>document.body.dataset.workspace),'clips');
+    await page.getByRole('navigation',{name:'Project',exact:true}).getByRole('button',{name:'Full video',exact:true}).click();
+    await page.getByRole('button',{name:'Edit video in Studio'}).click();
+    await page.waitForURL(/#\/studio$/);
+    await page.waitForFunction(()=>document.getElementById('clipVideo').readyState>=2);
+    await page.locator('#trimOut').fill('4');
+    await page.locator('#trimOut').blur();
+    await page.waitForFunction(async id=>{
+      const project=await (await fetch('/api/projects/'+id)).json();
+      return project.state.moments.some(moment=>moment.trimOut===4);
+    },projects[0].id);
     assert.deepEqual(problems,[]);
   }finally{await app.stop();await fs.rm(dir,{recursive:true,force:true})}
 });
@@ -111,7 +121,11 @@ test('a trashed video is deleted for good, and Empty Trash also clears leftover 
     const [uploaded]=(await (await fetch(app.url+'/api/projects')).json()).projects,sourceDir=path.join(app.dataDir,'sources',uploaded.sourceId);
     assert.ok(await exists(sourceDir));
     await api('/api/projects/'+uploaded.id,{action:'trash',trashed:true});
-    await page.locator('.workspace-nav [data-workspace=library]').click();await page.locator('#showProjectTrash').check();
+    await page.getByRole('navigation',{name:'Workspace',exact:true}).getByRole('button',{name:'Home',exact:true}).click();
+    const actions=page.locator('.home-project-actions');
+    await actions.getByRole('button',{name:'All projects'}).waitFor();
+    await actions.getByRole('button',{name:'Trash (1)',exact:true}).click();
+    await page.getByRole('button',{name:'Delete forever'}).waitFor();
     page.once('dialog',dialog=>dialog.accept());
     await page.getByRole('button',{name:'Delete forever'}).click();
     await page.waitForFunction(()=>location.hash==='#/home');await page.waitForLoadState('networkidle');

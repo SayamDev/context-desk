@@ -134,6 +134,7 @@ function showWorkspace(view){
   document.querySelectorAll('.workspace-nav button').forEach(button=>{if(button.dataset.workspace===view)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current')});
   const content={home:['Home','Start a recording or pick up a saved story.'],library:['Library','Your recordings, moments and edits.'],jobs:['Activity','Processing and finished work across projects.'],exports:['Exports','Watch, download or publish finished videos. Find subtitle files and chapter timestamps here too.'],full:['Full video','Watch the recording, review subtitles and jump to chapters.'],brand:['Brand Kit','Save a caption look once and use it across projects.'],source:['Start a new story.','Paste a link or upload a recording. Clips appear as processing finishes.'],clips:['Clips','Find a story worth sharing. Every suggestion links back to the source.'],edit:['Studio','Your footage. Your words. Your final cut.']}[view];
   $('workspaceTitle').textContent=content[0];$('workspaceDescription').textContent=content[1];
+  $('fullVideoActions').hidden=view!=='full'||state.sourceType!=='file';
   if(view!=='edit')clipVideo.pause();if(!['jobs','exports'].includes(view))jobsView?.closePreview();if(view!=='full')$('wholePreview').pause();if(!['full','source'].includes(view)&&state.sourceType==='file'&&!state.scanning)program.pause();
   $('brandKitPage').hidden=view!=='brand';if(view==='brand')brandControls.open();if(view==='library')void renderLibrary();syncProjectNavigation(view);workspaceHelp?.syncGuide();if(view==='full'){ $('wholeSubtitleDetails').open=true;renderWholeSubtitles();if(wholeJob)void pollWholeJob();}projectSession?.changed();
 }
@@ -1275,12 +1276,12 @@ $('timelineXmlButton').onclick=async()=>{const ids=(state.cut?.length?state.cut:
     visResults.replaceChildren(...(results.length?results.map(hit=>{const li=document.createElement('li'),b=Object.assign(document.createElement('button'),{type:'button',className:'cd-btn cd-btn-sm cd-btn-secondary',textContent:'Make a clip'});b.onclick=()=>makeClip(hit);li.append(Object.assign(document.createElement('span'),{className:'cd-tc',textContent:formatTime(hit.start)}),Object.assign(document.createElement('span'),{className:'quote-text',textContent:`${Math.round(hit.end-hit.start)}s showing ${hit.labels.join(', ').replace(/_/g,' ')}`}),b);return li}):[Object.assign(document.createElement('li'),{className:'quote-none',textContent:'Nothing matching was seen. Try a simpler word for an object (Apple’s labels are things like “sunglasses”, “sofa”, “bottle”).'})]))}catch(error){toast(error.message)}};
   setInterval(()=>{panel.hidden=!sourceId();form.hidden=!job();panel.querySelector('p').hidden=!job();if(!panel.hidden&&(visState!=='ready'||!visStatus.textContent))void visRefresh()},2000);
   clipFromRange=makeClip;
-  async function makeClip(hit,{hook='',open=true,exact=false}={}){const j=job();if(j&&trackFor!==j.id){track=await requestJson('/api/subtitles/'+j.id+'/track');trackFor=j.id}const t=j?track:{cues:[],original:[],language:'Original',duration:program.duration};const duration=t.duration||j?.duration||program.duration,ws=Math.max(0,hit.start-45),we=Math.min(duration,hit.end+45),win={start:ws,end:we,mediaStart:ws};
+  async function makeClip(hit,{hook='',open=true,exact=false,announce=true}={}){const j=job();if(j&&trackFor!==j.id){track=await requestJson('/api/subtitles/'+j.id+'/track');trackFor=j.id}const t=j?track:{cues:[],original:[],language:'Original',duration:program.duration};const duration=t.duration||j?.duration||program.duration,ws=Math.max(0,hit.start-45),we=Math.min(duration,hit.end+45),win={start:ws,end:we,mediaStart:ws};
     const cues={Original:projectTrack(t.original,win),...(t.language==='Original'?{}:{[t.language]:projectTrack(t.cues,win)})},local=t.language==='Original'?cues.Original:cues[t.language];
     let a=Math.max(0,hit.start-ws-.2),b=Math.min(we-ws,hit.end-ws+.3);const quoteIn=a,quoteOut=b;for(let pass=0;pass<3&&!exact;pass++){const fixed=thoughtCheck(local,a,b,{windowEnd:we-ws}).suggestion;if(!fixed||quoteIn-fixed.trimIn>12||fixed.trimOut-quoteOut>15)break;a=fixed.trimIn;b=fixed.trimOut}
     // A reopened project has no in-memory source address; the recording's saved media always has one.
     const m={id:crypto.randomUUID(),url:j?.sourceId?`/api/import/${j.sourceId}/media`:state.sourceUrl,blob:state.source,frames:[],start:ws,end:we,mediaStart:ws,batchId:state.batchId,sourceName:state.sourceName,sourceType:'file',sourceLink:state.sourcePageUrl,manual:true,status:'manual',analysis:null,transcript:local.map(c=>c.text).join(' ').slice(0,2000),trimIn:+a.toFixed(2),trimOut:+b.toFixed(2),hook,alternateHook:'',frameMode:'fit',zoom:1,focusX:50,focusY:50,showHook:false,captionLanguage:t.language,captionStyle:'clean',dialectNote:$('sourceDialect').value,captionCues:cues,captionReviewed:{},showCaptions:true,captionOffset:0};
-    performEdit('quote-clip',()=>{state.moments.push(m)});if(!open)return m;await selectMoment(m.id);showWorkspace('edit');toast('Clip made from your quote. Check where it starts and ends, then the subtitles.');return m}
+    performEdit('quote-clip',()=>{state.moments.push(m)});if(!open)return m;await selectMoment(m.id);showWorkspace('edit');if(announce)toast('Clip made from your quote. Check where it starts and ends, then the subtitles.');return m}
   form.onsubmit=async event=>{event.preventDefault();const j=job();if(!j)return;go.disabled=true;
     try{if(trackFor!==j.id){track=await requestJson('/api/subtitles/'+j.id+'/track');trackFor=j.id}
       const hits=findQuotes(track,input.value);results.replaceChildren(...(hits.length?hits.map(hit=>{const li=document.createElement('li'),b=Object.assign(document.createElement('button'),{type:'button',className:'cd-btn cd-btn-sm cd-btn-secondary',textContent:'Make a clip'});b.onclick=()=>makeClip(hit);
@@ -1771,6 +1772,17 @@ $('restoreWholeSource').onclick=async()=>{if(!wholeJob)return;try{const response
 $('wholeJobSelect').onchange=e=>{wholeJob=wholeJobs.find(j=>j.id===e.target.value);$('wholePreview').pause();$('wholePreview').hidden=true;renderWholeSubtitles();void pollWholeJob()};
 $('openWholeSubtitles').onclick=()=>{showWorkspace('full');$('wholeSubtitleDetails').open=true;renderWholeSubtitles();$('wholeSubtitles').scrollIntoView({behavior:'smooth',block:'start'})};
 $('wholeSubtitleDetails').ontoggle=()=>{if($('wholeSubtitleDetails').open)void pollWholeJob()};
+$('editUploadedVideo').onclick=async()=>{
+  const button=$('editUploadedVideo'),source=state.source;
+  button.disabled=true;
+  try{
+    await mediaReady(program);
+    if(state.source===source&&state.sourceType==='file'&&Number.isFinite(program.duration)){
+      await clipFromRange({start:0,end:program.duration},{exact:true,announce:false});
+    }
+  }catch(error){toast(error.message)}
+  finally{button.disabled=false}
+};
 async function fullTrack(){const response=await fetch('/api/subtitles/'+wholeJob.id+'/track'),data=await response.json();if(!response.ok)throw Error(data.error);return data}
 $('previewWholeSubtitles').onclick=async()=>{try{const track=await fullTrack();if(wholeTrackUrl)URL.revokeObjectURL(wholeTrackUrl);wholeTrackUrl=URL.createObjectURL(new Blob(['WEBVTT\n\n'+srtDocument(track.cues).replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g,'$1.$2')],{type:'text/vtt;charset=utf-8'}));$('wholePreview').src=state.sourceUrl;$('wholeTrack').src=wholeTrackUrl;$('wholeTrack').label=track.language+' · draft';$('wholeTrack').track.mode='showing';$('wholePreview').hidden=false;$('wholePreview').scrollIntoView({behavior:'smooth',block:'nearest'})}catch(error){$('wholeError').hidden=false;$('wholeError').textContent=error.message}};
 $('wholePreview').onplay=()=>claimPlayback($('wholePreview'));
