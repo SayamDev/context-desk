@@ -36,6 +36,11 @@ test('tab sharing can be cancelled and reconnected without losing captured windo
     const resume=page.getByRole('button',{name:'Resume clipping',exact:true});
     const reconnect=page.getByRole('button',{name:'Reconnect live tab',exact:true});
     await pause.waitFor();
+    await page.getByRole('button',{name:'Find source player'}).click();
+    const sourceHelp=page.getByRole('dialog',{name:'Use the original player'});
+    await sourceHelp.getByText('View tab',{exact:true}).waitFor();
+    await sourceHelp.getByRole('button',{name:'Got it'}).click();
+    assert.equal(await page.context().pages().length,1);
     await page.waitForTimeout(1250);
     await pause.click();
     await resume.click();

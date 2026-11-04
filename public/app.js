@@ -208,7 +208,7 @@ const canReconnectLive=()=>Boolean(liveRecovery?.projectId&&liveRecovery.project
 const liveMonitor=createLiveMonitor({stop:()=>stopLiveClipping(),getStreams:()=>({video:state.stageCrop&&stageDrawing?stageCanvas.captureStream(30).getVideoTracks()[0]:state.screenStream?.getVideoTracks()[0]?.clone(),audio:state.screenStream?.getAudioTracks()||[]})});
 function announceLiveClip({id,hook}){const open=()=>{showWorkspace('clips');inspectClip(id)};toast('New live clip: '+(hook||'a moment worth checking'),{action:'Open',run:open,timeout:9000});
   if(document.hidden&&window.Notification?.permission==='granted'){try{const n=new Notification('New live clip',{body:hook||'Context Desk found a moment worth checking.',tag:'context-desk-live-clip'});n.onclick=()=>{window.focus();open();n.close()}}catch{/* Notifications are optional. */}}}
-mountLiveBar({every:(ms,fn)=>bgClock.every(ms,fn),start:()=>startLiveClipping(),reconnect:()=>connectLiveTab(true),stop:()=>stopLiveClipping(),open:()=>showWorkspace('clips'),monitor:liveMonitor,onClip:announceLiveClip,
+mountLiveBar({every:(ms,fn)=>bgClock.every(ms,fn),start:()=>startLiveClipping(),reconnect:()=>connectLiveTab(true),stop:()=>stopLiveClipping(),open:()=>showWorkspace('clips'),monitor:liveMonitor,onClip:announceLiveClip,focusSource:()=>focusLivePlayer(),
   getState:()=>({reconnect:canReconnectLive(),connecting:connectingLive,latest:usableMoments(state.moments).filter(m=>m.sourceType==='screen').sort((a,b)=>b.start-a.start)[0]||null,connected:state.sourceType==='screen'&&Boolean(state.screenStream?.getVideoTracks().some(t=>t.readyState==='live')),scanning:state.scanning,framing:state.cropPicking,elapsed:canReconnectLive()?liveRecovery.elapsed:state.liveEpoch?liveTime():0,windows:state.moments.filter(m=>m.sourceType==='screen').length,clips:usableMoments(state.moments).filter(m=>m.sourceType==='screen').length})});
 // Beginner guide: progress is read from the project; each Next action jumps to the right place.
 {const guide=createGuide({
@@ -360,7 +360,7 @@ function setProjectCaptionTarget(language){
 $('codeSwitchLanguage').innerHTML+='<option>'+speechLanguages.join('</option><option>')+'</option>';
 $('dialectHints').innerHTML=dialectExamples.map(value=>'<option value="'+value+'">').join('');
 function speechChoices(){return languageBias([$('speechLanguage').value,$('codeSwitchLanguage').value]).join(', ')}
-const openedSourceLinks=new Set();
+
 const sourceUrls=new Set();
 const batchExportUrls=new Set();
 const deskTabId=crypto.randomUUID();
@@ -463,17 +463,39 @@ $('cancelImport').onclick=async()=>{importCancelled=true;if(importId)await fetch
 // A live link opens the platform's player-only page in its own window when there is one, so the
 // shared picture is just the video (no comments or sidebar) and framing uses the whole frame.
 // Embedded players refuse to play without a referrer, so that window keeps it (still noopener).
-let livePlayerPage='',liveSource=null;
+let livePlayerPage='',liveSource=null,openedPlayer=null,sharedPlayer=null;
+function focusLivePlayer(){
+  if(!sharedPlayer||sharedPlayer.closed)return false;
+  try{sharedPlayer.focus();return true}catch{return false}
+}
+function openLivePlayer(page){
+  let url;
+  try{url=new URL(page)}catch{return}
+  if(url.protocol!=='https:'||url.username||url.password)return;
+  if(openedPlayer?.url===url.href&&!openedPlayer.window.closed){openedPlayer.window.focus();return openedPlayer.window}
+  const player=window.open('about:blank','_blank',livePlayerPage?'popup,width=1600,height=900':undefined);
+  if(!player)return;
+  // Keep a reference for focus, while preventing the external player from accessing Context Desk.
+  player.opener=null;
+  const link=player.document.createElement('a');
+  link.href=url.href;
+  if(!livePlayerPage)link.referrerPolicy='no-referrer';
+  player.document.body.append(link);
+  link.click();
+  openedPlayer={url:url.href,window:player};
+  return player;
+}
 // "Channel · Stream title · Live 3 Nov, 15:47" when the stream came from a link; otherwise a dated live session.
 const liveSessionName=()=>[liveSource?.channel,liveSource?.title].filter(Boolean).join(' · ').slice(0,120);
 function liveSessionTitle(){const name=liveSessionName();return name?name+' · Live '+new Date().toLocaleString(undefined,{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):''}
 // An open live session carries on only for the same stream; a link to a different channel or stream starts its own project.
 const continuesLiveSession=p=>Boolean(p&&!p.sourceId&&(!liveSessionName()||String(p.title||'').startsWith(liveSessionName()+' · Live ')));
-$('captureFallback').onclick=()=>{const page=livePlayerPage||sourcePageUrl;if(page&&!openedSourceLinks.has(page)){window.open(page,'context-desk-source',livePlayerPage?'popup,width=1600,height=900,noopener':'noopener,noreferrer');openedSourceLinks.add(page)}$('screenButton').click()};
+$('captureFallback').onclick=()=>{const page=livePlayerPage||sourcePageUrl;void connectLiveTab(false,page?openLivePlayer(page):null)};
 $('screenButton').onclick=()=>connectLiveTab();
-async function connectLiveTab(reconnect=false){
+async function connectLiveTab(reconnect=false,player=null){
   if(connectingLive||reconnect&&!canReconnectLive())return;
   const recovery=reconnect?liveRecovery:null;
+  if(recovery)player=recovery.player;
   connectingLive=true;
   let connectingStream;try{
     // Chrome normally jumps to the shared tab, which sends Context Desk to the background and pauses its
@@ -484,7 +506,7 @@ async function connectLiveTab(reconnect=false){
     const track=stream.getVideoTracks()[0];
     if(!track||track.readyState!=='live')throw Error('The selected tab stopped sharing. Try connecting again.');
     if(recovery&&!canReconnectLive())throw Error('Reopen the live project before reconnecting its tab.');
-    showWorkspace('clips');if(projectSession){await finishCaptureForSwitch();const resume=Boolean(recovery&&recovery.projectId===projectSession.current?.id)||continuesLiveSession(projectSession.current);if(!resume){await projectSession.beforeSourceChange();state.moments=[];state.cut=[];state.selected=null;state.batchExports=[];state.exportHistory=[];state.aiCalls=0;state.windowCount=0;await projectSession.createLive(liveSessionTitle());}else await projectSession.flush();}setActivity('share','Connecting the live picture','Preparing automatic framing and scanning…');cleanupSource();state.screenStream=stream;state.liveElapsedOffset=Math.max(recovery?.elapsed||0,...state.moments.filter(m=>m.sourceType==='screen').map(m=>m.end));state.liveEpoch=performance.now();state.source=stream;state.sourceType='screen';state.sourceName='Shared video tab';program.muted=true;program.volume=0;program.controls=false;program.srcObject=stream;
+    showWorkspace('clips');if(projectSession){await finishCaptureForSwitch();const resume=Boolean(recovery&&recovery.projectId===projectSession.current?.id)||continuesLiveSession(projectSession.current);if(!resume){await projectSession.beforeSourceChange();state.moments=[];state.cut=[];state.selected=null;state.batchExports=[];state.exportHistory=[];state.aiCalls=0;state.windowCount=0;await projectSession.createLive(liveSessionTitle());}else await projectSession.flush();}setActivity('share','Connecting the live picture','Preparing automatic framing and scanning…');cleanupSource();sharedPlayer=player;state.screenStream=stream;state.liveElapsedOffset=Math.max(recovery?.elapsed||0,...state.moments.filter(m=>m.sourceType==='screen').map(m=>m.end));state.liveEpoch=performance.now();state.source=stream;state.sourceType='screen';state.sourceName='Shared video tab';program.muted=true;program.volume=0;program.controls=false;program.srcObject=stream;
     track.addEventListener('ended',()=>{if(state.screenStream===stream)disconnectLiveTab();},{once:true});
     if(track.readyState!=='live')throw Error('The selected tab stopped sharing.');
     await program.play();if(!program.videoWidth)await mediaReady(program);
@@ -494,7 +516,8 @@ async function connectLiveTab(reconnect=false){
   finally{connectingLive=false;finishActivity('share')}
 }
 function disconnectLiveTab(){
-  liveRecovery={projectId:projectSession?.current?.id,elapsed:liveTime()};
+  liveRecovery={projectId:projectSession?.current?.id,elapsed:liveTime(),player:sharedPlayer};
+  sharedPlayer=null;
   cleanupSource();
   message('Tab sharing ended. Your clips stay in this project. Choose Reconnect live tab and share the same tab to continue.');
 }
