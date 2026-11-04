@@ -1,19 +1,43 @@
 const post=body=>({method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
 const localAsset=url=>typeof url==='string'&&/^\/api\/assets\/[a-f0-9]{64}$/.test(url);
+const destinations={
+ youtube:{name:'YouTube',method:'Direct upload',url:'https://www.youtube.com/upload',action:'Open YouTube Studio',help:'Connect your channel to upload from Context Desk.'},
+ tiktok:{name:'TikTok',method:'Direct post',url:'https://www.tiktok.com/tiktokstudio/upload',action:'Open TikTok Studio',help:'Connect your account to post from Context Desk.'},
+ twitch:{name:'Twitch',method:'Video Producer',url:'https://dashboard.twitch.tv/',action:'Open Twitch Creator Dashboard',help:'Affiliates and Partners can download the edited MP4 here, then upload it in Creator Dashboard → Content → Video Producer. Native Twitch clips use the original broadcast.'},
+ kick:{name:'Kick',method:'Clip from broadcast',url:'https://kick.com/',action:'Open Kick',help:'Open the original Kick stream or replay and select its clip button. Kick creates the clip from that broadcast.'},
+ instagram:{name:'Instagram',method:'Upload on Instagram',url:'https://www.instagram.com/',action:'Open Instagram',help:'Download the finished video, then upload it as a Reel.'},
+ facebook:{name:'Facebook',method:'Upload on Facebook',url:'https://www.facebook.com/reels/create/',action:'Open Facebook',help:'Download the finished video, then upload it as a Reel.'}
+};
+function kickSource(project){
+ try{
+  const url=new URL(project?.state?.sourcePageUrl);
+  if(url.protocol==='https:'&&['kick.com','www.kick.com'].includes(url.hostname)&&!url.username&&!url.password&&!url.port&&url.pathname!=='/')return url.href;
+ }catch{}
+ return null;
+}
 const visibilityLabels={private:'Private',unlisted:'Unlisted',public:'Public',SELF_ONLY:'Only me',PUBLIC_TO_EVERYONE:'Everyone',MUTUAL_FOLLOW_FRIENDS:'Friends',FOLLOWER_OF_CREATOR:'Followers'};
 const node=(tag,text,className)=>{const element=document.createElement(tag);if(text!==undefined)element.textContent=text;if(className)element.className=className;return element;};
 export function createConnections({requestJson,getProject,onMessage=()=>{}}){
  const mount=document.querySelector('.settings-body');if(!mount)throw Error('Open the settings layout before mounting Connections.');
- const panel=node('details',undefined,'production-tool');panel.id='socialConnections';panel.innerHTML=`<summary>Social connections & publishing</summary><p>Connect an account, choose a finished video and review its exact post. Uploading needs a separate final click.</p><button type="button" data-social="refresh">Refresh connections</button><div data-social="providers"></div><p data-social="status" role="status" aria-live="polite"></p><p>Instagram and Facebook manual uploads remain available: download a finished video in Jobs, then upload it in the platform.</p><form data-social="form"><fieldset data-social="fields"><legend>Review a finished export</legend><label>Connected account<select data-social="account" required><option value="">Choose an account</option></select></label><label>Finished video<select data-social="export" required><option value="">Choose a completed export</option></select></label><p data-social="capabilities" role="status"></p><label>Title / caption<textarea data-social="title" rows="2" required maxlength="100"></textarea></label><label data-social="descriptionLabel">Description<textarea data-social="description" rows="3" maxlength="5000"></textarea></label><label>Visibility<select data-social="visibility" required><option value="">Choose visibility yourself</option></select></label><fieldset data-social="youtubeFields"><legend>YouTube audience and disclosure</legend><label>Made for kids?<select data-social="kids" required><option value="">Choose an audience declaration</option><option value="false">No</option><option value="true">Yes</option></select></label><label>Contains realistic altered or synthetic media?<select data-social="synthetic" required><option value="">Choose a disclosure</option><option value="false">No</option><option value="true">Yes</option></select></label><label><input type="checkbox" data-social="notify"> Notify channel subscribers</label></fieldset><fieldset data-social="tiktokFields" hidden disabled><legend>TikTok interactions and disclosure</legend><label><input type="checkbox" data-social="comment"> Allow comments</label><label><input type="checkbox" data-social="duet"> Allow Duet</label><label><input type="checkbox" data-social="stitch"> Allow Stitch</label><label><input type="checkbox" data-social="commercial"> Disclose commercial content</label><div data-social="brands" hidden><label><input type="checkbox" data-social="organic" disabled> Your brand / business</label><label><input type="checkbox" data-social="branded" disabled> Branded content / paid partnership</label><p>Branded content cannot use Only me visibility.</p></div><label><input type="checkbox" data-social="music"> By posting, you agree to TikTok’s <a href="https://www.tiktok.com/legal/page/global/music-usage-confirmation/en" target="_blank" rel="noopener noreferrer">Music Usage Confirmation</a>.</label><label data-social="brandedPolicyLabel" hidden><input type="checkbox" data-social="brandedPolicy"> I agree to TikTok’s <a href="https://www.tiktok.com/legal/page/global/bc-policy/en" target="_blank" rel="noopener noreferrer">Branded Content Policy</a>.</label></fieldset><button type="submit" data-social="review">Create review draft</button></fieldset></form><section data-social="reviewPanel" aria-label="Exact post review" hidden></section>`;
- mount.append(panel);const $=name=>panel.querySelector(`[data-social="${name}"]`);let providers=[],accounts=[],exports=[],draft=null,confirmation=null,expiryTimer=null,inFlight=null,lastSync=0,lastProject=null,capabilityRequest=0,busy=false;
+ const panel=node('section',undefined,'publish-workflow');panel.id='socialConnections';panel.innerHTML=`<button type="button" data-social="refresh">Refresh connections</button><div data-social="providers"></div><p data-social="status" role="status" aria-live="polite"></p><form data-social="form"><fieldset data-social="fields"><legend>Review a finished export</legend><label>Connected account<select data-social="account" required><option value="">Choose an account</option></select></label><label>Finished video<select data-social="export" required><option value="">Choose a completed export</option></select></label><p data-social="capabilities" role="status"></p><label>Title / caption<textarea data-social="title" rows="2" required maxlength="100"></textarea></label><label data-social="descriptionLabel">Description<textarea data-social="description" rows="3" maxlength="5000"></textarea></label><label>Visibility<select data-social="visibility" required><option value="">Choose visibility yourself</option></select></label><fieldset data-social="youtubeFields"><legend>YouTube audience and disclosure</legend><label>Made for kids?<select data-social="kids" required><option value="">Choose an audience declaration</option><option value="false">No</option><option value="true">Yes</option></select></label><label>Contains realistic altered or synthetic media?<select data-social="synthetic" required><option value="">Choose a disclosure</option><option value="false">No</option><option value="true">Yes</option></select></label><label><input type="checkbox" data-social="notify"> Notify channel subscribers</label></fieldset><fieldset data-social="tiktokFields" hidden disabled><legend>TikTok interactions and disclosure</legend><label><input type="checkbox" data-social="comment"> Allow comments</label><label><input type="checkbox" data-social="duet"> Allow Duet</label><label><input type="checkbox" data-social="stitch"> Allow Stitch</label><label><input type="checkbox" data-social="commercial"> Disclose commercial content</label><div data-social="brands" hidden><label><input type="checkbox" data-social="organic" disabled> Your brand / business</label><label><input type="checkbox" data-social="branded" disabled> Branded content / paid partnership</label><p>Branded content cannot use Only me visibility.</p></div><label><input type="checkbox" data-social="music"> By posting, you agree to TikTok’s <a href="https://www.tiktok.com/legal/page/global/music-usage-confirmation/en" target="_blank" rel="noopener noreferrer">Music Usage Confirmation</a>.</label><label data-social="brandedPolicyLabel" hidden><input type="checkbox" data-social="brandedPolicy"> I agree to TikTok’s <a href="https://www.tiktok.com/legal/page/global/bc-policy/en" target="_blank" rel="noopener noreferrer">Branded Content Policy</a>.</label></fieldset><button type="submit" data-social="review">Create review draft</button></fieldset></form><section data-social="reviewPanel" aria-label="Exact post review" hidden></section>`;
+ const dialog=node('dialog',undefined,'publish-desk');dialog.setAttribute('aria-labelledby','publishDeskTitle');
+ dialog.innerHTML='<header class="publish-desk-head"><div><h2 id="publishDeskTitle">Publish video</h2><p class="publish-clip-title"></p></div><button type="button" class="cd-btn cd-btn-secondary" data-close-publish>Close</button></header><div class="publish-desk-grid"><figure class="publish-proof"><video controls playsinline preload="metadata" aria-label="Finished export preview"></video><figcaption>Finished export</figcaption></figure><div class="publish-destination"><label for="publishDestination">Destination</label><select id="publishDestination"></select><p class="publish-method"></p><p class="publish-help"></p><div class="publish-manual"></div></div></div>';
+ const find=selector=>dialog.querySelector(selector),destination=find('select'),preview=find('video'),manual=find('.publish-manual');
+ destination.replaceChildren(...Object.entries(destinations).map(([key,item])=>new Option(item.name,key)));
+ find('.publish-destination').append(panel);document.body.append(dialog);
+ const shortcut=node('button','Manage publishing accounts','cd-btn cd-btn-secondary');shortcut.type='button';mount.append(shortcut);
+ shortcut.onclick=()=>{mount.closest('dialog')?.close();void open()};
+ find('[data-close-publish]').onclick=()=>dialog.close();
+ let picked=null,openSequence=0;
+ const $=name=>panel.querySelector(`[data-social="${name}"]`);let providers=[],accounts=[],exports=[],draft=null,confirmation=null,expiryTimer=null,inFlight=null,lastSync=0,lastProject=null,capabilityRequest=0,busy=false;
  const report=message=>{$('status').textContent=message;};
  function clearReview(message){draft=null;confirmation=null;if(expiryTimer){clearInterval(expiryTimer);expiryTimer=null;}$('reviewPanel').replaceChildren();$('reviewPanel').hidden=true;if(message)report(message);}
  function selectedAccount(){return accounts.find(account=>account.id===$('account').value);}
  function invalidate(){if(draft||confirmation)clearReview('Changes need a new review draft before publishing.');}
  function renderProviders(){
   const rows=[];
-  for(const provider of providers){
-   const row=node('details',undefined,'production-tool'),summary=node('summary',provider.name+' · '+(provider.configured?'Ready to connect':provider.oauthSupported?'Setup needed':'Manual upload'));row.append(summary);
+  for(const provider of providers.filter(provider=>provider.id===destination.value)){
+   const row=node('details',undefined,'production-tool'),summary=node('summary',provider.name+' account');row.open=!accounts.some(account=>account.provider===provider.id&&account.status==='connected');row.append(summary);
    for(const issue of provider.issues||[])row.append(node('p',issue));
    if(provider.missing?.length)row.append(node('p','Server setup: '+provider.missing.join(', ')));
    const connected=accounts.filter(account=>account.provider===provider.id&&account.status==='connected');
@@ -35,10 +59,12 @@ export function createConnections({requestJson,getProject,onMessage=()=>{}}){
  }
  function setOptions(select,placeholder,options){const previous=select.value;select.replaceChildren(new Option(placeholder,''),...options.map(item=>new Option(item.label,item.value)));if(options.some(item=>item.value===previous))select.value=previous;}
  function renderChoices(){
-  setOptions($('account'),'Choose an account',accounts.filter(account=>account.status==='connected').map(account=>({value:account.id,label:(providers.find(provider=>provider.id===account.provider)?.name||account.provider)+' · '+account.displayName})));
+  setOptions($('account'),'Choose an account',accounts.filter(account=>account.status==='connected'&&account.provider===destination.value).map(account=>({value:account.id,label:(providers.find(provider=>provider.id===account.provider)?.name||account.provider)+' · '+account.displayName})));
   setOptions($('export'),'Choose a completed export',exports.map(job=>({value:job.id,label:job.sourceName||job.name||'Finished video'})));
-  const ready=accounts.some(account=>account.status==='connected')&&exports.length>0;$('form').hidden=!ready;if(!ready)$('capabilities').textContent='';
-  if(!getProject()?.id)report('Open a saved project to review one of its finished exports.');else if(!exports.length)report('Render a finished video first. Its completed export will appear here.');else if(!accounts.some(account=>account.status==='connected'))report('Choose a configured provider above and connect an account. Your finished downloads stay available in Jobs.');
+  $('export').closest('label').hidden=Boolean(picked);
+  if(picked)$('export').value=picked.id;
+  const ready=Boolean(!picked||$('export').value)&&accounts.some(account=>account.status==='connected'&&account.provider===destination.value)&&exports.length>0;$('form').hidden=!ready;if(!ready)$('capabilities').textContent='';
+  if(!getProject()?.id)report('Open a saved project to review one of its finished exports.');else if(!exports.length)report('Render a finished video first. Its completed export will appear here.');else if(!accounts.some(account=>account.status==='connected'&&account.provider===destination.value))report('Connect an account above to publish here.');
  }
  async function loadCapabilities(){
   invalidate();const account=selectedAccount(),sequence=++capabilityRequest;$('visibility').replaceChildren(new Option('Choose visibility yourself',''));$('review').disabled=true;
@@ -57,7 +83,7 @@ export function createConnections({requestJson,getProject,onMessage=()=>{}}){
  }
  function renderReview(value){
   const target=$('reviewPanel');target.hidden=false;target.replaceChildren(node('h3','Review this exact post'),node('p','Account: '+value.accountName),node('p','Visibility: '+(visibilityLabels[value.metadata.visibility]||value.metadata.visibility)),node('p','Title / caption: '+value.metadata.title));
-  if(localAsset(value.assetUrl)){const video=node('video');video.controls=true;video.preload='metadata';video.src=value.assetUrl;video.style.maxWidth='100%';video.setAttribute('aria-label','Saved video that will be uploaded');target.append(video);}
+  if(localAsset(value.assetUrl)&&picked?.output?.url!==value.assetUrl){const video=node('video');video.controls=true;video.preload='metadata';video.src=value.assetUrl;video.style.maxWidth='100%';video.setAttribute('aria-label','Saved video that will be uploaded');target.append(video);}
   if(value.metadata.description)target.append(node('p',value.metadata.description));
   if(value.provider==='youtube')target.append(node('p','Made for kids: '+(value.metadata.madeForKids?'Yes':'No')+' · Altered/synthetic media: '+(value.metadata.containsSyntheticMedia?'Yes':'No')+' · Notify subscribers: '+(value.metadata.notifySubscribers?'Yes':'No')));
   if(value.provider==='tiktok')target.append(node('p','Comments: '+(value.metadata.allowComment?'On':'Off')+' · Duet: '+(value.metadata.allowDuet?'On':'Off')+' · Stitch: '+(value.metadata.allowStitch?'On':'Off')+' · Commercial disclosure: '+(value.metadata.commercialDisclosure?(value.metadata.brandContent?'Paid partnership':'Your brand'):'Off')));
@@ -82,10 +108,47 @@ export function createConnections({requestJson,getProject,onMessage=()=>{}}){
   try{const response=await requestJson('/api/social/drafts',post({projectId:project.id,exportId:selected.id,accountId:account.id,metadata:collectMetadata(account)}));if(getProject()?.id!==project.id)return;draft=response;renderReview(draft);report('Review the saved video and metadata below. Nothing is uploaded until the final Publish click.');}catch(error){report(error.message);}finally{busy=false;$('fields').disabled=false;}
  };
  async function sync(force=false){
+  if(!dialog.open)return;
   const projectId=getProject()?.id||null;if(inFlight)return inFlight;if(!force&&projectId===lastProject&&Date.now()-lastSync<10000)return;
   if(projectId!==lastProject&&!busy){clearReview();$('account').value='';$('export').value='';++capabilityRequest;}
   inFlight=(async()=>{try{const [data,jobs]=await Promise.all([requestJson('/api/social/status'),requestJson('/api/jobs')]);if((getProject()?.id||null)!==projectId)return;providers=data.providers||[];accounts=data.accounts||[];exports=(jobs.jobs||[]).filter(job=>job.kind==='export'&&job.status==='complete'&&job.projectId===projectId&&localAsset(job.output?.url));renderProviders();renderChoices();lastSync=Date.now();lastProject=projectId;}catch(error){report('Connections could not be loaded: '+error.message);}finally{inFlight=null;}})();return inFlight;
  }
- $('refresh').onclick=()=>{void sync(true);};panel.ontoggle=()=>{if(panel.open)void sync(true);};$('form').hidden=true;$('review').disabled=true;
- return {sync};
+ function renderDestination(){
+  const key=destination.value,item=destinations[key],direct=key==='youtube'||key==='tiktok';
+  panel.hidden=!direct;find('.publish-method').textContent=item.method;find('.publish-help').textContent=item.help;
+  manual.replaceChildren();
+  const link=node('a',key==='kick'&&kickSource(getProject())?'Open original Kick broadcast':item.action,'cd-btn cd-btn-secondary');
+  link.href=key==='kick'?kickSource(getProject())||item.url:item.url;link.target='_blank';link.rel='noopener noreferrer';
+  if(picked&&key!=='kick'){
+   const download=node('a','Download video','cd-btn cd-btn-secondary');download.href=picked.output.url;
+   download.download=(picked.clipTitle||picked.sourceName||'context-desk')+(picked.output.type==='video/webm'?'.webm':'.mp4');
+   manual.append(download);
+  }
+  manual.append(link);
+  if(direct)renderProviders();
+ }
+ destination.onchange=()=>{
+  ++openSequence;clearReview();$('account').value='';renderDestination();renderChoices();void loadCapabilities();
+ };
+ async function open(job){
+  if(busy)return;
+  const epoch=++openSequence;
+  picked=localAsset(job?.output?.url)&&job.projectId===getProject()?.id?job:null;
+  clearReview();report('Loading publishing options…');$('form').hidden=true;
+  find('.publish-clip-title').textContent=picked?.clipTitle||picked?.sourceName||'Connect an account or choose a finished export.';
+  find('.publish-proof').hidden=!picked;
+  $('title').value=(picked?.clipTitle||picked?.sourceName||'').slice(0,100);
+  if(picked)preview.src=picked.output.url;else preview.removeAttribute('src');
+  destination.value=job?.destination==='shorts'?'youtube':destinations[job?.destination]?job.destination:'youtube';
+  if(!dialog.open)dialog.showModal();
+  renderDestination();await sync(true);
+  if(epoch!==openSequence||!dialog.open)return;
+  const matching=accounts.filter(account=>account.provider===destination.value&&account.status==='connected');
+  if(matching.length===1)$('account').value=matching[0].id;
+  await loadCapabilities();
+ }
+ dialog.addEventListener('close',()=>{++openSequence;if(!busy)clearReview();preview.pause();preview.removeAttribute('src');preview.load();});
+ $('refresh').onclick=()=>{void sync(true);};
+ $('form').hidden=true;$('review').disabled=true;
+ return {sync,open};
 }

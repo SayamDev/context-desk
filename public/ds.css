@@ -1067,3 +1067,29 @@ body:not([data-workspace=full]) :is(.chapters-panel,.ask-panel,.trailer-panel){d
   .project-nav button{font-size:12px;padding-inline:4px}
   .project-nav .project-resume{grid-column:1/-1;margin-inline-start:0;justify-self:start}
 }
+
+/* A finished clip stays beside its publishing instructions like a review print. */
+.publish-desk{width:min(58rem,calc(100% - 24px));max-height:calc(100dvh - 24px);padding:0;overflow:auto;background:var(--surface);color:var(--text);border:1px solid var(--line-strong);border-radius:var(--control-radius)}
+.publish-desk::backdrop{background:#11141dd9}
+.publish-desk-head{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-4);padding:var(--space-6);border-bottom:1px solid var(--line)}
+.publish-desk-head h2{margin:0;font:800 clamp(24px,4vw,36px)/1.1 var(--font-display);letter-spacing:-.03em}
+.publish-desk-head p{margin:8px 0 0;color:var(--muted);overflow-wrap:anywhere}
+.publish-desk-grid{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);gap:var(--space-6);padding:var(--space-6);align-items:start}
+.publish-proof{margin:0;padding:12px;background:#171d29;border-block:5px double #73809b;color:#f0f3fa}
+.publish-proof video{width:100%;display:block;max-height:52vh;background:#10151f}
+.publish-proof figcaption{padding-top:10px;font:600 12px/1.4 var(--font-mono)}
+.publish-destination{min-width:0}
+.publish-destination>label,.publish-workflow label:not([hidden]){display:block;margin-block:8px}
+.publish-destination>select,.publish-workflow :is(select,textarea){width:100%}
+.publish-method{font-weight:700;margin:14px 0 4px}
+.publish-help{color:var(--muted);margin:0 0 12px}
+.publish-manual{display:flex;flex-wrap:wrap;gap:8px;padding-bottom:14px}
+.publish-workflow fieldset{min-width:0;margin-block:8px}
+.publish-workflow [data-social=reviewPanel]{margin-top:16px;border-top:1px solid var(--line);padding-top:12px;overflow-wrap:anywhere}
+.publish-workflow [data-social=reviewPanel] button{margin:4px}
+.publish-desk-grid:has(.publish-proof[hidden]){grid-template-columns:minmax(0,1fr)}
+@media(max-width:700px){
+ .publish-desk-grid{grid-template-columns:minmax(0,1fr);gap:12px;padding:16px}
+ .publish-desk-head{padding:16px}
+ .publish-proof video{max-height:26vh}
+}
