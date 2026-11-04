@@ -1240,3 +1240,27 @@ body[data-workspace=edit] .preview-frame:not(:fullscreen) #previewCanvas{width:m
 
 .library-clip-entry{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px;color:var(--muted);font-size:13px}
 .library-clip-entry button{min-height:44px;white-space:normal;text-align:start}
+
+.library-inventory{margin-top:8px;font-size:14px;color:var(--text)}
+.library-clip-entry{margin-top:10px}
+.activity-overview:not([hidden]),.export-start:not([hidden]){display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px 20px;padding:18px 20px;background:var(--surface);border:1px solid var(--line);border-radius:12px}
+.activity-overview h2,.export-start h2{margin:0 0 4px;font-size:20px}
+.activity-overview p,.export-start p{margin:0;color:var(--muted)}
+body[data-workspace=jobs] .job-overview-details{display:none}
+body[data-workspace=jobs] #jobsPanel .library-heading{justify-content:flex-start;gap:8px}
+body[data-workspace=jobs] #jobsStatus:not(:empty){color:var(--muted)}
+body:is([data-workspace=jobs],[data-workspace=exports]) .job-group{border-top:1px solid var(--line);padding-top:16px;margin-top:20px}
+body[data-workspace=jobs] .job-group .job-thumb{max-width:112px}
+body[data-workspace=exports] .job-actions a.cd-btn-primary{min-height:44px;justify-content:center}
+.job-group-empty{margin:0;padding:16px;background:var(--surface);border:1px dashed var(--line-strong);border-radius:var(--control-radius)}
+.brand-kit-page:not([hidden]){max-width:74rem}
+body[data-workspace=brand] .pagehead{max-width:74rem}
+.brand-workbench{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.brand-saved{margin-top:16px;padding:16px 20px;background:var(--surface);border:1px solid var(--line);border-radius:12px}
+.brand-preset-swatches{display:flex;gap:4px;margin-inline-start:auto}
+.brand-preset-swatches i{width:15px;height:15px;border-radius:50%;border:1px solid var(--line-strong)}
+@media(max-width:640px){
+ .brand-workbench{grid-template-columns:minmax(0,1fr)}
+ .brand-saved{padding:14px}
+ .brand-preset-swatches{display:none}
+}

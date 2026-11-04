@@ -10,8 +10,8 @@ export function createBrandControls({getSelected,edit,draw,navigate}){
  page.innerHTML=`
   <div class="brand-workbench">
    <div class="brand-kit-editor">
-    <h2>Create a preset</h2>
-    <p>Save a caption look you can use on other clips.</p>
+    <h2>Design a caption preset</h2>
+    <p>Name a look, choose a style, then save it for your next edit.</p>
     <form id="brandKitForm">
      <label>Preset name<input id="brandKitName" class="cd-input" maxlength="80" placeholder="e.g. My show" required></label>
      <label>Caption style<select id="brandPresetStyle">${captionStyleIds.map(id=>'<option value="'+id+'">'+captionStyles[id].label+'</option>').join('')}</select></label>
@@ -22,7 +22,7 @@ export function createBrandControls({getSelected,edit,draw,navigate}){
     <p id="brandStatus" role="status"></p>
    </div>
    <figure class="brand-preview">
-    <figcaption><strong>Caption preview</strong><span>9:16 sample frame</span></figcaption>
+    <figcaption><strong>Live preview</strong><span>9:16 caption placement</span></figcaption>
     <div class="brand-preview-frame"><img id="brandPreviewStill" alt="" hidden><canvas id="brandPreviewCanvas" width="360" height="640" aria-label="Sample caption in the selected style">Wait for it.</canvas></div>
    </figure>
   </div>
@@ -87,7 +87,16 @@ export function createBrandControls({getSelected,edit,draw,navigate}){
     $('styleTab').click();
     navigate('edit');
    };
-   row.append(description,apply);
+   const look=cleanCaptionLook(brand.look,brand.captionStyle);
+   const swatches=document.createElement('span');
+   swatches.className='brand-preset-swatches';
+   swatches.setAttribute('aria-hidden','true');
+   for(const colour of [look.color,look.accent,look.background]){
+    const swatch=document.createElement('i');
+    swatch.style.backgroundColor=colour;
+    swatches.append(swatch);
+   }
+   row.append(description,swatches,apply);
    return row;
   });
   if(!entries.length){
