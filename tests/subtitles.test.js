@@ -8,6 +8,13 @@ test('whole-video failure retains completed sections and retries translation wit
   const service=createSubtitleService({claimSource:()=>({file:'fixture',duration:90,title:'Two sections',release(){releases++}}),extract:async()=>({data:'data:audio/wav;base64,AAAA'}),transcribe:async()=>{asr++;return {turns:[{startMs:1000,endMs:2000,text:'مرحبا'}]}},translate:async cues=>{translations++;if(translations===2&&fail)throw Object.assign(Error('Unauthorized'),{status:401});return cues.map(c=>({...c,text:'Hello'}))}});
   const job=await service.start({sourceId:'source',language:'English',keywords:[]});let result=await settle(service,job.id);assert.equal(result.status,'error');assert.equal(result.sectionsDone,1);assert.equal(service.track(job.id).length,1);assert.equal(asr,2);
   fail=false;await service.command(job.id,'resume');result=await settle(service,job.id);assert.equal(result.status,'complete');assert.equal(result.sectionsDone,2);assert.equal(asr,2);assert.equal(service.track(job.id)[1].text,'Hello');assert.ok(releases>=3);
+  for(const format of ['srt','vtt']){
+    let body='';
+    const response={writeHead(status){assert.equal(status,200)},end(value){body=value}};
+    await service.handle({method:'GET',url:`/api/subtitles/${job.id}/${format}?offset=-0.5`},response);
+    assert.match(body,/00:00:00[,.]500 --> 00:00:01[,.]500/);
+  }
+  assert.equal(service.track(job.id)[0].start,1);
 });
 test('pause finishes its section and resume continues from the next section',async()=>{
   let continueSpeech;const barrier=new Promise(r=>continueSpeech=r);let calls=0;

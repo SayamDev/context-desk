@@ -1752,7 +1752,7 @@ $('exportEdl').onclick=()=>download(new Blob([JSON.stringify(cutNotes(),null,2)]
 $('exportCutSrt').onclick=()=>exportSrt(cutMoments(),'context-desk-story-cut.srt');
 $('exportSequence').onclick=async()=>{const moments=cutMoments();if(!moments.length||moments.some(m=>!validateCaptions(m)))return;try{await queueVideoExport(moments,$('cutTitle').value||'context-desk-story-cut')}catch(error){$('cutStatus').textContent=error.message}};
 
-let wholeJobs=[],wholeJob=null,wholePoll=null,wholeTrackUrl=null,wholePreparing=false;
+let wholeJobs=[],wholeJob=null,wholePoll=null,wholePreparing=false;
 // Chapters follow the latest finished whole-video track of the open recording (chapters.js).
 chaptersView=mountChapters({after:$('wholeSubtitles'),player:program,requestJson,toast:text=>toast(text),download:(blob,name)=>download(blob,name),
   getJob:()=>{const id=state.source?.importId;return [...wholeJobs].reverse().find(j=>j.status==='complete'&&id&&j.sourceId===id)||null},
@@ -1766,6 +1766,9 @@ trailerView=mountTrailer({before:$('chapters'),requestJson,toast:text=>toast(tex
   buildCut:async trailer=>{if(!clipFromRange)throw Error('Open the recording first.');const ids=[];for(const b of trailer.beats){const m=await clipFromRange({start:b.start,end:b.end},{hook:b.title,open:false,exact:true});if(m)ids.push(m.id)}
     if(!ids.length)throw Error('No beats could be turned into clips.');performEdit('trailer-cut',()=>{state.cut=ids});renderQueue();renderCut();await selectMoment(ids[0]);showWorkspace('edit');
     document.querySelector('.cut-section')?.scrollIntoView({block:'nearest',behavior:'smooth'});toast(`Story cut ready: ${ids.length} beats. Choose Play story cut to watch the trailer.`)}});
+function wholeCaptionOffset(id){
+  return Math.max(-10,Math.min(10,Number(localStorage.getItem('context-desk:subtitle-offset:'+id))||0));
+}
 function renderWholeSubtitles(){
   if(!$('wholeSubtitles'))return;
   const projectSource=state.source?.importId||projectSession?.current?.sourceId;
@@ -1777,13 +1780,16 @@ function renderWholeSubtitles(){
   $('startWholeSubtitles').disabled=wholePreparing||state.sourceType!=='file'||wholeJob?.status==='running';if(!wholeServiceReady($('wholeLanguage').value)){$('startWholeSubtitles').disabled=true;queueMicrotask(()=>{$('wholeCost').textContent=missingServiceMessage('Translating the whole recording')})}$('startWholeSubtitles').textContent=wholePreparing?'Preparing local recording…':'Generate full subtitles';
   $('wholeJobStatus').hidden=!wholeJob&&!$('wholeError').textContent;$('wholeJobSelect').hidden=!tracks.length;$('wholeJobLabel').hidden=!tracks.length;
   $('wholeJobSelect').innerHTML=tracks.map(job=>`<option value="${job.id}" ${wholeJob?.id===job.id?'selected':''}>${escapeHtml(job.sourceName)} · ${escapeHtml(job.language)} · ${job.status}</option>`).join('');
-  if(!wholeJob)return;const j=wholeJob,hasLines=j.cueCount>0,currentSource=state.source?.importId===j.sourceId;
+  if(!wholeJob){$('wholeSyncControl').hidden=true;$('previewWholeSubtitles').hidden=true;return}
+  const j=wholeJob,hasLines=j.cueCount>0,currentSource=state.source?.importId===j.sourceId;
   $('wholePhase').textContent=j.sourceName+' / '+j.language+' · '+j.phase;$('wholeProgress').value=j.duration?j.completedSeconds/j.duration*100:0;
   $('wholeProgressText').textContent=`${formatTime(j.completedSeconds)} / ${formatTime(j.duration)} finished · ${j.sectionsDone}/${j.sectionsTotal} sections · ${j.cueCount} subtitle lines · ${j.speechRequests} speech / ${j.translationRequests} translation requests`;
   $('wholeError').hidden=!j.error;$('wholeError').textContent=j.error;$('pauseWholeSubtitles').hidden=j.status!=='running';$('resumeWholeSubtitles').hidden=j.legacyReadOnly||!['paused','error','interrupted','cancelled'].includes(j.status);$('resumeWholeSubtitles').textContent=j.status==='error'?'Retry unfinished section':'RESUME';
-  for(const [id,original,format,accessible]of [['wholeSrt',false,'srt'],['wholeOriginalSrt',true,'srt'],['wholeVtt',false,'vtt'],['wholeOriginalVtt',true,'vtt'],['wholeAccessibleSrt',false,'srt',true]]){$(id).hidden=!hasLines;$(id).href='/api/subtitles/'+j.id+'/'+format+(original?'?original=1':accessible?'?mode=accessible':'')}
+  for(const [id,original,format,accessible]of [['wholeSrt',false,'srt'],['wholeOriginalSrt',true,'srt'],['wholeVtt',false,'vtt'],['wholeOriginalVtt',true,'vtt'],['wholeAccessibleSrt',false,'srt',true]]){$(id).hidden=!hasLines;const query=new URLSearchParams({offset:String(wholeCaptionOffset(j.id))});if(original)query.set('original','1');if(accessible)query.set('mode','accessible');$(id).href='/api/subtitles/'+j.id+'/'+format+'?'+query}
   $('restoreWholeSource').hidden=currentSource;
-  $('reviewFullVideo').hidden=!currentSource||!hasLines;$('useWholeCaptions').hidden=!hasLines||!currentSource||!batchMoments().length;$('previewWholeSubtitles').hidden=true;
+  $('reviewFullVideo').hidden=!currentSource||!hasLines;$('useWholeCaptions').hidden=!hasLines||!currentSource||!batchMoments().length;$('previewWholeSubtitles').hidden=!currentSource||!hasLines;
+  $('wholeSyncControl').hidden=!hasLines;
+  if(document.activeElement!==$('wholeCaptionOffset'))$('wholeCaptionOffset').value=wholeCaptionOffset(j.id).toFixed(1);
 }
 async function pollWholeJob(){
   clearTimeout(wholePoll);if(!wholeJob)return;const id=wholeJob.id;
@@ -1821,9 +1827,30 @@ $('editUploadedVideo').onclick=async()=>{
   finally{button.disabled=false}
 };
 async function fullTrack(){const response=await fetch('/api/subtitles/'+wholeJob.id+'/track'),data=await response.json();if(!response.ok)throw Error(data.error);return data}
-$('previewWholeSubtitles').onclick=async()=>{try{const track=await fullTrack();if(wholeTrackUrl)URL.revokeObjectURL(wholeTrackUrl);wholeTrackUrl=URL.createObjectURL(new Blob(['WEBVTT\n\n'+srtDocument(track.cues).replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g,'$1.$2')],{type:'text/vtt;charset=utf-8'}));$('wholePreview').src=state.sourceUrl;$('wholeTrack').src=wholeTrackUrl;$('wholeTrack').label=track.language+' · draft';$('wholeTrack').track.mode='showing';$('wholePreview').hidden=false;$('wholePreview').scrollIntoView({behavior:'smooth',block:'nearest'})}catch(error){$('wholeError').hidden=false;$('wholeError').textContent=error.message}};
+function applyWholePreviewTrack(){
+  if(!wholeJob||$('wholePreview').hidden)return;
+  $('wholeTrack').src='/api/subtitles/'+wholeJob.id+'/vtt?offset='+wholeCaptionOffset(wholeJob.id);
+  $('wholeTrack').label=wholeJob.language+' · draft';
+  $('wholeTrack').track.mode='showing';
+}
+$('wholeCaptionOffset').onchange=event=>{
+  if(!wholeJob)return;
+  const offset=Math.max(-10,Math.min(10,Math.round((Number(event.target.value)||0)*10)/10));
+  localStorage.setItem('context-desk:subtitle-offset:'+wholeJob.id,String(offset));
+  event.target.value=offset.toFixed(1);
+  renderWholeSubtitles();
+  applyWholePreviewTrack();
+};
+$('previewWholeSubtitles').onclick=()=>{
+  if(!wholeJob||wholeJob.sourceId!==state.source?.importId)return;
+  const preview=$('wholePreview');
+  if(preview.getAttribute('src')!==state.sourceUrl)preview.src=state.sourceUrl;
+  preview.hidden=false;
+  applyWholePreviewTrack();
+  preview.scrollIntoView({behavior:'smooth',block:'nearest'});
+};
 $('wholePreview').onplay=()=>claimPlayback($('wholePreview'));
-$('reviewFullVideo').onclick=async()=>{try{const track=await fullTrack();if(track.sourceId!==state.source?.importId)throw Error('Open this recording first.');let m=state.moments.find(m=>m.id===track.id+'-full');if(!m){m={id:track.id+'-full',url:state.sourceUrl,blob:state.source,frames:[],start:0,end:track.duration,mediaStart:0,batchId:state.batchId,sourceName:state.sourceName,sourceType:'file',sourceLink:state.sourcePageUrl,manual:true,status:'manual',analysis:null,transcript:'Full-recording subtitle track',trimIn:0,trimOut:track.duration,hook:'',alternateHook:'',frameMode:'fit',zoom:1,focusX:50,focusY:50,showHook:false,captionLanguage:track.language,captionStyle:'clean',dialectNote:$('sourceDialect').value,captionCues:{Original:track.original,...(track.language==='Original'?{}:{[track.language]:track.cues})},captionReviewed:{},showCaptions:true,captionOffset:0};state.moments.push(m)}await selectMoment(m.id);document.querySelector('.caption-workspace').open=true;projectSession.changed()}catch(error){$('wholeError').hidden=false;$('wholeError').textContent=error.message}};
+$('reviewFullVideo').onclick=async()=>{try{const track=await fullTrack();if(track.sourceId!==state.source?.importId)throw Error('Open this recording first.');let m=state.moments.find(m=>m.id===track.id+'-full');if(!m){m={id:track.id+'-full',url:state.sourceUrl,blob:state.source,frames:[],start:0,end:track.duration,mediaStart:0,batchId:state.batchId,sourceName:state.sourceName,sourceType:'file',sourceLink:state.sourcePageUrl,manual:true,status:'manual',analysis:null,transcript:'Full-recording subtitle track',trimIn:0,trimOut:track.duration,hook:'',alternateHook:'',frameMode:'fit',zoom:1,focusX:50,focusY:50,showHook:false,captionLanguage:track.language,captionStyle:'clean',dialectNote:$('sourceDialect').value,captionCues:{Original:track.original,...(track.language==='Original'?{}:{[track.language]:track.cues})},captionReviewed:{},showCaptions:true,captionOffset:wholeCaptionOffset(track.id)};state.moments.push(m)}await selectMoment(m.id);document.querySelector('.caption-workspace').open=true;projectSession.changed()}catch(error){$('wholeError').hidden=false;$('wholeError').textContent=error.message}};
 $('useWholeCaptions').onclick=async()=>{try{const track=await fullTrack();if(track.sourceId!==state.source?.importId)throw Error('This subtitle track belongs to a different recording.');for(const m of batchMoments()){const local=cues=>cues.filter(c=>c.end>m.start&&c.start<m.end).map(c=>({...c,start:Math.max(0,c.start-m.start),end:Math.min(m.end-m.start,c.end-m.start),words:c.words?.map(w=>({...w,start:w.start-m.start,end:w.end-m.start}))}));m.captionCues.Original=local(track.original);if(track.language!=='Original')m.captionCues[track.language]=local(track.cues);m.captionLanguage=track.language;m.captionOffset=0;m.captionReviewed={};m.showCaptions=true;m.captionError=activeCues(m).some(c=>c.text.length>100)?'Some translated lines need splitting before export.':'';}message('Full-video subtitles applied to clips from this recording. Review each clip before export.');if(state.selected)renderEditor()}catch(error){$('wholeError').hidden=false;$('wholeError').textContent=error.message}};
 function blobDataUrl(blob){return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(blob)})}
 function downloadSaved(url,name){const a=$('lastExport');a.href=url;a.download=name;a.textContent='Download '+name.toUpperCase();a.hidden=false;a.click()}
