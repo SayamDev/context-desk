@@ -33,7 +33,11 @@ export const captionVariants={
     {id:'ar-GULF',label:'Gulf',guide:'Gulf colloquial (Saudi, UAE, Kuwait, Qatar): وش/ايش، ليش، أبي/أبغى، الحين، زين، وايد (Kuwait/UAE).'},
     {id:'ar-IQ',label:'Iraqi',guide:'Iraqi colloquial: شنو، ليش، أريد/أريدن، هسه، هواية، زين.'},
     {id:'ar-MA',label:'Moroccan Darija',guide:'Moroccan Darija in Arabic script: شنو/أش، علاش، بغيت، دابا، بزاف، واخا; keep French loanwords the speaker used.'},
-    {id:'ar-DZ',label:'Algerian / Tunisian',guide:'Algerian or Tunisian Darija in Arabic script: واش، علاه، نحب، توا/دروك، برشا (Tunisia), بزاف (Algeria); keep French loanwords.'}
+    {id:'ar-DZ',label:'Algerian Darja',guide:'Use Algerian Arabic in Arabic script. Respect local variation and preserve intentional French code-switching.'},
+    {id:'ar-TN',label:'Tunisian Derja',guide:'Use Tunisian Arabic in Arabic script. Respect local variation and preserve intentional French code-switching.'},
+    {id:'ar-LY',label:'Libyan',guide:'Use Libyan colloquial Arabic. Follow the editor’s regional hint if provided.'},
+    {id:'ar-SD',label:'Sudanese',guide:'Use Sudanese colloquial Arabic. Follow the editor’s regional hint if provided.'},
+    {id:'ar-YE',label:'Yemeni',guide:'Use Yemeni colloquial Arabic. Follow the editor’s regional hint if provided.'}
   ],
   'Mandarin Chinese':[
     {id:'zh-CN',label:'Mainland (Simplified)',guide:'Simplified characters, Mainland vocabulary (软件, 视频, 信息, 出租车), full-width Chinese punctuation.'},

@@ -10,6 +10,6 @@ export function speechCode(value){
 export function needsTranslation(output,detected){
   return output!=='Original'&&(!speechCode(detected)||speechCode(output)!==speechCode(detected));
 }
-export const dialectExamples=['Modern Standard Arabic','Egyptian Arabic','Levantine Arabic','Gulf Arabic','Iraqi Arabic','Moroccan Darija','Algerian Arabic','Tunisian Arabic','Sudanese Arabic','Yemeni Arabic','British English','American English','Indian English','Québécois French','Brazilian Portuguese','Mexican Spanish'];
+export const dialectExamples=['Modern Standard Arabic (Fusha)','Egyptian Arabic','Levantine Arabic','Lebanese Arabic','Syrian Arabic','Palestinian Arabic','Jordanian Arabic','Gulf Arabic','Saudi Arabic','Omani Arabic','Iraqi Arabic','Moroccan Darija','Algerian Arabic','Tunisian Arabic','Libyan Arabic','Sudanese Arabic','Yemeni Arabic','British English','American English','Indian English','Québécois French','Brazilian Portuguese','Mexican Spanish'];
 export const translationModes={faithful:'Faithful · preserve wording and ambiguity',natural:'Natural · fluent, same meaning',concise:'Caption concise · shorter, same meaning'};
 export function normalizeTranslationMode(mode){return Object.hasOwn(translationModes,mode)?mode:'faithful'}
