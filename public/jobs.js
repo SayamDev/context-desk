@@ -2,7 +2,7 @@ import {requestJson} from './projects.js';
 import {socialHandoff} from './social.js';
 const escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export function jobGroup(j){return j.status==='complete'?(j.output||j.cueCount?'ready':'history'):j.status==='cancelled'?'history':'processing'}
-function jobMarkup(j){
+function jobMarkup(j,{projectOnly=false}={}){
   const exporting=j.kind==='export',discovery=j.kind==='discovery',creative=j.kind==='creative',bundle=j.kind==='bundle',deep=discovery&&j.strategy==='transcript',active=j.status==='running',waiting=j.status==='queued';
   const resume=!j.legacyReadOnly&&['paused','error','interrupted','cancelled'].includes(j.status),base=exporting?'exports':discovery?'discovery':creative?'creative':bundle?'bundles':'subtitles';
   const title=j.clipTitle||j.sourceName||j.title||(creative?'AI cover':'Production job');
@@ -10,26 +10,27 @@ function jobMarkup(j){
   const action=(name,label)=>`<button data-job="${j.id}" data-base="${base}" data-action="${name}">${label}</button>`;
   const subtitle=j.kind==='subtitles';
   let open='';
-  if(exporting&&j.output)open=`<label class="bundle-choice"><input type="checkbox" data-bundle-export="${j.id}" data-project="${j.projectId}"> Add to ZIP</label><a href="${escape(j.output.url)}" download="${escape(title)}.${j.output.type==='video/webm'?'webm':'mp4'}">Download video</a>${j.srt?`<a href="${escape(j.srt.url)}" download="context-desk.srt">Download SRT</a>`:''}`;
+  if(j.kind==='chapters')open=`<a href="/api/chapters/${j.subtitleId}/text" download="chapters.txt">Download chapter timestamps (.txt)</a>`;
+  else if(exporting&&j.output)open=`<label class="bundle-choice"><input type="checkbox" data-bundle-export="${j.id}" data-project="${j.projectId}"> Add to ZIP</label><a href="${escape(j.output.url)}" download="${escape(title)}.${j.output.type==='video/webm'?'webm':'mp4'}">Download video</a>${j.srt?`<a href="${escape(j.srt.url)}" download="context-desk.srt">Download SRT</a>`:''}`;
   else if(bundle&&j.output)open=`<a href="${escape(j.output.url)}" download="${escape(j.output.name||title+'.zip')}">Download ZIP (${j.exportCount} ${j.exportCount===1?'export':'exports'})</a>`;
   else if(creative&&j.output)open=`<a href="${escape(j.output.url)}" download="context-desk-${j.mode}.${j.output.type.split('/').at(-1)}">Download image</a>`;
   else if(discovery)open=`<button data-open="${j.projectId}">Open clips</button>${deep&&j.speechSectionsDone?`<a href="/api/discovery/${j.id}/transcript" download="context-desk-transcript.json">Download ${j.fullSourceTranscribed?'full':'partial'} transcript</a>`:''}`;
-  else if(j.cueCount)open=`<a href="/api/subtitles/${j.id}/srt">Download subtitles (.srt)</a>${j.chapterCount?`<a href="/api/chapters/${j.id}/text" download="chapters.txt">Download chapter timestamps (.txt)</a>`:''}`;
+  else if(j.cueCount)open=`<a href="/api/subtitles/${j.id}/srt">Download subtitles (.srt)</a>${j.chapterCount&&!projectOnly?`<a href="/api/chapters/${j.id}/text" download="chapters.txt">Download chapter timestamps (.txt)</a>`:''}`;
   const target=exporting&&j.output?socialHandoff(j.destination):null;
   const handoff=target?`<details class="social-handoff-details"><summary>Upload to ${escape(target.label)}</summary><div class="social-handoff"><p>${escape(target.label)} export · ${j.captionLanguages?.length?'Subtitles: '+escape(j.captionLanguages.join(', ')):'Subtitles omitted'}. Download the video, then choose it in ${escape(target.label)}. Nothing has been posted.</p><a href="${target.upload}" target="_blank" rel="noopener noreferrer">Open ${escape(target.label)}</a><button data-share-file="${j.id}" ${typeof navigator!=='undefined'&&navigator.canShare&&navigator.share?'':'hidden'}>Share video file…</button><span data-share-status role="status"></span></div></details>`:'';
   const details=creative?`${j.requests||0} image request${j.requests===1?'':'s'} · ${escape(j.label||'AI-generated image · review before use')}`:deep?`${j.speechSectionsDone}/${j.speechSectionsTotal} source-audio sections · ${Math.round(j.coverageSeconds)}s transcribed · ${Math.round(j.unreviewedSeconds)}s not transcribed · ${j.checksDone}/${j.checksTotal} story checks · ${j.suggested} suggestions`:bundle?`${j.sectionsDone}/${j.sectionsTotal} files packaged · ${j.sectionsRemaining} remaining`:`${j.sectionsDone}/${j.sectionsTotal} ${exporting?'rendered clips':discovery?'picture samples':'sections'} · ${j.sectionsRemaining} remaining${discovery?' · '+j.checksDone+'/'+j.checksTotal+' story checks · '+j.suggested+' supported moments':''}`;
   const preview=j.output?(creative?`<details class="creative-preview"><summary>Review generated image</summary><img src="${escape(j.output.url)}" alt="AI-generated ${escape(j.mode)} draft"><p>Generated artwork. Check source fidelity, text and rights before use.</p></details>`:exporting?`<details class="export-preview"><summary>Watch video</summary><video data-preview-src="${escape(j.output.url)}" controls playsinline preload="none"></video></details>`:''):'';
-  const kind=exporting?'Video':discovery?(j.local?'Find clips locally':'Find clips'):creative?'Cover artwork':bundle?'ZIP download':'Whole-video subtitles',stateLabel={running:'Working',queued:'Waiting',complete:'Ready',error:'Needs attention',paused:'Paused',interrupted:'Resume needed',cancelled:'Cancelled'}[j.status]||j.status;
+  const kind=j.kind==='chapters'?'Chapter timestamps':exporting?'Video':discovery?(j.local?'Find clips locally':'Find clips'):creative?'Cover artwork':bundle?'ZIP download':'Whole-video subtitles',stateLabel={running:'Working',queued:'Waiting',complete:'Ready',error:'Needs attention',paused:'Paused',interrupted:'Resume needed',cancelled:'Cancelled'}[j.status]||j.status;
   const requests=exporting||creative||bundle?'':`${j.speechRequests||0} speech · ${discovery?(j.storyRequests||0)+' story · ':''}${deep?(j.rankingRequests||0)+' story-ranking · ':''}${j.translationRequests||0} translation requests`;
   // A picture for every row: the finished video itself, or a still from the recording it came from.
   const thumb=exporting&&j.output?`<video class="job-thumb" src="${escape(j.output.url)}#t=0.1" preload="metadata" muted playsinline tabindex="-1" aria-hidden="true"></video>`:creative&&j.output?`<img class="job-thumb" src="${escape(j.output.url)}" alt="">`:j.sourceId&&/^[a-f0-9-]{36}$/.test(j.sourceId)?`<img class="job-thumb" src="/api/import/${j.sourceId}/frame?t=${Math.floor((Number(j.start)||Number(j.duration)*.12||0))}&w=320" alt="" loading="lazy" onerror="this.remove()">`:'';
-  return `<article class="job-row" data-job-row="${j.id}" data-state="${escape(j.status)}"><div class="job-title">${thumb}<h3>${escape(title)}</h3><span>${kind}${j.language?' · '+escape(j.language):''}</span><b class="job-state">${escape(stateLabel)}${j.queuePosition?' · position '+j.queuePosition:''}</b></div><div class="job-progress"><p>${escape(j.status==='complete'?(discovery?j.suggested+' clip suggestions found':creative?'AI-generated artwork. Review before use.':exporting?(Number(j.duration).toFixed(1)+' seconds · '+(target?.label||'Custom video')+(j.captionLanguages?.length?' · '+j.captionLanguages.join(', ')+' subtitles':' · No subtitles')):subtitle?(j.reviewed?'Subtitles ready. Upload the SRT under Subtitles for the matching full video.':'Draft subtitles ready. Review them before uploading the SRT for the matching full video.'):'Your file is saved and ready.'):j.phase)}</p>${j.status==='complete'?'':`<progress max="1" ${Number.isFinite(progress)?`value="${progress}"`:''}></progress>`}${preview}${subtitle&&j.chapterCount?'<p>Paste the chapter timestamps into the description of the matching full video so viewers can jump to sections.</p>':''}<details class="job-technical"><summary>Processing and API usage</summary><p>${details}</p>${requests?`<p>${requests}</p>`:''}</details>${j.error?`<p class="job-error">${escape(j.error)}</p>`:''}</div><div class="job-actions">${open}${active||waiting?action('pause','Pause'):''}${resume?action('resume',j.inFlight?'Retry unfinished section':'Resume'):''}${waiting?action('first','Move first'):''}${active||waiting||resume&&j.status!=='cancelled'?action('cancel','Cancel'):''}${handoff}</div></article>`;
+  return `<article class="job-row" data-job-row="${j.id}" data-state="${escape(j.status)}"><div class="job-title">${thumb}<h3>${escape(title)}</h3><span>${kind}${j.language?' · '+escape(j.language):''}</span><b class="job-state">${escape(stateLabel)}${j.queuePosition?' · position '+j.queuePosition:''}</b></div><div class="job-progress"><p>${escape(j.status==='complete'?(discovery?j.suggested+' clip suggestions found':creative?'AI-generated artwork. Review before use.':exporting?(Number(j.duration).toFixed(1)+' seconds · '+(target?.label||'Custom video')+(j.captionLanguages?.length?' · '+j.captionLanguages.join(', ')+' subtitles':' · No subtitles')):j.kind==='chapters'?'Paste these timestamps into the description of the matching full video.':subtitle?(j.reviewed?'Subtitles ready. Upload the SRT under Subtitles for the matching full video.':'Draft subtitles ready. Review them before uploading the SRT for the matching full video.'):'Your file is saved and ready.'):j.phase)}</p>${j.status==='complete'?'':`<progress max="1" ${Number.isFinite(progress)?`value="${progress}"`:''}></progress>`}${preview}${subtitle&&j.chapterCount?'<p>Paste the chapter timestamps into the description of the matching full video so viewers can jump to sections.</p>':''}${j.kind==='chapters'?'':`<details class="job-technical"><summary>Processing and API usage</summary><p>${details}</p>${requests?`<p>${requests}</p>`:''}</details>`}${j.error?`<p class="job-error">${escape(j.error)}</p>`:''}</div><div class="job-actions">${open}${active||waiting?action('pause','Pause'):''}${resume?action('resume',j.inFlight?'Retry unfinished section':'Resume'):''}${waiting?action('first','Move first'):''}${active||waiting||resume&&j.status!=='cancelled'?action('cancel','Cancel'):''}${handoff}</div></article>`;
 }
 
 export function createJobsView({panel,counts,status,onJobs,onOpen,onPlay=()=>{}}){
-  let jobs=[],timer=null,loading=false,selecting=false,activePreview=null;const rendered=new Map(),selectedExports=new Map();
+  let jobs=[],latest=null,project=null,timer=null,loading=false,selecting=false,activePreview=null;const rendered=new Map(),selectedExports=new Map();
   const bundleButton=document.getElementById('bundleSelected');
-  const groups={};for(const [key,title,description]of [['processing','Processing & attention','Work in progress, pauses and anything that needs a retry.'],['ready','Ready to download','Watch your finished videos, then download the files you want.'],['history','Completed scans & other activity','Saved scan results and cancelled work.']]){const root=document.createElement(key==='history'?'details':'section');root.className='job-group';const heading=document.createElement(key==='history'?'summary':'h2');heading.textContent=title;const note=document.createElement('p');note.textContent=description;const rows=document.createElement('div'),empty=document.createElement('p');empty.className='job-group-empty';empty.textContent='Your finished files will appear here.';root.append(heading,note,rows,empty);panel.append(root);groups[key]={root,rows,empty}}
+  const groups={};for(const [key,title,description]of [['processing','Processing & attention','Work in progress, pauses and anything that needs a retry.'],['ready','Ready to download','Watch your finished videos, then download the files you want.'],['history','Completed scans & other activity','Saved scan results and cancelled work.'],['videos','Videos','Preview and download finished clips.'],['subtitles','Subtitles','Timed captions for the matching video.'],['chapters','Chapter timestamps','Section titles and times for a full video description.'],['other','Other files','Saved cover artwork and ZIP downloads.']]){const root=document.createElement(key==='history'?'details':'section');root.className='job-group';const heading=document.createElement(key==='history'?'summary':'h2');heading.textContent=title;const note=document.createElement('p');note.textContent=description;const rows=document.createElement('div'),empty=document.createElement('p');empty.className='job-group-empty';empty.textContent='Your finished files will appear here.';root.append(heading,note,rows,empty);panel.append(root);groups[key]={root,rows,empty}}
   const selectToggle=document.createElement('button');selectToggle.type='button';selectToggle.textContent='Select videos';selectToggle.setAttribute('aria-pressed','false');bundleButton.before(selectToggle);selectToggle.onclick=()=>{selecting=!selecting;if(!selecting)selectedExports.clear();panel.classList.toggle('selecting-exports',selecting);selectToggle.textContent=selecting?'Done selecting':'Select videos';selectToggle.setAttribute('aria-pressed',String(selecting));syncSelection()};
 
   const selectionNote=document.createElement('p');selectionNote.className='bundle-selection-note';selectionNote.setAttribute('role','status');bundleButton.after(selectionNote);
@@ -37,9 +38,24 @@ export function createJobsView({panel,counts,status,onJobs,onOpen,onPlay=()=>{}}
   function syncSelection(){const project=selectedExports.values().next().value;for(const box of panel.querySelectorAll('[data-bundle-export]')){box.checked=selectedExports.has(box.dataset.bundleExport);box.disabled=Boolean(project&&box.dataset.project!==project);box.closest('label').title=box.disabled?'Clear this selection to choose exports from another project.':''}bundleButton.hidden=!selecting||!selectedExports.size;bundleButton.disabled=!selectedExports.size;bundleButton.textContent='Download selected ZIP'+(selectedExports.size?' ('+selectedExports.size+')':'');clearSelection.hidden=!selecting||!selectedExports.size;selectionNote.textContent=selectedExports.size?'One project per ZIP. Clear the selection to choose another project.':''}
   panel.onchange=event=>{const box=event.target.closest('[data-bundle-export]');if(!box)return;if(box.checked&&selectedExports.size&&selectedExports.values().next().value!==box.dataset.project){box.checked=false;status.textContent='Select exports from one project for each ZIP.';return}if(box.checked)selectedExports.set(box.dataset.bundleExport,box.dataset.project);else selectedExports.delete(box.dataset.bundleExport);syncSelection()};
   bundleButton.onclick=async()=>{if(!selectedExports.size)return;bundleButton.disabled=true;try{await requestJson('/api/bundles',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({projectId:selectedExports.values().next().value,exportIds:[...selectedExports.keys()],includeSubtitles:true,name:'Context Desk clips'})});await refresh()}catch(error){status.textContent=error.message}finally{bundleButton.disabled=!selectedExports.size}};
+  function groupKey(job){
+    if(!project||job.status!=='complete')return jobGroup(job);
+    return {export:'videos',subtitles:'subtitles',chapters:'chapters'}[job.kind]||'other';
+  }
+  function setProject(next){
+    if(project?.id===next?.id&&project?.sourceId===next?.sourceId)return;
+    project=next;closePreview();rendered.clear();selectedExports.clear();
+    for(const group of Object.values(groups))group.rows.replaceChildren();
+    if(latest)render(latest);
+  }
   function render(data){
-    jobs=data.jobs;counts.innerHTML=Object.entries(data.counts).map(([key,n])=>`<div><strong>${n}</strong><span>${escape(key)}</span></div>`).join('');
-    const ids=new Set(jobs.map(job=>job.id));
+    latest=data;jobs=data.jobs;
+    const visible=project?jobs.filter(job=>job.projectId===project.id||
+      job.kind==='subtitles'&&project.sourceId&&job.sourceId===project.sourceId)
+      .filter(job=>job.kind!=='discovery'&&(job.status!=='complete'||job.output||job.cueCount))
+      .flatMap(job=>job.kind==='subtitles'&&job.chapterCount?[job,{id:job.id+'-chapters',subtitleId:job.id,kind:'chapters',sourceName:job.sourceName,language:job.language,status:'complete',createdAt:job.createdAt}]:[job]):jobs;
+    counts.innerHTML=Object.entries(data.counts).map(([key,n])=>`<div><strong>${n}</strong><span>${escape(key)}</span></div>`).join('');
+    const ids=new Set(visible.map(job=>job.id));
     for(const row of panel.querySelectorAll('[data-job-row]')){
       const id=row.dataset.jobRow;
       if(ids.has(id))continue;
@@ -48,16 +64,16 @@ export function createJobsView({panel,counts,status,onJobs,onOpen,onPlay=()=>{}}
     }
     // Keep completed rows mounted while another job reports progress. A poll
     // must never stop an export preview, close its controls or reset playback.
-    for(const j of jobs.slice().reverse()){
+    for(const j of visible.slice().reverse()){
       const signature=JSON.stringify(j);if(rendered.get(j.id)===signature)continue;
-      const template=document.createElement('template');template.innerHTML=jobMarkup(j);const row=template.content.firstElementChild,current=panel.querySelector(`[data-job-row="${j.id}"]`);
-      const target=groups[jobGroup(j)].rows;if(current){if(activePreview&&current.contains(activePreview))closePreview();current.replaceWith(row)}if(row.parentElement!==target){
-        const following=jobs.filter(other=>other.createdAt<j.createdAt).sort((a,b)=>b.createdAt-a.createdAt).map(other=>target.querySelector(`[data-job-row="${other.id}"]`)).find(Boolean);
+      const template=document.createElement('template');template.innerHTML=jobMarkup(j,{projectOnly:Boolean(project)});const row=template.content.firstElementChild,current=panel.querySelector(`[data-job-row="${j.id}"]`);
+      const target=groups[groupKey(j)].rows;if(current){if(activePreview&&current.contains(activePreview))closePreview();current.replaceWith(row)}if(row.parentElement!==target){
+        const following=visible.filter(other=>other.createdAt<j.createdAt).sort((a,b)=>b.createdAt-a.createdAt).map(other=>target.querySelector(`[data-job-row="${other.id}"]`)).find(Boolean);
         target.insertBefore(row,following||null);
       }rendered.set(j.id,signature);const selected=panel.querySelector(`[data-bundle-export="${j.id}"]`);if(selected)selected.checked=selectedExports.has(j.id);
     }
-    for(const [key,group]of Object.entries(groups)){const count=jobs.filter(j=>jobGroup(j)===key).length;group.root.hidden=key!=='ready'&&!count;group.empty.hidden=Boolean(count)}
-    selectToggle.hidden=!jobs.some(j=>j.kind==='export'&&j.status==='complete');syncSelection();
+    for(const [key,group]of Object.entries(groups)){const count=visible.filter(j=>groupKey(j)===key).length;group.root.hidden=!count&&(project?!['videos','subtitles','chapters'].includes(key):key!=='ready');group.empty.hidden=Boolean(count)}
+    selectToggle.hidden=!visible.some(j=>j.kind==='export'&&j.status==='complete');syncSelection();
   }
   function closePreview(){
     if(!activePreview)return;
@@ -82,8 +98,8 @@ export function createJobsView({panel,counts,status,onJobs,onOpen,onPlay=()=>{}}
   panel.addEventListener('play',event=>{if(event.target.tagName==='VIDEO'){document.querySelectorAll('video').forEach(video=>{if(video!==event.target)video.pause()});onPlay(event.target)}},true);
   async function refresh(){
     clearTimeout(timer);if(loading)return;loading=true;
-    try{const data=await requestJson('/api/jobs');render(data);const processing=jobs.filter(j=>jobGroup(j)==='processing').length,ready=jobs.filter(j=>jobGroup(j)==='ready').length;status.textContent=(processing?processing+' items processing or needing attention. ':'No work is running. ')+ready+' files ready to download. Saved on this computer.';await onJobs(data.jobs)}catch(error){status.textContent='Progress connection lost. Your saved work is kept: '+error.message}
+    try{const data=await requestJson('/api/jobs');render(data);const processing=jobs.filter(j=>jobGroup(j)==='processing').length,ready=jobs.filter(j=>jobGroup(j)==='ready').length;status.textContent=project?'Files and export progress for the open project.':(processing?processing+' items processing or needing attention. ':'No work is running. ')+ready+' files ready to download. Saved on this computer.';await onJobs(data.jobs)}catch(error){status.textContent='Progress connection lost. Your saved work is kept: '+error.message}
     finally{loading=false;timer=setTimeout(()=>void refresh(),jobs.some(j=>['queued','running'].includes(j.status))?1800:6000)}
   }
-  return {refresh,closePreview,get jobs(){return jobs}};
+  return {refresh,closePreview,setProject,get jobs(){return jobs}};
 }

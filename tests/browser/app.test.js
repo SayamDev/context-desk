@@ -43,7 +43,7 @@ test('every workspace opens without errors, and Studio waits for a clip',async()
     const {page,problems}=await watchedPage(browser,app.url);
     const nav=workspace=>page.locator(`.workspace-nav [data-workspace=${workspace}]`);
     assert.ok(await nav('edit').isDisabled());
-    for(const workspace of ['library','clips','jobs']){
+    for(const workspace of ['library','jobs','brand']){
       await nav(workspace).click();
       await page.waitForFunction(w=>document.body.dataset.workspace===w,workspace);
     }
@@ -97,6 +97,15 @@ test('a trashed video is deleted for good, and Empty Trash also clears leftover 
   try{
     const {page,problems}=await watchedPage(browser,app.url);
     await page.setInputFiles('#fileInput',file);await page.getByText('All changes saved',{exact:false}).first().waitFor();
+    const projectNav=page.getByRole('navigation',{name:'Project',exact:true});
+    await projectNav.getByRole('button',{name:'Full video',exact:true}).click();
+    await page.waitForURL(/#\/full-video$/);
+    assert.equal(await page.locator('#program').isVisible(),true);
+    await projectNav.getByRole('button',{name:'Exports',exact:true}).click();
+    await page.waitForURL(/#\/exports$/);
+    assert.equal(await page.getByRole('heading',{name:'Chapter timestamps',exact:true}).isVisible(),true);
+    await projectNav.getByRole('button',{name:'Clips',exact:true}).click();
+
     const [uploaded]=(await (await fetch(app.url+'/api/projects')).json()).projects,sourceDir=path.join(app.dataDir,'sources',uploaded.sourceId);
     assert.ok(await exists(sourceDir));
     await api('/api/projects/'+uploaded.id,{action:'trash',trashed:true});
@@ -147,7 +156,8 @@ test('keyboard and screen readers: skip link, one main region, clip list before 
     assert.equal(await page.evaluate(()=>document.activeElement.textContent),'Skip to content');
     const hash=await page.evaluate(()=>location.hash);await page.keyboard.press('Enter');
     assert.equal(await page.evaluate(()=>document.activeElement.id),'main');assert.equal(await page.evaluate(()=>location.hash),hash);
-    await page.locator('.workspace-nav [data-workspace=clips]').click();
+    await page.goto(app.url+'/#/discover');
+    await page.waitForFunction(()=>document.body.dataset.workspace==='clips');
     assert.equal(await page.evaluate(()=>Boolean(document.querySelector('.queue-panel').compareDocumentPosition(document.querySelector('.monitor-panel'))&Node.DOCUMENT_POSITION_FOLLOWING)),true);
     assert.equal(await page.evaluate(()=>getComputedStyle(document.getElementById('projectTitle')).unicodeBidi),'plaintext');
     assert.deepEqual(problems,[]);

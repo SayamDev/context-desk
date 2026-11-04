@@ -351,3 +351,5 @@ body[data-workspace=home] .workspace-nav [data-workspace=source]:hover:not(:disa
 .home-start .import-preferences>summary,.home-start .import-preferences>summary:hover {color:var(--muted)}
 .home-start input[type=checkbox] {accent-color:var(--accent)}
 .home-start h1 {font-weight:900;letter-spacing:-.035em}
+
+body:not([data-workspace=full]) .whole-subtitles{display:none!important}
