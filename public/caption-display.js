@@ -11,9 +11,12 @@ const OVERLAP=.3;
 const labelled=(cue,mode)=>{const label=String(cue.cueLabel||'').trim(),text=String(cue.text||'').trim();
   if(cue.kind==='sound')return text.startsWith('[')?text:`[${text}]`;
   const body=cue.kind==='background'?`(in background) ${text}`:text;return label?`${label} ${body}`:body};
-export function displayCues(cues,{mode='clean'}={}){
+export function displayCues(cues,{mode='clean',preserveTiming=false}={}){
   const shown=(Array.isArray(cues)?cues:[]).filter(c=>c&&String(c.text||'').trim()&&c.end>c.start&&(mode==='accessible'||(c.kind!=='sound'&&c.kind!=='background')));
-  const sorted=[...shown].sort((a,b)=>a.start-b.start),out=[],used=new Set();
+  const sorted=shown.sort((a,b)=>a.start-b.start);
+  // Native WebVTT can display overlapping cues at their own times.
+  if(preserveTiming)return sorted.map(cue=>({...cue,text:labelled(cue,mode)}));
+  const out=[],used=new Set();
   sorted.forEach((cue,i)=>{
     if(used.has(i))return;
     const partnerIndex=sorted.findIndex((other,j)=>j>i&&!used.has(j)&&cue.kind!=='sound'&&other.kind!=='sound'&&other.speaker&&cue.speaker&&other.speaker!==cue.speaker&&Math.min(cue.end,other.end)-Math.max(cue.start,other.start)>=OVERLAP);
