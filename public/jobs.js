@@ -60,7 +60,7 @@ export function createJobsView({panel,counts,status,onJobs,onOpen,onPlay=()=>{}}
   panel.addEventListener('play',event=>{if(event.target.tagName==='VIDEO'){document.querySelectorAll('video').forEach(video=>{if(video!==event.target)video.pause()});onPlay(event.target)}},true);
   async function refresh(){
     clearTimeout(timer);if(loading)return;loading=true;
-    try{const data=await requestJson('/api/jobs');render(data);const processing=jobs.filter(j=>jobGroup(j)==='processing').length,ready=jobs.filter(j=>jobGroup(j)==='ready').length;status.textContent=(processing?processing+' items processing or needing attention. ':'No work is running. ')+ready+' files ready to download. Saved on this computer.';await onJobs(data.jobs)}catch(error){status.textContent='Progress connection lost. Your saved work is kept: '+error.message}
+    try{const data=await requestJson('/api/jobs');render(data);const processing=jobs.filter(j=>jobGroup(j)==='processing').length,ready=jobs.filter(j=>jobGroup(j)==='ready').length;status.textContent=(processing?`${processing} ${processing===1?'item':'items'} processing or needing attention. `:'No work is running. ')+(ready?`${ready} ${ready===1?'file':'files'} ready to download. Saved on this computer.`:'Nothing to download yet.');await onJobs(data.jobs)}catch(error){status.textContent='Progress connection lost. Your saved work is kept: '+error.message}
     finally{loading=false;timer=setTimeout(()=>void refresh(),jobs.some(j=>['queued','running'].includes(j.status))?1800:6000)}
   }
   return {refresh,get jobs(){return jobs}};
