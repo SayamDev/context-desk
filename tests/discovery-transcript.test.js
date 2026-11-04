@@ -90,3 +90,31 @@ test('preview performs no processing and untimed speech fails closed',async t=>{
   const preview=service.preview({sourceId:'source',strategy:'transcript',speechSectionLimit:2,budget:2});assert.equal(preview.speechRequestsMax,2);assert.equal(f.calls().speech,0);assert.equal(service.list().length,0);
   const j=service.start({sourceId:'source',projectId:f.project.id,strategy:'transcript',speechSectionLimit:1});const done=await settle(service,j.id);assert.equal(done.status,'error');assert.match(done.error,/timestamps/);assert.equal(done.coverageSeconds,0);assert.equal(done.storyRequests,0);
 });
+
+test('local discovery creates editable dialogue clips with no Meta calls',async t=>{
+  const f=await fixture(t,45);
+  const {createLocalStoryRanker}=await import('../lib/meta-story-ranker.js');
+  const rankLocalStories=createLocalStoryRanker({fetch:async(url,request)=>{
+    assert.equal(url,'http://127.0.0.1:11434/api/chat');
+    assert.equal(request.headers.Authorization,undefined);
+    return Response.json({message:{content:JSON.stringify({stories:[
+      {setup:'1',turn:'2',payoff:'3',reason:'The reason follows the question.',score:80},
+      {setup:'1',turn:'99',payoff:'3',reason:'Invalid reference.',score:90}
+    ]})}});
+  }});
+  const service=createDiscoveryService({...f.dependencies,rankLocalStories,
+    validate:()=>assert.fail('Local discovery must not require Meta'),
+    transcribe:async(_,options)=>{
+      assert.equal(options.speechProvider,'voicestudio');
+      return {turns:[{startMs:1000,endMs:4000,text:'لماذا غادرت؟'},{startMs:5000,endMs:9000,text:'كنت أبحث عن إجابة'},{startMs:12000,endMs:18000,text:'الآن أعرف السبب'}]};
+    },
+    translate:async(lines,options)=>{assert.equal(options.translationProvider,'voicestudio');return lines}
+  });
+  const job=service.start({sourceId:'source',projectId:f.project.id,strategy:'local',language:'English',clipMinSeconds:10});
+  const done=await settle(service,job.id);
+  assert.equal(done.status,'complete',done.error);assert.equal(done.suggested,1);assert.equal(done.rejectedCandidates,1);
+  assert.equal(done.storyRequests,0);assert.equal(f.calls().story,0);
+  const [clip]=f.store.getProject(f.project.id).state.moments;
+  assert.equal(clip.mediaStart,clip.start);assert.equal(clip.analysis.setup,'لماذا غادرت؟');
+  assert.equal(clip.analysis.payoff,'الآن أعرف السبب');assert.equal(clip.discoveryStrategy,'local');
+});

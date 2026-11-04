@@ -22,7 +22,7 @@ import {captureFrame} from './lib/media-worker.js';
 import {createExportService} from './lib/exports.js';
 import {createMemoryApi,memoryContext} from './lib/memory.js';
 import {createBrandApi} from './lib/brands.js';
-import {createMetaStoryRanker} from './lib/meta-story-ranker.js';
+import {createLocalStoryRanker,createMetaStoryRanker} from './lib/meta-story-ranker.js';
 import {createTimelineApi} from './lib/timeline.js';
 import {createReframeApi} from './lib/reframe.js';
 import {createCreativeAssetService} from './lib/creative-assets.js';
@@ -58,7 +58,14 @@ const subtitleService=createSubtitleService({claimSource:claimImportSource,extra
 const chapterService=createChapterService({store:studioStore(),subtitles:subtitleService});
 const trailerService=createTrailerService({store:studioStore(),subtitles:subtitleService,claimSource:claimImportSource}),askService=createAskService({store:studioStore(),subtitles:subtitleService}),cultureService=createCultureService({store:studioStore()}),dubService=createDubService({store:studioStore(),claimSource:claimImportSource});
 
-const discoveryService=createDiscoveryService({store:studioStore(),claimSource:claimImportSource,frame:captureFrame,extract:extractAudio,rankStories:createMetaStoryRanker(),
+const localStoryModel=process.env.CONTEXT_DESK_LOCAL_STORY_MODEL||'llama3.2:latest';
+const discoveryService=createDiscoveryService({store:studioStore(),claimSource:claimImportSource,frame:captureFrame,extract:extractAudio,rankStories:createMetaStoryRanker(),rankLocalStories:createLocalStoryRanker({model:localStoryModel}),
+  savedTranscript:(sourceId,id)=>{
+    const jobs=subtitleService.list();
+    const job=id?jobs.find(j=>j.id===id):jobs.filter(j=>j.sourceId===sourceId&&j.status==='complete'&&j.cueCount>0).sort((a,b)=>b.createdAt-a.createdAt)[0];
+    if(!job||job.sourceId!==sourceId||job.status!=='complete')return null;
+    return {id:job.id,speechLanguage:job.speechLanguage,cues:id?subtitleService.track(id,true):[]};
+  },
   validate:()=>{if(!process.env.MODEL_API_KEY)throw Error('Configure Meta before starting story discovery.');},
   transcribe:(bytes,o)=>o.speechProvider==='voicestudio'?transcribeVoiceStudio(bytes,o.speechLanguage,o.keywords):transcribe(bytes,o.speechLanguage,o.keywords),analyse,
   translate:(cues,o)=>o.translationProvider==='voicestudio'?translateVoiceStudio(cues,o.language,o.speechLanguage,o.dialectNote):translate(cues,o.language,o.dialectNote,o.translationMode,o.glossary)});

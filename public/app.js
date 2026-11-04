@@ -183,11 +183,17 @@ mountLiveBar({every:(ms,fn)=>bgClock.every(ms,fn),start:()=>startLiveClipping(),
 $('captionStyle').replaceChildren(...captionStyleIds.map(id=>new Option(captionStyles[id].label,id)));
 enhanceCaptionLooks($('captionStyle'),{getLook:()=>state.moments.find(x=>x.id===state.selected)?.captionLook||{}});
 {const pick=$('liveCaptionLanguage');for(const language of captionLanguages)if(![...pick.options].some(o=>o.value===language||o.textContent===language))pick.add(new Option(language,language));
+  const strategy=$('discoveryStrategy'),choice=strategy.cloneNode(true),label=document.createElement('label');
+  choice.id='importDiscoveryStrategy';choice.removeAttribute('aria-describedby');
+  label.append('Clip discovery',choice);$('importPreferencesSummary').closest('details').append(label);
+  choice.value=strategy.value;
+  choice.onchange=()=>{strategy.value=choice.value;strategy.dispatchEvent(new Event('change',{bubbles:true}))};
+  strategy.addEventListener('change',()=>{choice.value=strategy.value});
   const auto=$('autoGenerate')?.closest('label');if(auto&&!$('autoWholeSubtitles')){const label=Object.assign(document.createElement('label'),{className:'auto-generate'}),box=Object.assign(document.createElement('input'),{type:'checkbox',id:'autoWholeSubtitles'});label.append(box,document.createTextNode(' Also subtitle the whole recording'));auto.after(label)}}
 // Clip-length presets (design system SegmentedControl) sized into clip finding.
 {const target=$('clipTarget')?.closest('label');if(target&&!$('clipLength')){const label=Object.assign(document.createElement('label'),{className:'clip-length-label',textContent:'Clip length'}),select=Object.assign(document.createElement('select'),{id:'clipLength'});for(const [v,t] of [['auto','Auto'],['short','<30s'],['medium','30–60s'],['long','60–90s']])select.add(new Option(t,v));label.append(select);target.after(label);enhanceSegmented(select,{label:'Clip length'})}}
 // LinkDrop meta row (auto scan, limits, paste shortcut) and drop-a-file onto the link field.
-{const form=$('linkForm'),meta=el('div','cd-drop-meta'),auto=$('autoGenerate'),chip=el('span');const sync=()=>chip.replaceChildren(auto?.checked&&!state.meta?badge('warning','Auto scan needs your Meta key'):badge(auto?.checked?'volt':'neutral',auto?.checked?'Auto scan on':'Auto scan off'));syncLinkDrop=sync;sync();auto?.addEventListener('change',sync);
+{const form=$('linkForm'),meta=el('div','cd-drop-meta'),auto=$('autoGenerate'),chip=el('span');const sync=()=>chip.replaceChildren(auto?.checked&&!state.meta&&!localDiscoverySelected()?badge('warning','Choose local discovery or add a Meta key'):badge(auto?.checked?'volt':'neutral',auto?.checked?'Auto scan on':'Auto scan off'));syncLinkDrop=sync;sync();auto?.addEventListener('change',sync);$('discoveryStrategy')?.addEventListener('change',sync);
   meta.append(chip,el('span',undefined,'Up to 6 h · or drop a file'),kbd('⌘V'));form?.querySelector('.link-launch-row')?.after(meta);
   form?.addEventListener('dragover',event=>{if([...event.dataTransfer.items].some(i=>i.kind==='file')){event.preventDefault();form.classList.add('is-dropping')}});form?.addEventListener('dragleave',()=>form.classList.remove('is-dropping'));
   form?.addEventListener('drop',event=>{const file=event.dataTransfer.files?.[0];form.classList.remove('is-dropping');if(!file)return;event.preventDefault();const input=$('fileInput'),list=new DataTransfer();list.items.add(file);input.files=list.files;input.dispatchEvent(new Event('change',{bubbles:true}))});}
@@ -269,6 +275,7 @@ const previewScreen=mountPreviewFullscreen({frame:$('previewCanvas').parentEleme
 function userCaptionDefault(){try{const value=localStorage.getItem('context-desk-output-language');return outputLanguages.includes(value)?value:'English'}catch{return 'English'}}
 $('liveCaptionLanguage').value=userCaptionDefault();
 const captionWork=translationQueue(2);let captionWaiting=0,captionFailed=0;
+function localDiscoverySelected(){return $('discoveryStrategy')?.value==='local'}
 function projectCaptionTarget(){return $('liveCaptionLanguage').value||'Original'}
 function applySocialPreset(){const preset=socialPresets[$('socialDestination').value];if(!preset?.aspect){$('socialExportHint').textContent='Your current edit and export settings.';return}performEdit('social-preset',()=>{state.aspect=preset.aspect;$('aspectSelect').value=preset.aspect;$('exportQuality').value=String(preset.quality);$('exportFormat').value=preset.format==='mp4'?'auto':preset.format;setPreviewSize();drawPreview()});$('socialExportHint').textContent=preset.hint+' · choose Fit to preserve the whole image or Fill to crop.'}
 // Destination tiles with a phone-frame preview of the current frame and the post caption.
@@ -332,7 +339,7 @@ function showServerStale(stale){let banner=$('serverStale');if(!stale){banner?.r
 window.addEventListener('context-desk:server-outdated',()=>showServerStale(true));
 // Re-check when the tab regains focus, so a server that went out of date after loading is caught.
 window.addEventListener('focus',()=>{fetch('/api/status').then(r=>r.json()).then(d=>showServerStale(!('codeStale' in d)||d.codeStale)).catch(()=>{})});
-async function status(){setActivity('connect','Connecting your workspace','Checking Meta and local speech services…');try{const r=await fetch('/api/status'); const d=await r.json();state.meta=d.metaConfigured;state.voiceStudio=d.voiceStudioAvailable;showServerStale(!('codeStale' in d)||Boolean(d.codeStale));$('apiState').textContent=state.meta?'Meta configured':'Meta key needed';$('apiState').dataset.state=state.meta?'ok':'missing';syncLinkDrop();$('apiState').title=state.meta?(state.voiceStudio?'Muse Spark visual analysis enabled · VoiceStudio local speech available':'Muse Spark visual analysis enabled · open VoiceStudio for local speech'):'Add MODEL_API_KEY to .env to enable AI analysis';}catch{$('apiState').textContent='Server offline';$('apiState').dataset.state='offline';}finally{finishActivity('connect')}}
+async function status(){setActivity('connect','Connecting your workspace','Checking Meta and local speech services…');try{const r=await fetch('/api/status'); const d=await r.json();state.meta=d.metaConfigured;state.voiceStudio=d.voiceStudioAvailable;if(!state.meta&&state.voiceStudio&&$('discoveryStrategy').value==='sampled')$('discoveryStrategy').value='local';$('discoveryStrategy').dispatchEvent(new Event('change'));showServerStale(!('codeStale' in d)||Boolean(d.codeStale));$('apiState').textContent=state.meta?'Meta configured':'Meta key needed';$('apiState').dataset.state=state.meta?'ok':'missing';syncLinkDrop();$('apiState').title=state.meta?(state.voiceStudio?'Muse Spark visual analysis enabled · VoiceStudio local speech available':'Muse Spark visual analysis enabled · open VoiceStudio for local speech'):'Add MODEL_API_KEY to .env to enable AI analysis';}catch{$('apiState').textContent='Server offline';$('apiState').dataset.state='offline';}finally{finishActivity('connect')}}
 function cleanupSource(){$('wholePreview').pause();$('wholePreview').removeAttribute('src');$('wholePreview').load();$('wholePreview').hidden=true;state.sourceLoadToken++;state.sourceUploadAbort?.abort();state.sourceUploadAbort=null;finishActivity('source');stopScan();state.autoFrameJob++;state.batchCancel=true;state.batchRunning=false;state.batchId=null;$('batchPanel').hidden=!state.batchExports.length;$('batchResults').innerHTML='';$('batchButton').disabled=true;if(state.batchExports.length)batchProgress('Source disconnected. Rendered draft clips remain available below until this page closes.');if(state.sourceType==='screen')state.recordStream?.getVideoTracks().forEach(track=>track.stop());state.screenStream?.getTracks().forEach(t=>t.stop());state.screenStream=null;state.stageCrop=null;state.cropDraft=null;state.cropPicking=false;state.resumeAfterCrop=false;state.lastDraftStart=-1;$('monitor').classList.remove('video-cropped');$('cropMask').hidden=true;$('cropSelection').hidden=true;$('sourceCropRow').hidden=true;$('liveCaptions').hidden=true;$('sourceQuality').hidden=true;$('cropStatus').textContent='Auto frame looks for the moving player. You can draw the area yourself if it misses.';if(state.sourceUrl&&!state.moments.some(moment=>moment.url===state.sourceUrl)){URL.revokeObjectURL(state.sourceUrl);sourceUrls.delete(state.sourceUrl)}state.sourceUrl=null;state.source=null;state.sourceType=null;state.sourceName='';state.recordStream=null;program.srcObject=null;program.removeAttribute('src');program.controls=true;program.load();$('emptySource').hidden=false;setSourceLabel('No source');updateButtons();}
 let importId=null,importCancelled=false,sourcePageUrl='';
 // A file already in the Library (same size, length and first and last MiB) opens from there
@@ -658,7 +665,7 @@ $('batchButton').onclick=async()=>{
   if(state.sourceType!=='file'||!state.source?.importId)return;
   const current=jobsView.jobs.find(j=>j.kind==='discovery'&&j.projectId===projectSession.current?.id&&['queued','running'].includes(j.status));
   if(current){showWorkspace('jobs');return}
-  const remaining=aiLimit()?Math.max(0,aiLimit()-state.aiCalls):100;
+  const remaining=!localDiscoverySelected()&&aiLimit()?Math.max(0,aiLimit()-state.aiCalls):100;
   if(!remaining){batchProgress('Your AI window limit is reached. Raise it in Scan settings or review existing clips.');return}
   const button=$('batchButton');button.disabled=true;setActivity('queue','Saving your discovery job','Your source and language choices are being saved before processing.');
   try{await projectSession.flush();const j=await requestJson('/api/discovery',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sourceId:state.source.importId,projectId:projectSession.current.id,depth:Number($('scanDepth').value),clipLength:$('clipLength')?.value||'auto',budget:Math.min(remaining,Number($('clipTarget').value)*3,100),speechProvider:$('speechProvider').value,translationProvider:$('translationProvider').value,speechLanguage:speechChoices(),keywords:$('speechKeywords').value,dialectNote:$('sourceDialect').value,translationMode:$('translationMode').value,glossary:$('glossary').value,memoryId:memoryView.id,context:$('showContext').value,storyLens:$('storyLens').value,language:$('liveCaptionLanguage').value,...(()=>{const options=discoveryTools.discoveryOptions();return {...options,strategy:options.strategy==='sampled'?'fast':options.strategy}})()})});state.batchId=j.id;projectSession.changed();await jobsView.refresh();batchProgress('Discovery queued. Open Jobs for progress; clips appear here as each check finishes.');}
@@ -725,7 +732,7 @@ async function analyzeItem(item,audio){
 
 const momentTranslationCache=createTranslationCache();
 async function translateCues(item,language,{force=false}={}){
-  const cues=item.captionCues.Original.map(c=>({...c})),variant=findVariant(language,item.captionVariants?.[language])?.id||'',script=item.captionScripts?.[language]==='roman'?'roman':'native',dialect=[item.dialectNote||'',variant,script].join('|'),provider=$('translationProvider').value,sourceLanguage=item.detectedLanguage||speechChoices();
+  const cues=item.captionCues.Original.map(c=>({...c})),variant=findVariant(language,item.captionVariants?.[language])?.id||'',script=item.captionScripts?.[language]==='roman'?'roman':'native',dialect=[item.dialectNote||'',variant,script].join('|'),provider=item.discoveryStrategy==='local'?'voicestudio':$('translationProvider').value,sourceLanguage=item.detectedLanguage||speechChoices();
   const originalKey=translationKey(cues,language,dialect,provider,sourceLanguage,item.translationMode||$('translationMode').value,$('glossary').value);if(force)item.translationRevision=(item.translationRevision||0)+1;const key=originalKey+':'+(item.translationRevision||0);
   // /api/translate takes at most 30 lines, so long clips go in ordered batches (3 at a time).
   // Each batch is cached on the server, so a retry only pays for batches that failed.
@@ -945,11 +952,11 @@ function subtitleWholeVideo(target){
 }
 async function afterImport(auto){
   const target=projectCaptionTarget();
-  if(auto)void translateTitle(target);
+  if(auto&&(!localDiscoverySelected()||pendingIntent==='translate'))void translateTitle(target);
   if(auto&&pendingIntent==='translate'){subtitleWholeVideo(target);return}
-  if(auto&&target!=='Original'&&$('autoWholeSubtitles')?.checked&&wholeServiceReady(target)){$('wholeLanguage').value=target;$('wholeLanguage').dispatchEvent(new Event('change',{bubbles:true}));setTimeout(()=>{if(!$('startWholeSubtitles').disabled)$('startWholeSubtitles').click()},400)}
+  if(auto&&!localDiscoverySelected()&&target!=='Original'&&$('autoWholeSubtitles')?.checked&&wholeServiceReady(target)){$('wholeLanguage').value=target;$('wholeLanguage').dispatchEvent(new Event('change',{bubbles:true}));setTimeout(()=>{if(!$('startWholeSubtitles').disabled)$('startWholeSubtitles').click()},400)}
   if(!auto||!$('autoGenerate').checked){batchProgress('Recording ready. Choose Find clips to begin.');return}
-  if(!state.meta){batchProgress(missingServiceMessage('Finding clips'));toast('Recording ready. Clip finding needs your Meta key.');return}
+  if(!state.meta&&!localDiscoverySelected()){batchProgress('Choose Local in clip scan settings to find clips with VoiceStudio and Ollama.');return}
   await $('batchButton').onclick();
 }
 async function exportClips(list){
@@ -1222,7 +1229,7 @@ function renderEditor(){
   $('trimIn').value=m.trimIn.toFixed(1);$('trimOut').value=m.trimOut.toFixed(1);
   $('trimIn').max=Math.max(0,m.trimOut-.2);$('trimOut').max=Math.max(.2,m.end-m.start);
   $('hook').value=m.hook;$('alternateHook').value=m.alternateHook;renderHookLab();syncAccents(m);
-  $('engineProvenance').textContent=[m.analysis?'Meta Muse Spark · story assessment':m.status==='analysing'?'Meta Muse Spark · pending':'No story assessment',m.speechSource||'No speech draft',m.translationSource||'No translation'].join('  /  ');
+  $('engineProvenance').textContent=[m.analysis?(m.discoveryStrategy==='local'?'Ollama · dialogue assessment':'Meta Muse Spark · story assessment'):m.status==='analysing'?'Meta Muse Spark · pending':'No story assessment',m.speechSource||'No speech draft',m.translationSource||'No translation'].join('  /  ');
   $('clipQuality').textContent=m.sourcePixels?`${m.sourcePixels.width} × ${m.sourcePixels.height} · ${m.sourcePixels.frameRateKnown?m.sourcePixels.frameRate+' fps input':'frame rate unreported'} · ${!m.sourcePixels.audioTracks?'NO AUDIO TRACK':m.audioRms!==null&&m.audioRms!==undefined&&m.audioRms<.001?'AUDIO SILENT':m.audioRms!==null&&m.audioRms!==undefined?'audio detected':'audio track captured · level unverified'}${m.sourcePixels.height<1080?' · 1080p export upscales this capture':''}`:'Capture dimensions unavailable.';
   $('reason').textContent=m.analysis?.reason||m.error||'Manual review. No AI assessment has been made.';
   $('directEvidence').textContent=m.analysis?.evidence||'Watch the source window; no evidence summary is available.';
@@ -1550,6 +1557,7 @@ async function restoreProject(p){
   editHistory.reset();const saved=p.state;await memoryView.list(saved.storyMemoryId||'');state.moments=recoverBrowserMoments(saved.moments||[]);state.cut=saved.cut||[];state.selected=saved.selected||null;state.aspect=saved.aspect||'landscape';state.aiCalls=saved.aiCalls||0;state.batchId=saved.batchId||crypto.randomUUID();state.batchCancel=true;state.exportHistory=saved.exports||[];state.batchExports=state.exportHistory.filter(e=>e.batch);
   $('liveCaptionLanguage').value=saved.settings?.liveCaptionLanguage||userCaptionDefault();
   for(const [id,value]of Object.entries(saved.settings||p.source?.settings||{})){const el=$(id);if(!el)continue;if(el.type==='checkbox')el.checked=Boolean(value);else el.value=value}
+  $('discoveryStrategy').dispatchEvent(new Event('change'));
   const source=p.sourceId?await requestJson('/api/import/'+p.sourceId).catch(()=>null):null;
   if(source?.status==='ready'){try{await loadImportedVideo(source,p.state.sourcePageUrl||source.sourceUrl||'',{auto:false})}catch(error){cleanupSource();message('The source cannot play. Saved edits are retained: '+error.message)}}
   else{cleanupSource();message(p.sourceId?'Source media is unavailable. Saved clips and edits are retained. Restore the original recording before processing.':'Live session restored. Saved windows can play and export; connect a live tab again to capture new footage.');}

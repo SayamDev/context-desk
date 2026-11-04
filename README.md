@@ -66,3 +66,9 @@ MIT code: [LICENSE](LICENSE). No private competitor code was copied. Inspiration
 Keys stay server-side and out of Git. Meta receives audio for selected speech work, sampled images/transcripts for story work and subtitle text for translation. VoiceStudio receives loopback requests when selected. SQLite, footage, transcripts and rendered media stay out of the public repository. The local server binds only to 127.0.0.1; it is not a secured hosted multi-user deployment.
 
 The competition build is a working local studio, with [explicit remaining validation gates](STATUS.md). It is not a complete replacement for Premiere/DaVinci, and winning is not guaranteed. [Submission notes](docs/SUBMISSION.md) separate verified event facts from outstanding official-rule checks.
+
+### Local clip discovery
+
+In Home, open **Language & clip preferences** and set **Clip discovery**, or in Clips set **How to find stories** to **Local · VoiceStudio and Ollama**, then choose **Find clips**. Start VoiceStudio and Ollama first. The default Ollama model is `llama3.2:latest`; set `CONTEXT_DESK_LOCAL_STORY_MODEL` in `.env` to use a different installed local model. With VoiceStudio available and no Meta key configured, the app selects local discovery for new recordings.
+
+The scan reuses a completed transcript for the same recording when available. Otherwise it sends bounded audio sections to VoiceStudio and timed dialogue to Ollama on this computer. It saves editable clip suggestions with source quotes for setup, turn and payoff. Choose **Original** for the original captions, or select an output language supported by VoiceStudio. Local discovery uses no Meta API requests. It reviews dialogue, so watch the footage and verify the subtitles and reaction before exporting.
