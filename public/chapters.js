@@ -7,7 +7,7 @@ export const youtubeText=chapters=>chapters.map(c=>`${chapterClock(c.start)} ${c
 export function mountChapters({after,getJob,player,seek,toast,download,requestJson}){
   const section=document.createElement('section');section.className='chapters-panel';section.id='chapters';section.hidden=true;section.setAttribute('aria-labelledby','chaptersHeading');
   section.innerHTML=`<div class="chapters-head"><div><h2 id="chaptersHeading">Chapters</h2><p id="chaptersMeta"></p></div><div class="cd-row chapters-actions">
-    <button type="button" id="chaptersCopy" class="cd-btn cd-btn-sm cd-btn-secondary" hidden>Copy for YouTube</button><button type="button" id="chaptersDownload" class="cd-btn cd-btn-sm cd-btn-ghost" hidden>Download .txt</button>
+    <button type="button" id="chaptersCopy" class="cd-btn cd-btn-sm cd-btn-secondary" hidden>Copy timestamps for YouTube description</button><button type="button" id="chaptersDownload" class="cd-btn cd-btn-sm cd-btn-ghost" hidden>Download timestamps (.txt)</button>
     <button type="button" id="chaptersMake" class="cd-btn cd-btn-sm cd-btn-primary">Make chapters</button></div></div>
     <p id="chaptersStatus" class="chapters-status" role="status"></p><ol id="chaptersList" class="chapters-list"></ol>`;
   after.after(section);
@@ -42,7 +42,7 @@ export function mountChapters({after,getJob,player,seek,toast,download,requestJs
     }catch(error){if(version===epoch)$('chaptersStatus').textContent=error.message||'Chapters could not be written.'}
     finally{if(version===epoch){busy=false;render()}}
   };
-  $('chaptersCopy').onclick=async()=>{if(!data)return;try{await navigator.clipboard.writeText(youtubeText(data.chapters));toast('Copied. Paste it into the YouTube description; the first line must stay 0:00.')}catch{toast('Copy was blocked. Use Download .txt instead.')}};
+  $('chaptersCopy').onclick=async()=>{if(!data)return;try{await navigator.clipboard.writeText(youtubeText(data.chapters));toast('Timestamps copied. In YouTube Studio, paste them into the description of the matching full video.')}catch{toast('Copy was blocked. Use Download timestamps (.txt) instead.')}};
   $('chaptersDownload').onclick=()=>{if(data)download(new Blob([youtubeText(data.chapters)+'\n'],{type:'text/plain'}),'chapters.txt')};
   section.addEventListener('click',event=>{const b=event.target.closest('[data-chapter]');if(b&&data)seek(data.chapters[Number(b.dataset.chapter)].start)});
   // Marks the chapter that is playing in the source player.
