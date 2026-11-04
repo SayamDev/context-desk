@@ -892,14 +892,21 @@ input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color])
 .activity-spinner, .ds-rail-dock .activity-spinner {width:40px;height:40px;flex:none;border:0!important;border-radius:0;background:none!important;animation:none!important}
 .activity-spinner svg, .busy-loader svg {display:block}
 .loader-fallback {border-radius:var(--radius-sm);background:var(--surface-3)!important}
-.busy-overlay {position:fixed;inset:0;z-index:60;display:grid;place-items:center;background:var(--scrim);opacity:0;transition:opacity var(--dur-base) var(--ease-out);pointer-events:none}
-.busy-overlay.is-on {opacity:1;pointer-events:auto}
-.busy-card {display:grid;justify-items:center;gap:var(--space-2);min-width:260px;max-width:min(380px,calc(100vw - 32px));padding:var(--space-6) var(--space-8);border:1px solid var(--line-strong);border-radius:var(--radius-lg);background:var(--surface);box-shadow:var(--shadow-pop);text-align:center;transform:translateY(8px) scale(.98);transition:transform var(--dur-base) var(--ease-out)}
-.busy-overlay.is-on .busy-card {transform:none}
-.busy-loader {width:88px;height:88px}
-.busy-card strong {font:800 20px/1.15 var(--font-display);letter-spacing:-.015em}
-.busy-card p {margin:0;color:var(--muted);font-size:13px;line-height:1.45}
-@media (prefers-reduced-motion:reduce) {.busy-overlay, .busy-card {transition:none}}
+.busy-overlay {position:fixed;inset:0;width:100%;height:100%;max-width:none;max-height:none;margin:0;padding:24px;border:0;background:transparent;color:var(--text);overflow:auto}
+.busy-overlay[open] {display:grid;place-items:center}
+.busy-overlay::backdrop {background:var(--scrim);animation:busy-reveal 160ms ease-out 220ms both}
+.busy-card {display:grid;justify-items:center;gap:16px;width:min(100%,480px);padding:clamp(22px,6vw,48px);border:1px solid var(--line-strong);border-radius:var(--radius-lg);background:var(--surface);box-shadow:var(--shadow-pop);text-align:center;animation:busy-reveal 180ms ease-out 220ms both}
+.busy-loader {width:104px;height:104px}
+.busy-copy {display:grid;gap:8px}
+.busy-card strong {font:800 clamp(23px,4vw,30px)/1.15 var(--font-display);letter-spacing:-.02em}
+.busy-card p {margin:0;color:var(--muted);font-size:15px;line-height:1.5;overflow-wrap:anywhere}
+.busy-track {width:min(100%,200px);height:3px;border-radius:var(--radius-pill);background:var(--surface-raised);overflow:hidden}
+.busy-track::after {content:"";display:block;width:42%;height:100%;background:var(--accent);animation:busy-travel 1.6s ease-in-out infinite alternate}
+.busy-elapsed {min-height:1em;color:var(--muted);font-size:12px}
+.busy-cancel {min-height:44px}
+@keyframes busy-reveal {from{opacity:0}to{opacity:1}}
+@keyframes busy-travel {from{transform:translateX(0)}to{transform:translateX(138%)}}
+@media (prefers-reduced-motion:reduce) {.busy-card,.busy-overlay::backdrop{animation-duration:1ms}.busy-track::after{animation:none}}
 .activity-spinner::before, .activity-spinner::after {content:none!important;display:none!important}
 .dub-engine {display:grid;gap:var(--space-1);font-size:12.5px;color:var(--muted)}
 .trailer-video {display:grid;gap:var(--space-3);margin-bottom:var(--space-4)}

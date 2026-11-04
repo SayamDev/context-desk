@@ -75,7 +75,24 @@ test('an uploaded video becomes a saved project that survives a reload',async()=
   const app=await startApp({env:{FFMPEG_PATH:ffmpeg}});
   try{
     const {page,problems}=await watchedPage(browser,app.url);
+    const uploadButton=page.locator('#homeSourceActions .upload-button');
+    const target=await uploadButton.boundingBox();
+    let resumeUpload;
+    const uploadPaused=new Promise(resolve=>{resumeUpload=resolve});
+    await page.route('**/api/import/upload',async route=>{await uploadPaused;await route.continue()});
     await page.setInputFiles('#fileInput',file);
+    const loader=page.getByRole('dialog',{name:'Preparing your long recording'});
+    try{
+      await loader.waitFor();
+      await loader.getByRole('button',{name:'Cancel',exact:true}).waitFor();
+      await page.keyboard.press('Escape');
+      assert.equal(await loader.isVisible(),true);
+      let chooserOpened=false;
+      page.once('filechooser',()=>{chooserOpened=true});
+      await page.mouse.click(target.x+target.width/2,target.y+target.height/2);
+      assert.equal(chooserOpened,false);
+    }finally{resumeUpload()}
+    await loader.waitFor({state:'hidden'});
     await page.waitForURL(/#\/discover$/);
     await page.getByText('Video ready. Add a Meta API key').waitFor();
     await page.getByText('All changes saved',{exact:false}).first().waitFor();

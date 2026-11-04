@@ -54,20 +54,40 @@ const state={sourceLoadToken:0,sourceUploadAbort:null,source:null,sourceName:'',
 let projectSession=null;const activities=new Map();
 function setActivity(id,title,detail){activities.set(id,{title,detail,started:activities.get(id)?.started||Date.now()});renderActivity()}
 function finishActivity(id){activities.delete(id);renderActivity()}
-// Waits that block the screen (opening a project, a clip, a recording, connecting or framing a live tab,
-// deleting, saving an export) show the big loader over the app, but only after 350 ms so quick ones never
-// flash. It counts the seconds after 3 s so it never looks frozen, and offers Cancel where the work can
-// really stop. Long background work (link imports, finding clips, renders) never blocks: it shows in the
-// rail card and as a moving strip along the top of the app.
-const blockingActivities=new Set(['workspace','project-open','source','connect','relink','share','frame','project-delete','export-save','whole-source']);let busyTimer=null;
+// Foreground waits lock the workspace immediately. CSS delays the reveal for fast operations.
+const blockingActivities=new Set(['workspace','project-open','source','import','connect','relink','share','frame','preview','project-delete','export-save','whole-source']);
 const uploadCancel=()=>state.sourceUploadAbort&&!state.sourceUploadAbort.signal.aborted?()=>state.sourceUploadAbort.abort():null;
-const activityCancel={source:uploadCancel,'whole-source':uploadCancel,frame:()=>()=>{state.autoFrameJob++;finishActivity('frame');updateButtons();message('Automatic framing stopped. Draw around the video, or choose Use full frame.')}};
-function busyOverlay(){let o=$('busyOverlay');if(!o){o=document.createElement('div');o.id='busyOverlay';o.className='busy-overlay';o.hidden=true;o.setAttribute('role','status');o.setAttribute('aria-live','polite');o.innerHTML='<div class="busy-card"><div class="busy-loader" aria-hidden="true"></div><strong></strong><p></p><span class="busy-elapsed cd-tc"></span><button type="button" class="cd-btn cd-btn-sm cd-btn-ghost busy-cancel" hidden>Cancel</button></div>';document.body.append(o)}return o}
-function renderBusy(){const id=[...activities.keys()].reverse().find(k=>blockingActivities.has(k)),overlay=busyOverlay();clearTimeout(busyTimer);
-  if(!id){overlay.classList.remove('is-on');overlay.hidden=true;return}const a=activities.get(id),seconds=Math.floor((Date.now()-a.started)/1000),cancel=activityCancel[id]?.(),button=overlay.querySelector('.busy-cancel');
-  overlay.querySelector('strong').textContent=a.title;overlay.querySelector('p').textContent=a.detail;overlay.querySelector('.busy-elapsed').textContent=seconds>=3?clock(seconds)+' so far':'';
-  button.hidden=!cancel;button.onclick=cancel?()=>{button.disabled=true;cancel();setTimeout(()=>{button.disabled=false},800)}:null;
-  if(overlay.hidden)busyTimer=setTimeout(()=>{if(!activities.has(id))return;overlay.hidden=false;mountLoader(overlay.querySelector('.busy-loader'));requestAnimationFrame(()=>overlay.classList.add('is-on'))},350)}
+const activityCancel={source:uploadCancel,'whole-source':uploadCancel,import:()=>!$('cancelImport').hidden?()=>$('cancelImport').click():null,frame:()=>()=>{state.autoFrameJob++;finishActivity('frame');updateButtons();message('Automatic framing stopped. Draw around the video, or choose Use full frame.')}};
+function busyOverlay(){
+  let overlay=$('busyOverlay');
+  if(overlay)return overlay;
+  overlay=document.createElement('dialog');
+  overlay.id='busyOverlay';
+  overlay.className='busy-overlay';
+  overlay.setAttribute('aria-labelledby','busyTitle');
+  overlay.setAttribute('aria-describedby','busyDetail');
+  overlay.innerHTML='<div class="busy-card"><div class="busy-loader" aria-hidden="true"></div><div class="busy-copy" role="status"><strong id="busyTitle"></strong><p id="busyDetail"></p></div><div class="busy-track" aria-hidden="true"></div><span class="busy-elapsed cd-tc" aria-hidden="true"></span><button type="button" class="cd-btn cd-btn-secondary busy-cancel" hidden>Cancel</button></div>';
+  overlay.addEventListener('cancel',event=>event.preventDefault());
+  overlay.addEventListener('keydown',event=>event.stopPropagation());
+  document.body.append(overlay);
+  return overlay;
+}
+function renderBusy(){
+  const id=[...activities.keys()].reverse().find(key=>blockingActivities.has(key));
+  const overlay=busyOverlay();
+  if(!id){if(overlay.open)overlay.close();return}
+  const activity=activities.get(id);
+  const seconds=Math.floor((Date.now()-activity.started)/1000);
+  const cancel=activityCancel[id]?.(),button=overlay.querySelector('.busy-cancel');
+  for(const [selector,value] of [['#busyTitle',activity.title],['#busyDetail',activity.detail],['.busy-elapsed',seconds>=3?clock(seconds)+' elapsed':'']]){
+    const node=overlay.querySelector(selector);
+    if(node.textContent!==value)node.textContent=value;
+  }
+  button.hidden=!cancel;
+  if(button.dataset.activity!==id){button.disabled=false;button.dataset.activity=id}
+  button.onclick=cancel?()=>{button.disabled=true;cancel()}:null;
+  if(!overlay.open){button.disabled=false;overlay.showModal();mountLoader(overlay.querySelector('.busy-loader'))}
+}
 function workStrip(){let s=$('workStrip');if(!s){s=document.createElement('div');s.id='workStrip';s.className='work-strip';s.hidden=true;s.setAttribute('aria-hidden','true');document.body.append(s)}return s}
 function renderStrip(){const background=[...activities.entries()].reverse().find(([k])=>!blockingActivities.has(k)),strip=workStrip();strip.hidden=!background;if(background)strip.title=background[1].title}
 function renderActivity(){renderBusy();renderStrip();const current=[...activities.values()].at(-1);$('activityPanel').hidden=!current;if(!current)return;mountLoader($('activityPanel').querySelector('.activity-spinner'));{const id=[...activities.keys()].at(-1),cancel=$('cancelImport'),btn=$('activityCancel');if(btn)btn.hidden=!(id==='import'&&cancel&&!cancel.hidden)}$('activityTitle').textContent=current.title;$('activityDetail').textContent=current.detail;$('activityElapsed').textContent=clock((Date.now()-current.started)/1000)}
