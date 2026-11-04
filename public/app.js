@@ -146,7 +146,7 @@ mountLiveBar({every:(ms,fn)=>bgClock.every(ms,fn),start:()=>startLiveClipping(),
 $('captionStyle').replaceChildren(...captionStyleIds.map(id=>new Option(captionStyles[id].label,id)));
 enhanceCaptionLooks($('captionStyle'),{getLook:()=>state.moments.find(x=>x.id===state.selected)?.captionLook||{}});
 {const pick=$('liveCaptionLanguage');for(const language of captionLanguages)if(![...pick.options].some(o=>o.value===language||o.textContent===language))pick.add(new Option(language,language));
-  const auto=$('autoGenerate')?.closest('label');if(auto&&!$('autoWholeSubtitles')){const label=Object.assign(document.createElement('label'),{className:'auto-generate'}),box=Object.assign(document.createElement('input'),{type:'checkbox',id:'autoWholeSubtitles',checked:true});label.append(box,document.createTextNode(' Translate the whole recording into my subtitle language'));auto.after(label)}}
+  const auto=$('autoGenerate')?.closest('label');if(auto&&!$('autoWholeSubtitles')){const label=Object.assign(document.createElement('label'),{className:'auto-generate'}),box=Object.assign(document.createElement('input'),{type:'checkbox',id:'autoWholeSubtitles'});label.append(box,document.createTextNode(' Also subtitle the whole recording'));auto.after(label)}}
 // Clip-length presets (design system SegmentedControl) sized into clip finding.
 {const target=$('clipTarget')?.closest('label');if(target&&!$('clipLength')){const label=Object.assign(document.createElement('label'),{className:'clip-length-label',textContent:'Clip length'}),select=Object.assign(document.createElement('select'),{id:'clipLength'});for(const [v,t] of [['auto','Auto'],['short','<30s'],['medium','30–60s'],['long','60–90s']])select.add(new Option(t,v));label.append(select);target.after(label);enhanceSegmented(select,{label:'Clip length'})}}
 // LinkDrop meta row (auto scan, limits, paste shortcut) and drop-a-file onto the link field.
@@ -229,7 +229,7 @@ showWorkspace('home');
 window.addEventListener('popstate',()=>navigateWorkspace(workspaceFromHash(location.hash)));
 bindPlayerControls(clipVideo,{volume:$('previewVolume'),mute:$('mutePreview'),speed:$('previewSpeed'),status:$('previewBufferStatus'),fullscreen:$('previewFullscreen'),surface:$('previewCanvas').parentElement});
 const previewScreen=mountPreviewFullscreen({frame:$('previewCanvas').parentElement,transport:document.querySelector('.clip-preview .transport'),buttons:[$('previewFullscreen')],onChange:()=>{setPreviewSize();drawPreview()}});
-function userCaptionDefault(){try{const value=localStorage.getItem('context-desk-output-language');return outputLanguages.includes(value)?value:'Original'}catch{return 'Original'}}
+function userCaptionDefault(){try{const value=localStorage.getItem('context-desk-output-language');return outputLanguages.includes(value)?value:'English'}catch{return 'English'}}
 $('liveCaptionLanguage').value=userCaptionDefault();
 const captionWork=translationQueue(2);let captionWaiting=0,captionFailed=0;
 function projectCaptionTarget(){return $('liveCaptionLanguage').value||'Original'}
@@ -239,9 +239,7 @@ const destinations=enhanceDestinations($('socialDestination'),{getFrame:()=>{try
 $('socialDestination').onchange=()=>{applySocialPreset();renderSocialGuidance();setTimeout(()=>destinations?.refresh(),300)};$('applySocialPreset').onclick=applySocialPreset;
 function queueCaptionTarget(m){
   const language=inheritCaptionTarget(m,projectCaptionTarget()),owner=projectSession?.current?.id;
-  if(projectSession?.restoring)return;
-  // A matching whole-recording track repairs a missing clip track for free, even after an earlier failure.
-  if(language!=='Original'&&!m.captionCues?.[language]?.length)void reuseWholeTrack(m,language);
+  if(projectSession?.restoring||state.selected!==m.id||document.body.dataset.workspace!=='edit')return;
   if(m.translationError)return;
   // Long tracks (e.g. a full recording) are only translated when the producer asks.
   if((m.captionCues?.Original?.length||0)>300)return;
@@ -666,7 +664,7 @@ async function analyzeItem(item,audio){
   const ownerProjectId=item.ownerProjectId||projectSession.current?.id,baseline=structuredClone(Object.fromEntries(['hook','alternateHook','captionCues','captionLanguage','showCaptions','captionError'].map(k=>[k,item[k]])));const requestToken=crypto.randomUUID(),activityId=item.id+':analysis:'+requestToken;item.analysisToken=requestToken;item.status='analysing';if(projectSession.current?.id===ownerProjectId){const visible=state.moments.find(m=>m.id===item.id);if(visible&&visible!==item){visible.analysisToken=item.analysisToken;visible.status='analysing'}projectSession.changed();await projectSession.flush()}const started=await requestJson('/api/projects/'+ownerProjectId,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'analysis-start',momentId:item.id,analysisToken:requestToken})});if(projectSession.current?.id===ownerProjectId){state.aiCalls=started.aiCalls;updateBudgetUi()}
   setActivity(activityId,'Finding the story','Transcribing audio and checking the picture. You can keep navigating.');
   try{
-  if(audio===undefined){if(item.batchId){audio=item.audioData;if(!audio&&item.blob?.importId){const result=await requestJson('/api/import/'+item.blob.importId+'/audio',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({start:item.start,end:item.end})});audio=result.data}}else{const blob=item.blob instanceof Blob?item.blob:await (await fetch(item.url)).blob();audio=(await audioAsWav(blob)).data}}
+  if(audio===undefined){if(item.blob?.importId){audio=item.audioData;if(!audio){const result=await requestJson('/api/import/'+item.blob.importId+'/audio',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({start:item.start,end:item.end})});audio=result.data}}else{const blob=item.blob instanceof Blob?item.blob:await (await fetch(item.url)).blob();audio=(await audioAsWav(blob)).data}}
   const requestFrames=await Promise.all(item.frames.map(async frame=>frame.startsWith('data:')?frame:await blobDataUrl(await (await fetch(frame)).blob())));
   const previous=state.moments[state.moments.indexOf(item)+1];
   const response=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({frames:requestFrames,audio,...(item.requestSettings||{showContext:$('showContext').value,storyLens:$('storyLens').value,speechProvider:$('speechProvider').value,speechLanguage:speechChoices(),keywords:$('speechKeywords').value}),dialectNote:item.dialectNote,previousTranscript:previous?.transcript||''})});
@@ -679,8 +677,8 @@ async function analyzeItem(item,audio){
   item.captionReviewed={};item.captionLanguage=captionTarget(item,item.autoCaptionLanguage);item.showCaptions=!item.batchId&&Boolean(item.captionCues.Original.length);
   item.status=data.analysis?data.analysis.worthClipping?'suggested':'not-selected':'error';
   item.error=data.analysisError||'';item.hook=data.analysis?.hook||'';item.alternateHook=data.analysis?.alternateHook||'';
-  if(item.autoCaptionLanguage!=='Original'&&item.captionCues.Original.length){
-    try{const translated=await translateCues(item,item.autoCaptionLanguage);item.captionCues[item.autoCaptionLanguage]=translated;item.captionLanguage=item.autoCaptionLanguage;item.captionError=translated.some(cue=>cue.text.length>100)?'Some translated lines are too long. Split and retime before export.':'';}
+  if(item.captionLanguage!=='Original'&&item.captionCues.Original.length){
+    try{const target=item.captionLanguage,translated=await translateCues(item,target);item.captionCues[target]=translated;item.captionError=translated.some(cue=>cue.text.length>100)?'Some translated lines are too long. Split and retime before export.':'';}
     catch(error){item.translationError=error.message||'Translation failed';}
   }
   showLiveDraft(item);
@@ -910,7 +908,7 @@ function subtitleWholeVideo(target){
 }
 async function afterImport(auto){
   const target=projectCaptionTarget();
-  void translateTitle(target);
+  if(auto)void translateTitle(target);
   if(auto&&pendingIntent==='translate'){subtitleWholeVideo(target);return}
   if(auto&&target!=='Original'&&$('autoWholeSubtitles')?.checked&&wholeServiceReady(target)){$('wholeLanguage').value=target;$('wholeLanguage').dispatchEvent(new Event('change',{bubbles:true}));setTimeout(()=>{if(!$('startWholeSubtitles').disabled)$('startWholeSubtitles').click()},400)}
   if(!auto||!$('autoGenerate').checked){batchProgress('Recording ready. Choose Find clips to begin.');return}
@@ -1225,14 +1223,35 @@ $('captionsEarlier').onclick=()=>performEdit('caption-sync',()=>changeCaptionSyn
 $('captionsLater').onclick=()=>performEdit('caption-sync',()=>changeCaptionSync(Number($('captionOffset').value)+.1));
 // Jumps through lines the QA hints flagged, wrapping at the end.
 {const next=Object.assign(document.createElement('button'),{type:'button',id:'captionQaNext',className:'cd-btn cd-btn-sm cd-btn-secondary',textContent:'Next line to check',hidden:true});$('captionLineCount').after(next);
-  next.onclick=()=>{const lines=next.dataset.lines.split(',').map(Number),rows=[...document.querySelectorAll('.caption-line')],current=rows.findIndex(r=>r.classList.contains('is-qa-focus')),target=lines.find(i=>i>Number(rows[current]?.dataset.cue??-1))??lines[0],row=rows.find(r=>Number(r.dataset.cue)===target);rows[current]?.classList.remove('is-qa-focus');if(row){row.classList.add('is-qa-focus');row.scrollIntoView({block:'center'});row.querySelector('textarea')?.focus()}}}
+  next.onclick=()=>{const lines=next.dataset.lines.split(',').map(Number),rows=[...document.querySelectorAll('.caption-line')],current=rows.findIndex(r=>r.classList.contains('is-qa-focus')),target=lines.find(i=>i>Number(rows[current]?.dataset.cue??(captionPage*captionsPerPage-1)))??lines[0];rows[current]?.classList.remove('is-qa-focus');if(Math.floor(target/captionsPerPage)!==captionPage)showCaptionPage(target);const row=$('captionLines').querySelector(`[data-cue="${target}"]`);if(row){row.classList.add('is-qa-focus');row.scrollIntoView({block:'center'});row.querySelector('textarea')?.focus()}}}
 $('resetCaptionSync').onclick=()=>performEdit('caption-sync',()=>changeCaptionSync(0));
-let captionRenderToken=0;
+const captionsPerPage=60;
+let captionPage=0,captionPageKey='';
+const captionPager=document.createElement('div');
+captionPager.className='caption-pager';
+captionPager.innerHTML='<button type="button" class="cd-btn cd-btn-sm cd-btn-secondary">Previous lines</button><span role="status"></span><button type="button" class="cd-btn cd-btn-sm cd-btn-secondary">Next lines</button>';
+$('captionLines').after(captionPager);
+const [previousCaptions,captionRange,nextCaptions]=captionPager.children;
+function showCaptionPage(index){
+  const moment=previewMoment();
+  if(!moment)return;
+  captionPage=Math.floor(index/captionsPerPage);
+  renderCaptionLines(moment);
+  $('captionLines').scrollTop=0;
+}
+previousCaptions.onclick=()=>showCaptionPage((captionPage-1)*captionsPerPage);
+nextCaptions.onclick=()=>showCaptionPage((captionPage+1)*captionsPerPage);
 function renderCaptionLines(m){
   const cues=activeCues(m),timed=timedCues(m),issues=new Map(lineIssues(cues,{language:m.captionLanguage,sourceScript:dominantScript(m.captionCues.Original||[]),originals:m.captionCues.Original||[]}).map(i=>[i.index,i.reasons]));
   $('captionLineCount').textContent=`${cues.length} lines${issues.size?` · ${issues.size} to check`:''}`;$('captionQaNext').hidden=!issues.size;$('captionQaNext').dataset.lines=[...issues.keys()].join(',');
   const timedByIndex=new Map(timed.map(cue=>[cue.index,cue])),overlaps=overlapIndexes(cues),speakers=[...new Set(['A','B',...cues.map(c=>c.speaker).filter(Boolean)])].sort();
-  const list=$('captionLines'),token=++captionRenderToken;
+  const list=$('captionLines'),key=m.id+':'+m.captionLanguage;
+  if(key!==captionPageKey){captionPageKey=key;captionPage=0;list.scrollTop=0}
+  captionPage=Math.min(captionPage,Math.max(0,Math.ceil(cues.length/captionsPerPage)-1));
+  const first=captionPage*captionsPerPage,last=Math.min(cues.length,first+captionsPerPage);
+  captionPager.hidden=cues.length<=captionsPerPage;
+  previousCaptions.disabled=first===0;nextCaptions.disabled=last===cues.length;
+  captionRange.textContent=`Lines ${first+1}–${last} of ${cues.length}`;
   if(!cues.length){list.innerHTML='<p class="caption-lines-empty">'+(m.translationPending?.has(m.captionLanguage)?'Preparing '+escapeHtml(m.captionLanguage)+' subtitles…':m.translationError&&m.captionCues.Original?.length?escapeHtml(m.captionLanguage)+' subtitles are missing: '+escapeHtml(m.translationError)+' The original transcript ('+m.captionCues.Original.length+' lines) is safe.':m.captionCues.Original?.length?'No '+escapeHtml(m.captionLanguage)+' subtitles yet. The original transcript has '+m.captionCues.Original.length+' lines; choose Retry translation.':'No timed captions yet. Recheck the speech or add captions to this clip.')+'</p>';return}
   const row=(cue,index)=>{
     const timing=timedByIndex.get(index),start=timing?.start??0,unavailable=!timing||timing.end<=m.trimIn||start>=m.trimOut;
@@ -1240,14 +1259,8 @@ function renderCaptionLines(m){
     const meta=`<div class="caption-line-meta"><label>Speaker <select class="caption-speaker" data-cue="${index}" aria-label="Speaker for caption ${index+1}">${['',...speakers].map(sp=>`<option value="${sp}" ${(cue.speaker||'')===sp?'selected':''}>${sp?'Speaker '+sp:'Unknown'}</option>`).join('')}</select></label><label>Type <select class="caption-kind" data-cue="${index}" aria-label="Line type for caption ${index+1}">${[['','Dialogue'],['sound','Sound description'],['background','Background speech']].map(([v,l])=>`<option value="${v}" ${(cue.kind||'')===v?'selected':''}>${l}</option>`).join('')}</select></label><input class="caption-cue-label" data-cue="${index}" maxlength="24" placeholder="Visible cue, e.g. (off-screen)" aria-label="Optional visible cue for caption ${index+1}" value="${escapeHtml(cue.cueLabel||'')}"></div>`;
     return `<div class="caption-line${overlaps.has(index)?' is-overlap':''}" data-cue="${index}">${meta}<button type="button" data-caption-jump="${index}" aria-label="Play from caption ${index+1} at ${start.toFixed(1)} seconds" ${unavailable?'disabled':''}>${start.toFixed(1)}s</button><textarea class="caption-line-text" rows="3" data-cue="${index}" aria-label="Caption ${index+1} text" dir="auto" maxlength="100">${escapeHtml(cue.text)}</textarea><button type="button" class="caption-flag ${cue.uncertain?'is-flagged':''}" data-caption-flag="${index}" aria-label="${cue.uncertain?'Resolve':'Flag'} uncertainty in caption ${index+1}">${cue.uncertain?'Review needed':'Flag'}</button>${cue.uncertain&&cue.reviewReason?`<small class="caption-original">${escapeHtml(cue.reviewReason)}</small>`:''}${issues.has(index)?`<small class="caption-qa">${issues.get(index).map(escapeHtml).join(' ')}</small>`:''}${m.captionLanguage!=='Original'?`<small class="caption-original" dir="auto">SOURCE · ${escapeHtml(m.captionCues.Original[index]?.text||'Original line unavailable')}</small>`:''}</div>`;
   };
-  // A whole recording has thousands of lines (~40,000 controls). Building them in one go blocked the
-  // page for most of a second each time Studio opened, so the rows near the scroll position come
-  // first and the rest follow in slices between frames.
-  const top=list.scrollTop,average=list.children.length?list.scrollHeight/list.children.length:132,first=Math.max(120,Math.ceil((top+list.clientHeight)/average)+40);let done=0;
-  const slice=()=>{if(token!==captionRenderToken)return;const end=Math.min(cues.length,done+(done?250:first)),html=cues.slice(done,end).map((cue,i)=>row(cue,done+i)).join('');
-    if(done)list.insertAdjacentHTML('beforeend',html);else list.innerHTML=html;done=end;if(list.scrollTop<top)list.scrollTop=top;
-    if(done<cues.length)setTimeout(slice);else if(previewMoment()===m)highlightCaption(clipVideo.currentTime)};
-  slice();
+  list.innerHTML=cues.slice(first,last).map((cue,i)=>row(cue,first+i)).join('');
+  if(previewMoment()===m)highlightCaption(clipVideo.currentTime);
 }
 function highlightCaption(clock){
   const m=previewMoment();if(!m)return;const active=activeCueIndex(m,localTime(m,clock));
@@ -1496,6 +1509,7 @@ function projectSnapshot(){
   return {title:$('projectTitle').value||state.sourceName||'Untitled production',state:{version:1,storyMemoryId:memoryView.id,sourceId:state.source?.importId||projectSession.current?.sourceId||null,sourcePageUrl:state.sourcePageUrl||'',aspect:state.aspect,selected:state.selected,workspace:['home','source','clips','edit','library','jobs'].includes(document.body.dataset.workspace)?document.body.dataset.workspace:'clips',cut:[...state.cut],settings,exports:state.exportHistory||[],aiCalls:state.aiCalls,batchId:state.batchId,moments:state.moments.map(m=>{const copy={};for(const key of savedMomentKeys)if(m[key]!==undefined)copy[key]=key==='blob'?m[key]:structuredClone(m[key]);return copy})}};
 }
 async function restoreProject(p){
+  clipVideo.pause();clipVideo.removeAttribute('src');clipVideo.load();
   editHistory.reset();const saved=p.state;await memoryView.list(saved.storyMemoryId||'');state.moments=recoverBrowserMoments(saved.moments||[]);state.cut=saved.cut||[];state.selected=saved.selected||null;state.aspect=saved.aspect||'landscape';state.aiCalls=saved.aiCalls||0;state.batchId=saved.batchId||crypto.randomUUID();state.batchCancel=true;state.exportHistory=saved.exports||[];state.batchExports=state.exportHistory.filter(e=>e.batch);
   $('liveCaptionLanguage').value=saved.settings?.liveCaptionLanguage||userCaptionDefault();
   for(const [id,value]of Object.entries(saved.settings||p.source?.settings||{})){const el=$(id);if(!el)continue;if(el.type==='checkbox')el.checked=Boolean(value);else el.value=value}
@@ -1504,7 +1518,7 @@ async function restoreProject(p){
   else{cleanupSource();message(p.sourceId?'Source media is unavailable. Saved clips and edits are retained. Restore the original recording before processing.':'Live session restored. Saved windows can play and export; connect a live tab again to capture new footage.');}
   state.batchId=saved.batchId||state.batchId;
   updateButtons();updateBudgetUi();updateSpeechSummary();renderQueue();renderBatchResults();renderCut();renderBatchDownloads();
-  if(saved.workspace==='edit'&&state.selected&&state.moments.some(m=>m.id===state.selected))await selectMoment(state.selected,{scroll:false});else showWorkspace(['home','source','clips','library','jobs'].includes(saved.workspace)?saved.workspace:'clips');
+  showWorkspace('clips');
   $('lastExport').hidden=true;const last=state.exportHistory.at(-1);if(last){$('lastExport').href=last.url;$('lastExport').download=last.name;$('lastExport').textContent='Download '+last.name.toUpperCase();$('lastExport').hidden=false}
 }
 let libraryProjects=[],libraryTimer;
@@ -1610,7 +1624,7 @@ void jobsView.refresh();
 let liveRefreshBusy=false;
 async function refreshLiveMoments(){if(liveRefreshBusy||document.visibilityState==='hidden'||!projectSession?.current||projectSession.current.sourceId)return;const id=projectSession.current.id;liveRefreshBusy=true;try{const p=await requestJson('/api/projects/'+id);if(projectSession.current?.id!==id)return;let changed=false;for(const saved of p.state.moments||[]){const current=state.moments.find(m=>m.id===saved.id);if(!current){state.moments.push(saved);changed=true}else if(saved.liveAnalysisApplied&&saved.liveAnalysisApplied!==current.liveAnalysisApplied&&!current.analysisToken){for(const key of ['analysis','status','transcript','speechError','speechSource','detectedLanguage','timingSource','translationSource','sourceCaptionsVisible','error'])if(saved[key]!==undefined)current[key]=saved[key];const previousCues=structuredClone(current.captionCues||{});if(!current.captionCues?.Original?.length){const tracks={...saved.captionCues};for(const [language,cues]of Object.entries(current.captionCues||{}))if(cues?.length)tracks[language]=cues;current.captionCues=tracks;}if(!current.hook)current.hook=saved.hook;if(!current.alternateHook)current.alternateHook=saved.alternateHook;current.liveAnalysisApplied=saved.liveAnalysisApplied;for(const language of Object.keys(current.captionReviewed||{}))if(JSON.stringify(previousCues[language])!==JSON.stringify(current.captionCues[language]))current.captionReviewed[language]=false;queueCaptionTarget(current);changed=true}}if(changed){renderQueue();renderBatchResults();if(state.selected)renderEditor();projectSession.changed()}}catch{/* A disconnected poll cannot invalidate saved or in-progress edits. */}finally{liveRefreshBusy=false}}
 setInterval(()=>void refreshLiveMoments(),3000);
-async function restoreWorkspace(){setActivity('workspace','Opening your saved workspace','Restoring your projects, preferences and source media…');try{const prefs=await requestJson('/api/preferences');$('librarySort').value=prefs.sort||'updated';$('libraryDirection').value=prefs.direction||'desc';$('librarySearch').value=prefs.search||'';libraryView=prefs.view==='grid'?'grid':'list';layout.setLibraryView(libraryView);await projectSession.startup();await loadWholeJobs()}catch(error){message('Saved workspace could not be opened: '+error.message)}finally{startupNavigation=false;const target=requestedWorkspace;if(target==='edit'&&state.selected)await selectMoment(state.selected,{scroll:false});else showWorkspace(target==='edit'?'home':target);finishActivity('workspace');history.replaceState({workspace:document.body.dataset.workspace},'',workspaceHash(document.body.dataset.workspace))}}
+async function restoreWorkspace(){setActivity('workspace','Opening your saved workspace','Restoring your projects, preferences and source media…');try{const prefs=await requestJson('/api/preferences');$('librarySort').value=prefs.sort||'updated';$('libraryDirection').value=prefs.direction||'desc';$('librarySearch').value=prefs.search||'';libraryView=prefs.view==='grid'?'grid':'list';layout.setLibraryView(libraryView);if(!['home','library','jobs'].includes(requestedWorkspace))await projectSession.startup();await loadWholeJobs()}catch(error){message('Saved workspace could not be opened: '+error.message)}finally{startupNavigation=false;const target=requestedWorkspace;if(target==='edit'&&state.selected)await selectMoment(state.selected,{scroll:false});else showWorkspace(target==='edit'?'home':target);finishActivity('workspace');history.replaceState({workspace:document.body.dataset.workspace},'',workspaceHash(document.body.dataset.workspace))}}
 
 void restoreWorkspace();
 const connectionReady=status();updateButtons();updateBudgetUi();updateSpeechSummary();renderCut();setPreviewSize();drawPreview();

@@ -17,7 +17,7 @@ function jobMarkup(j){
   const target=exporting&&j.output?socialHandoff(j.destination):null;
   const handoff=target?`<details class="social-handoff-details"><summary>Upload to ${escape(target.label)}</summary><div class="social-handoff"><p>${escape(target.label)} export · ${j.captionLanguages?.length?'Subtitles: '+escape(j.captionLanguages.join(', ')):'Subtitles omitted'}. Download the video, then choose it in ${escape(target.label)}. Nothing has been posted.</p><a href="${target.upload}" target="_blank" rel="noopener noreferrer">Open ${escape(target.label)}</a><button data-share-file="${j.id}" ${typeof navigator!=='undefined'&&navigator.canShare&&navigator.share?'':'hidden'}>Share video file…</button><span data-share-status role="status"></span></div></details>`:'';
   const details=creative?`${j.requests||0} image request${j.requests===1?'':'s'} · ${escape(j.label||'AI-generated image · review before use')}`:deep?`${j.speechSectionsDone}/${j.speechSectionsTotal} source-audio sections · ${Math.round(j.coverageSeconds)}s transcribed · ${Math.round(j.unreviewedSeconds)}s not transcribed · ${j.checksDone}/${j.checksTotal} story checks · ${j.suggested} suggestions`:bundle?`${j.sectionsDone}/${j.sectionsTotal} files packaged · ${j.sectionsRemaining} remaining`:`${j.sectionsDone}/${j.sectionsTotal} ${exporting?'rendered clips':discovery?'picture samples':'sections'} · ${j.sectionsRemaining} remaining${discovery?' · '+j.checksDone+'/'+j.checksTotal+' story checks · '+j.suggested+' supported moments':''}`;
-  const preview=j.output?(creative?`<details class="creative-preview"><summary>Review generated image</summary><img src="${escape(j.output.url)}" alt="AI-generated ${escape(j.mode)} draft"><p>Generated artwork. Check source fidelity, text and rights before use.</p></details>`:exporting?`<details class="export-preview"><summary>Watch video</summary><video src="${escape(j.output.url)}" controls playsinline preload="metadata"></video></details>`:''):'';
+  const preview=j.output?(creative?`<details class="creative-preview"><summary>Review generated image</summary><img src="${escape(j.output.url)}" alt="AI-generated ${escape(j.mode)} draft"><p>Generated artwork. Check source fidelity, text and rights before use.</p></details>`:exporting?`<details class="export-preview"><summary>Watch video</summary><video data-preview-src="${escape(j.output.url)}" controls playsinline preload="none"></video></details>`:''):'';
   const kind=exporting?'Video':discovery?'Find clips':creative?'Cover artwork':bundle?'ZIP download':'Whole-video subtitles',stateLabel={running:'Working',queued:'Waiting',complete:'Ready',error:'Needs attention',paused:'Paused',interrupted:'Resume needed',cancelled:'Cancelled'}[j.status]||j.status;
   const requests=exporting||creative||bundle?'':`${j.speechRequests||0} speech · ${discovery?(j.storyRequests||0)+' story · ':''}${deep?(j.rankingRequests||0)+' story-ranking · ':''}${j.translationRequests||0} translation requests`;
   // A picture for every row: the finished video itself, or a still from the recording it came from.
@@ -26,7 +26,7 @@ function jobMarkup(j){
 }
 
 export function createJobsView({panel,counts,status,onJobs,onOpen,onPlay=()=>{}}){
-  let jobs=[],timer=null,loading=false,selecting=false;const rendered=new Map(),selectedExports=new Map();
+  let jobs=[],timer=null,loading=false,selecting=false,activePreview=null;const rendered=new Map(),selectedExports=new Map();
   const bundleButton=document.getElementById('bundleSelected');
   const groups={};for(const [key,title,description]of [['processing','Processing & attention','Work in progress, pauses and anything that needs a retry.'],['ready','Ready to download','Watch your finished videos, then download the files you want.'],['history','Completed scans & other activity','Saved scan results and cancelled work.']]){const root=document.createElement(key==='history'?'details':'section');root.className='job-group';const heading=document.createElement(key==='history'?'summary':'h2');heading.textContent=title;const note=document.createElement('p');note.textContent=description;const rows=document.createElement('div'),empty=document.createElement('p');empty.className='job-group-empty';empty.textContent='Your finished files will appear here.';root.append(heading,note,rows,empty);panel.append(root);groups[key]={root,rows,empty}}
   const selectToggle=document.createElement('button');selectToggle.type='button';selectToggle.textContent='Select videos';selectToggle.setAttribute('aria-pressed','false');bundleButton.before(selectToggle);selectToggle.onclick=()=>{selecting=!selecting;if(!selecting)selectedExports.clear();panel.classList.toggle('selecting-exports',selecting);selectToggle.textContent=selecting?'Done selecting':'Select videos';selectToggle.setAttribute('aria-pressed',String(selecting));syncSelection()};
@@ -51,9 +51,23 @@ export function createJobsView({panel,counts,status,onJobs,onOpen,onPlay=()=>{}}
     for(const [key,group]of Object.entries(groups)){const count=jobs.filter(j=>jobGroup(j)===key).length;group.root.hidden=key!=='ready'&&!count;group.empty.hidden=Boolean(count)}
     selectToggle.hidden=!jobs.some(j=>j.kind==='export'&&j.status==='complete');syncSelection();
   }
+  function closePreview(){
+    if(!activePreview)return;
+    const details=activePreview;activePreview=null;
+    const video=details.querySelector('video');
+    video.pause();video.removeAttribute('src');video.load();details.open=false;
+  }
+  panel.addEventListener('toggle',event=>{
+    const details=event.target;
+    if(!details.matches('.export-preview'))return;
+    if(details.open&&activePreview!==details){
+      closePreview();activePreview=details;
+      const video=details.querySelector('video');video.src=video.dataset.previewSrc;
+    }else if(!details.open&&activePreview===details)closePreview();
+  },true);
   panel.onclick=async event=>{
     const share=event.target.closest('[data-share-file]');if(share){const job=jobs.find(j=>j.id===share.dataset.shareFile),note=share.closest('.social-handoff').querySelector('[data-share-status]');share.disabled=true;try{if(!job?.output||job.output.size>100*1024*1024)throw Error('Download this video instead. File sharing is limited to 100 MB.');note.textContent='Preparing file…';const response=await fetch(job.output.url);if(!response.ok)throw Error('Could not read the saved export. Download it instead.');const file=new File([await response.blob()],job.sourceName+'.mp4',{type:job.output.type});if(!navigator.canShare?.({files:[file]}))throw Error('This browser cannot share video files. Use Download video.');await navigator.share({files:[file],title:job.sourceName});note.textContent='Share sheet closed. Check the destination app to finish posting.'}catch(error){note.textContent=error.name==='AbortError'?'Sharing cancelled. Your export is still saved.':error.message}finally{share.disabled=false}return}
-    const open=event.target.closest('[data-open]');if(open){await onOpen(open.dataset.open);return}
+    const open=event.target.closest('[data-open]');if(open){open.disabled=true;try{await onOpen(open.dataset.open)}catch(error){status.textContent='Could not open saved clips: '+error.message}finally{open.disabled=false}return}
     const button=event.target.closest('[data-job]');if(!button)return;button.disabled=true;
     try{await requestJson('/api/'+button.dataset.base+'/'+button.dataset.job,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:button.dataset.action})});await refresh()}catch(error){status.textContent=error.message;button.disabled=false}
   };
@@ -63,5 +77,5 @@ export function createJobsView({panel,counts,status,onJobs,onOpen,onPlay=()=>{}}
     try{const data=await requestJson('/api/jobs');render(data);const processing=jobs.filter(j=>jobGroup(j)==='processing').length,ready=jobs.filter(j=>jobGroup(j)==='ready').length;status.textContent=(processing?processing+' items processing or needing attention. ':'No work is running. ')+ready+' files ready to download. Saved on this computer.';await onJobs(data.jobs)}catch(error){status.textContent='Progress connection lost. Your saved work is kept: '+error.message}
     finally{loading=false;timer=setTimeout(()=>void refresh(),jobs.some(j=>['queued','running'].includes(j.status))?1800:6000)}
   }
-  return {refresh,get jobs(){return jobs}};
+  return {refresh,closePreview,get jobs(){return jobs}};
 }

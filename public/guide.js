@@ -1,6 +1,6 @@
 // Beginner guide: four steps from a video to a post, with one clear next action at a time.
 // The steps are worked out from what the project already contains, so the guide never asks
-// for something that is already done. Simple mode folds advanced panels away; nothing is removed.
+// for something that is already done.
 export const guideSteps=[
   {id:'video',label:'Add a video'},
   {id:'clip',label:'Pick a clip'},
@@ -26,11 +26,7 @@ export function createGuide({getState,run}){
   const side=document.createElement('div');side.className='guide-side';
   const hint=document.createElement('p');hint.className='guide-hint';
   const next=document.createElement('button');next.type='button';next.className='cd-btn cd-btn-secondary guide-next';// Secondary: each screen keeps its own single primary action.
-  const simple=document.createElement('label');simple.className='guide-simple';const box=document.createElement('input');box.type='checkbox';simple.append(box,' Simple mode');
-  side.append(hint,next,simple);bar.append(list,side);
-  let stored=null;try{stored=localStorage.getItem('context-desk-simple')}catch{/* Storage can be blocked; Simple mode defaults on. */}
-  box.checked=stored!=='off';document.body.classList.toggle('simple-mode',box.checked);
-  box.onchange=()=>{document.body.classList.toggle('simple-mode',box.checked);try{localStorage.setItem('context-desk-simple',box.checked?'on':'off')}catch{/* Not remembered this time. */}};
+  side.append(hint,next);bar.append(list,side);
   let action=null;next.onclick=()=>{if(action)run(action)};
   function render(){
     const status=guideStatus(getState());action=status.action;

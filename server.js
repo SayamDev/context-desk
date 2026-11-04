@@ -26,7 +26,7 @@ import {createTimelineApi} from './lib/timeline.js';
 import {createReframeApi} from './lib/reframe.js';
 import {createCreativeAssetService} from './lib/creative-assets.js';
 import {createBundleService} from './lib/bundles.js';
-import {languageBias,normalizeTranslationMode} from './public/languages.js';
+import {languageCodes,speechCode,languageBias,normalizeTranslationMode} from './public/languages.js';
 import {captionLanguages,findVariant,translationGuide,scriptIssue,romanizations} from './public/locales.js';
 import {createDurableTranslationCache} from './lib/translation-store.js';
 import fs from 'node:fs/promises';
@@ -46,7 +46,7 @@ const port = Number(process.env.PORT || 3001);
 // Detects when this process runs older code than is on disk (see lib/code-stamp.js).
 const codeStamp=createCodeStamp(path.join(root,'server.js'));
 const voiceStudioUrl = 'http://127.0.0.1:3900';
-const languageCodes = {Arabic:'ar',Bengali:'bn',Dutch:'nl',English:'en',French:'fr',German:'de',Hebrew:'he',Hindi:'hi',Indonesian:'id',Italian:'it',Japanese:'ja',Kannada:'kn',Korean:'ko',Malay:'ms','Mandarin Chinese':'zh',Marathi:'mr',Polish:'pl',Portuguese:'pt',Spanish:'es',Tagalog:'tl',Tamil:'ta',Telugu:'te',Thai:'th',Turkish:'tr',Vietnamese:'vi',Urdu:'ur'};
+
 const staticFiles = {'/':'index.html','/app.js':'app.js','/player.js':'player.js','/social.js':'social.js','/caption-policy.js':'caption-policy.js','/layout.js':'layout.js','/studio-ui.js':'studio-ui.js','/timing.js':'timing.js','/translation-cache.js':'translation-cache.js','/projects.js':'projects.js','/jobs.js':'jobs.js','/languages.js':'languages.js','/history.js':'history.js','/moment-results.js':'moment-results.js','/story-memory.js':'story-memory.js','/style.css':'style.css','/ds.css':'ds.css','/assets/context-desk-studio.webp':'assets/context-desk-studio.webp','/assets/story-paper.webp':'assets/story-paper.webp','/assets/fonts/Manrope.ttf':'assets/fonts/Manrope.ttf','/assets/fonts/NotoEmoji.ttf':'assets/fonts/NotoEmoji.ttf','/assets/fonts/archivo-latin-wght-normal.woff2':'assets/fonts/archivo-latin-wght-normal.woff2','/assets/fonts/geist-latin-wght-normal.woff2':'assets/fonts/geist-latin-wght-normal.woff2','/assets/fonts/geist-mono-latin-wght-normal.woff2':'assets/fonts/geist-mono-latin-wght-normal.woff2','/vendor/lottie_light.min.js':'vendor/lottie_light.min.js','/assets/loader.json':'assets/loader.json'};
 const mime = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.json':'application/json; charset=utf-8','.css':'text/css; charset=utf-8','.webp':'image/webp','.ttf':'font/ttf','.woff2':'font/woff2'};
 if(process.env.NODE_ENV!=='test')await recoverLegacySubtitles(studioStore(),path.join(root,'.runtime/subtitle-jobs'));
@@ -271,12 +271,12 @@ async function transcribe(bytes,speechLanguage,keywords) {
       const seconds = Number.isFinite(turn.startMs) ? `[${Math.floor(turn.startMs / 1000)}s] ` : '';
       return `${seconds}${speaker}${turn.text}`;
     }).join('\n').slice(0,4000);
-    return {transcript,turns,speechSource:'Meta Muse Voice'};
+    return {transcript,turns,speechSource:'Meta Muse Voice',detectedLanguage:clean(data.detectedLanguage||data.language,40)};
   }
-  return {transcript:String(data.transcript||'').slice(0,4000),turns:[],speechSource:'Meta Muse Voice'};
+  return {transcript:String(data.transcript||'').slice(0,4000),turns:[],speechSource:'Meta Muse Voice',detectedLanguage:clean(data.detectedLanguage||data.language,40)};
 }
 async function translateVoiceStudio(cues,language,sourceLanguage,dialectNote) {
-  const source=languageCodes[languageBias(sourceLanguage)[0]]||Object.values(languageCodes).includes(sourceLanguage)&&sourceLanguage;
+  const source=languageCodes[languageBias(sourceLanguage)[0]]||speechCode(sourceLanguage);
   const target=languageCodes[language];
   if(!source)throw new Error('Choose the original speech language before using VoiceStudio local translation.');
   if(source===target)return cues.map(cue=>({...cue}));

@@ -37,3 +37,23 @@ test('a whole-video job with a flaky translator still completes, with the failin
   const job=await service.start({sourceId:'source',language:'English',keywords:[]});const result=await settle(service,job.id);
   assert.equal(result.status,'complete');const track=service.track(job.id);assert.equal(track[0].text,'Hello');assert.equal(track[1].text,'غامض');assert.equal(track[1].untranslated,true);
 });
+
+test('a mixed-language recording keeps matching speech and translates only the requested output',async()=>{
+  const requests=[];
+  let sections=0;
+  const service=createSubtitleService({
+    claimSource:()=>({file:'fixture',duration:90,title:'Mixed speech',release(){}}),
+    extract:async()=>({data:'data:audio/wav;base64,AAAA'}),
+    transcribe:async()=>++sections===1
+      ?{detectedLanguage:'en-US',turns:[{startMs:1000,endMs:2000,text:'Already English'}]}
+      :{detectedLanguage:'ar',turns:[{startMs:1000,endMs:2000,text:'مرحبا'}]},
+    translate:async(cues,options)=>{
+      requests.push([options.speechLanguage,options.language]);
+      return cues.map(c=>({...c,text:'Hello'}));
+    }
+  });
+  const job=await service.start({sourceId:'source',language:'English'});
+  assert.equal((await settle(service,job.id)).status,'complete');
+  assert.deepEqual(requests,[['ar','English']]);
+  assert.deepEqual(service.track(job.id).map(c=>c.text),['Already English','Hello']);
+});
