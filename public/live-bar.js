@@ -20,6 +20,7 @@ export function mountLiveBar({getState,start,reconnect,stop,open,every,monitor,o
   function render(){
     const s=getState(),visible=s.connected||s.reconnect;bar.hidden=!visible;document.body.classList.toggle('has-live-bar',visible);
     $('liveBarHelp').hidden=!s.connected;
+    $('liveBarHelp').textContent=s.sourcePlayer?'Switch to player':'Find shared tab';
     if(!s.connected){if(help.matches(':popover-open'))help.hidePopover();if(monitor?.isOpen())monitor.close();if(!visible){seen=null;return}}
     bar.dataset.state=s.scanning?'on':s.framing?'framing':'off';
     $('liveBarTitle').textContent=!s.connected?'Live tab disconnected':s.scanning?'Live clipping':s.framing?'Check the framing, then start':'Live tab connected · not clipping';
@@ -33,8 +34,7 @@ export function mountLiveBar({getState,start,reconnect,stop,open,every,monitor,o
   }
   $('liveBarHelp').onclick=()=>{
     if(help.matches(':popover-open')){help.hidePopover();return}
-    focusSource?.();
-    help.showPopover();
+    if(!focusSource?.())help.showPopover();
   };
   help.addEventListener('toggle',event=>$('liveBarHelp').setAttribute('aria-expanded',String(event.newState==='open')));
   $('liveBarToggle').onclick=()=>{const s=getState();if(s.reconnect)reconnect();else if(s.scanning)stop();else start();render()};

@@ -209,7 +209,7 @@ const liveMonitor=createLiveMonitor({stop:()=>stopLiveClipping(),getStreams:()=>
 function announceLiveClip({id,hook}){const open=()=>{showWorkspace('clips');inspectClip(id)};toast('New live clip: '+(hook||'a moment worth checking'),{action:'Open',run:open,timeout:9000});
   if(document.hidden&&window.Notification?.permission==='granted'){try{const n=new Notification('New live clip',{body:hook||'Context Desk found a moment worth checking.',tag:'context-desk-live-clip'});n.onclick=()=>{window.focus();open();n.close()}}catch{/* Notifications are optional. */}}}
 mountLiveBar({every:(ms,fn)=>bgClock.every(ms,fn),start:()=>startLiveClipping(),reconnect:()=>connectLiveTab(true),stop:()=>stopLiveClipping(),open:()=>showWorkspace('clips'),monitor:liveMonitor,onClip:announceLiveClip,focusSource:()=>focusLivePlayer(),
-  getState:()=>({reconnect:canReconnectLive(),connecting:connectingLive,latest:usableMoments(state.moments).filter(m=>m.sourceType==='screen').sort((a,b)=>b.start-a.start)[0]||null,connected:state.sourceType==='screen'&&Boolean(state.screenStream?.getVideoTracks().some(t=>t.readyState==='live')),scanning:state.scanning,framing:state.cropPicking,elapsed:canReconnectLive()?liveRecovery.elapsed:state.liveEpoch?liveTime():0,windows:state.moments.filter(m=>m.sourceType==='screen').length,clips:usableMoments(state.moments).filter(m=>m.sourceType==='screen').length})});
+  getState:()=>({sourcePlayer:Boolean(sharedPlayer&&!sharedPlayer.closed),reconnect:canReconnectLive(),connecting:connectingLive,latest:usableMoments(state.moments).filter(m=>m.sourceType==='screen').sort((a,b)=>b.start-a.start)[0]||null,connected:state.sourceType==='screen'&&Boolean(state.screenStream?.getVideoTracks().some(t=>t.readyState==='live')),scanning:state.scanning,framing:state.cropPicking,elapsed:canReconnectLive()?liveRecovery.elapsed:state.liveEpoch?liveTime():0,windows:state.moments.filter(m=>m.sourceType==='screen').length,clips:usableMoments(state.moments).filter(m=>m.sourceType==='screen').length})});
 // Beginner guide: progress is read from the project; each Next action jumps to the right place.
 {const guide=createGuide({
   getState:()=>{const m=state.moments.find(x=>x.id===state.selected),clips=usableMoments(state.moments).length;
@@ -443,16 +443,16 @@ const noteIntent=()=>{pendingIntent=document.body.dataset.workspace==='home'?imp
 $('fileInput').onchange=async event=>{noteIntent();const files=[...(event.target.files||[])];event.target.value='';if(importId)await $('cancelImport').onclick();for(const file of files)await loadVideoFile(file);};
 function linkStatus(text){$('linkStatus').hidden=false;$('linkStatus').textContent=text}
 $('linkForm').onsubmit=async event=>{
-  event.preventDefault();if(importId)return;noteIntent();$('streamUrl').setAttribute('aria-invalid','false');importCancelled=false;$('captureFallback').hidden=true;$('openStream').disabled=true;$('cancelImport').hidden=false;setActivity('import','Loading your video','Checking the link and preparing the recording…');linkStatus('Checking your video link…');
+  event.preventDefault();if(importId)return;noteIntent();$('streamUrl').setAttribute('aria-invalid','false');importCancelled=false;$('captureFallback').hidden=true;$('connectOpenedPlayer').hidden=true;$('openStream').disabled=true;$('cancelImport').hidden=false;setActivity('import','Loading your video','Checking the link and preparing the recording…');linkStatus('Checking your video link…');
   try{
-    let url;try{url=new URL($('streamUrl').value.trim())}catch{throw Error('Paste a full video link beginning with https://.')}if(url.protocol!=='https:'||url.username||url.password)throw Error('Paste a public HTTPS video link.');sourcePageUrl=url.href;livePlayerPage='';liveSource=null;
+    let url;try{url=new URL($('streamUrl').value.trim())}catch{throw Error('Paste a full video link beginning with https://.')}if(url.protocol!=='https:'||url.username||url.password)throw Error('Paste a public HTTPS video link.');sourcePageUrl=url.href;liveSource=null;
     const response=await fetch('/api/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:url.href})});let job=await response.json();if(!response.ok)throw Error(job.error||'Import could not start.');importId=job.id;noteDuplicate(job);
     while(!importCancelled){
       linkStatus(job.message);setActivity('import',job.status==='downloading'?'Preparing the recording':'Checking your video',job.message);
       if(job.status==='ready'){
         finishActivity('import');linkStatus('Video ready. Your clip scan is starting.');await loadImportedVideo(job,url.href);break;
       }
-      if(job.status==='needs-capture'){livePlayerPage=job.playerUrl||'';liveSource={channel:job.channel||'',title:String(job.title||'').replace(/\s+\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}$/,'')};linkStatus(job.message);$('captureFallback').hidden=false;break;}
+      if(job.status==='needs-capture'){liveSource={channel:job.channel||'',title:String(job.title||'').replace(/\s+\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}$/,'')};linkStatus(job.message);$('captureFallback').hidden=false;break;}
       if(job.status==='error'||job.status==='cancelled')throw Error(job.message);
       await new Promise(resolve=>setTimeout(resolve,1000));if(importCancelled)break;const poll=await fetch('/api/import/'+job.id);job=await poll.json();if(!poll.ok)throw Error(job.error||'The import could not be checked.');
     }
@@ -460,10 +460,7 @@ $('linkForm').onsubmit=async event=>{
   finally{finishActivity('import');importId=null;$('openStream').disabled=false;$('cancelImport').hidden=true;}
 };
 $('cancelImport').onclick=async()=>{importCancelled=true;if(importId)await fetch('/api/import/'+importId,{method:'DELETE'}).catch(()=>{});finishActivity('import');linkStatus('Import cancelled. Paste another link whenever you’re ready.');};
-// A live link opens the platform's player-only page in its own window when there is one, so the
-// shared picture is just the video (no comments or sidebar) and framing uses the whole frame.
-// Embedded players refuse to play without a referrer, so that window keeps it (still noopener).
-let livePlayerPage='',liveSource=null,openedPlayer=null,sharedPlayer=null;
+let liveSource=null,openedPlayer=null,sharedPlayer=null;
 function focusLivePlayer(){
   if(!sharedPlayer||sharedPlayer.closed)return false;
   try{sharedPlayer.focus();return true}catch{return false}
@@ -473,13 +470,13 @@ function openLivePlayer(page){
   try{url=new URL(page)}catch{return}
   if(url.protocol!=='https:'||url.username||url.password)return;
   if(openedPlayer?.url===url.href&&!openedPlayer.window.closed){openedPlayer.window.focus();return openedPlayer.window}
-  const player=window.open('about:blank','_blank',livePlayerPage?'popup,width=1600,height=900':undefined);
+  const player=window.open('about:blank','_blank');
   if(!player)return;
   // Keep a reference for focus, while preventing the external player from accessing Context Desk.
   player.opener=null;
   const link=player.document.createElement('a');
   link.href=url.href;
-  if(!livePlayerPage)link.referrerPolicy='no-referrer';
+  link.referrerPolicy='no-referrer';
   player.document.body.append(link);
   link.click();
   openedPlayer={url:url.href,window:player};
@@ -490,7 +487,12 @@ const liveSessionName=()=>[liveSource?.channel,liveSource?.title].filter(Boolean
 function liveSessionTitle(){const name=liveSessionName();return name?name+' · Live '+new Date().toLocaleString(undefined,{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):''}
 // An open live session carries on only for the same stream; a link to a different channel or stream starts its own project.
 const continuesLiveSession=p=>Boolean(p&&!p.sourceId&&(!liveSessionName()||String(p.title||'').startsWith(liveSessionName()+' · Live ')));
-$('captureFallback').onclick=()=>{const page=livePlayerPage||sourcePageUrl;void connectLiveTab(false,page?openLivePlayer(page):null)};
+$('captureFallback').onclick=()=>{
+  const player=openLivePlayer(sourcePageUrl);
+  $('connectOpenedPlayer').hidden=false;
+  if(!player)linkStatus('Open the source in a regular browser tab, then choose Share player tab.');
+};
+$('connectOpenedPlayer').onclick=()=>connectLiveTab(false,openedPlayer?.url===sourcePageUrl?openedPlayer.window:null);
 $('screenButton').onclick=()=>connectLiveTab();
 async function connectLiveTab(reconnect=false,player=null){
   if(connectingLive||reconnect&&!canReconnectLive())return;
@@ -647,8 +649,7 @@ function drawStage(){
 // Live clipping from anywhere (guide, live bar): confirm the suggested framing (or use the whole
 // shared picture) and start; framing confirmation starts the scan itself through resumeAfterCrop.
 function startLiveClipping(){if(state.sourceType!=='screen'||!state.screenStream)return;if(state.scanning)return;
-  // Both need the click that started clipping, so they are asked for before anything is awaited.
-  if(!liveMonitor.isOpen())void liveMonitor.open();if(window.Notification?.permission==='default')void Notification.requestPermission().catch(()=>{});
+  if(window.Notification?.permission==='default')void Notification.requestPermission().catch(()=>{});
   if(state.cropPicking||!state.stageCrop){state.resumeAfterCrop=true;if(state.cropDraft)void applyLiveCrop();else $('fullFrame').click();return}void startScan()}
 function stopLiveClipping(){if(state.scanning)stopScan('Live clipping stopped. Clips found so far are saved; start again any time.')}
 async function startScan(){

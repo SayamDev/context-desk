@@ -36,7 +36,7 @@ test('tab sharing can be cancelled and reconnected without losing captured windo
     const resume=page.getByRole('button',{name:'Resume clipping',exact:true});
     const reconnect=page.getByRole('button',{name:'Reconnect live tab',exact:true});
     await pause.waitFor();
-    await page.getByRole('button',{name:'Find source player'}).click();
+    await page.getByRole('button',{name:'Find shared tab'}).click();
     const sourceHelp=page.getByRole('dialog',{name:'Use the original player'});
     await sourceHelp.getByText('View tab',{exact:true}).waitFor();
     await sourceHelp.getByRole('button',{name:'Got it'}).click();
@@ -65,5 +65,36 @@ test('tab sharing can be cancelled and reconnected without losing captured windo
       return windows.length===2&&windows.every(moment=>moment.blob?.assetId);
     },before.id);
     assert.deepEqual(errors,[]);
+  }finally{await browser.close();await app.stop()}
+});
+
+test('opening a live link gives the player its own tab before asking to share',async()=>{
+  const app=await startApp(),browser=await openBrowser();
+  try{
+    const context=await browser.newContext();
+    const page=await context.newPage();
+    const source='https://example.com/live';
+    await context.route(source,route=>route.fulfill({contentType:'text/html',body:'<button onclick="this.textContent=\'Playing\'">Play</button>'}));
+    await page.route('**/api/import',route=>route.fulfill({json:{id:'live-test',status:'needs-capture',title:'Live test',message:'Live source ready'}}));
+    await page.addInitScript(()=>{
+      window.shareRequests=0;
+      navigator.mediaDevices.getDisplayMedia=async()=>{
+        window.shareRequests++;
+        throw new DOMException('Cancelled','NotAllowedError');
+      };
+    });
+    await page.goto(app.url,{waitUntil:'networkidle'});
+    await page.locator('#streamUrl').fill(source);
+    await page.locator('#openStream').click();
+    const open=page.getByRole('button',{name:'Open source player',exact:true});
+    const popup=page.waitForEvent('popup');
+    await open.click();
+    const player=await popup;
+    await player.getByRole('button',{name:'Play',exact:true}).click();
+    await player.getByRole('button',{name:'Playing',exact:true}).waitFor();
+    assert.equal(await page.evaluate(()=>window.shareRequests),0);
+    await page.getByRole('button',{name:'Share player tab',exact:true}).click();
+    assert.equal(await page.evaluate(()=>window.shareRequests),1);
+    assert.equal(context.pages().length,2);
   }finally{await browser.close();await app.stop()}
 });
