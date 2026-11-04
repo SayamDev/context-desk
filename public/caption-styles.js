@@ -33,16 +33,19 @@ export const captionStyles={
 export const captionStyleIds=Object.keys(captionStyles);
 export const styleOf=id=>({chunk:0,active:'none',future:'show',past:'normal',enter:'none',stroke:0,shadow:0,size:1,...(captionStyles[id]||captionStyles.punch)});
 
-// Word timings: real ASR words when present, otherwise spread over the line by length
-// (marked estimated) so word-by-word styles work on every track, including translations.
+// Only matching speech timestamps can drive word animation. A translated or edited
+// line without matching word timings can still use the selected look for the whole cue.
+const timingToken=text=>String(text||'').normalize('NFKC').toLocaleLowerCase().replace(/[^\p{L}\p{N}\p{M}]/gu,'');
 export function wordTimes(cue,offset=0){
-  const real=(cue.words||[]).filter(w=>w&&String(w.text||'').trim()&&Number.isFinite(w.start)&&Number.isFinite(w.end));
-  const rows=String(cue.text||'').trim().split('\n'),text=rows.flatMap(row=>row.trim().split(/\s+/).filter(Boolean));
-  if(real.length&&real.length===text.length&&rows.length===1)return real.map((w,i)=>({text:text[i],start:Math.max(cue.start,w.start+offset),end:Math.min(cue.end,w.end+offset)}));
-  const weights=text.map(w=>w.length+2),total=weights.reduce((a,b)=>a+b,0)||1,span=cue.end-cue.start;let at=cue.start;
-  // Rows after the first start with br, so two-speaker subtitles keep one row per speaker.
-  const breaks=new Set();rows.reduce((n,row)=>{if(n)breaks.add(n);return n+row.trim().split(/\s+/).filter(Boolean).length},0);
-  return text.map((t,i)=>{const start=at;at+=span*weights[i]/total;return {text:t,start,end:at,estimated:true,...(breaks.has(i)?{br:true}:{})}});
+  const rows=String(cue.text||'').trim().split('\n');
+  const words=rows.flatMap((row,index)=>row.trim().split(/\s+/).filter(Boolean).map((text,i)=>({text,...(index&&i===0?{br:true}:{})})));
+  const real=cue.words||[];
+  const matched=rows.length===1&&words.length===real.length&&real.every((word,i)=>
+    word&&!word.estimated&&timingToken(word.text)&&timingToken(word.text)===timingToken(words[i].text)
+    &&Number.isFinite(word.start)&&Number.isFinite(word.end)&&word.end>word.start
+    &&(!i||word.start>=real[i-1].start));
+  if(!matched)return words.map(word=>({...word,start:cue.start,end:cue.end,estimated:true}));
+  return words.map((word,i)=>({...word,start:real[i].start+offset,end:real[i].end+offset}));
 }
 const display=(style,text)=>style.upper?text.toLocaleUpperCase():style.lower?text.toLocaleLowerCase():text;
 // Deterministic line breaking shared by both renderers (character budget, not pixels),
@@ -61,17 +64,26 @@ export function fitFont(words,{width,fontSize,style}){const longest=Math.max(...
 // preview can draw any frame by finding its segment.
 export function captionSegments(cue,styleId,{offset=0,keyword=''}={}){
   const style=styleOf(styleId),words=wordTimes(cue,offset).map(w=>({...w,text:display(style,w.text)}));if(!words.length)return [];
-  // Multi-row subtitles (two speakers) always show whole, so neither speaker's row is split up.
-  const rowsForced=words.some(w=>w.br);
-  const kw=display(style,keyword||'').trim(),chunks=[];const size=rowsForced?words.length:(style.chunk||words.length);
+  const timed=!words[0].estimated;
+  const kw=display(style,keyword||'').trim(),chunks=[];
+  const size=timed?(style.chunk||words.length):words.length;
   for(let i=0;i<words.length;i+=size)chunks.push(words.slice(i,i+size));
-  const perWord=style.active!=='none'||style.future!=='show'||style.past!=='normal',segments=[];
+  const perWord=timed&&(style.active!=='none'||style.future!=='show'||style.past!=='normal'),segments=[];
   chunks.forEach((chunk,c)=>{
-    const chunkStart=c?chunk[0].start:cue.start,chunkEnd=chunks[c+1]?chunks[c+1][0].start:cue.end;
-    const marks=perWord?chunk.map((w,i)=>i?w.start:chunkStart):[chunkStart];
-    marks.forEach((start,k)=>{const end=marks[k+1]??chunkEnd;if(end-start<.01)return;
-      segments.push({start,end,enter:k===0?style.enter:'none',last:k===marks.length-1&&c===chunks.length-1,
-        words:chunk.map((w,i)=>({text:w.text,...(w.br?{br:true}:{}),state:!perWord?'normal':i<k?'past':i===k?'active':'future',keyword:Boolean(kw)&&w.text.replace(/[^\p{L}\p{N}']/gu,'')===kw.replace(/[^\p{L}\p{N}']/gu,'')}))})});
+    const chunkStart=Math.max(cue.start,c?chunk[0].start:cue.start);
+    const chunkEnd=Math.min(cue.end,chunks[c+1]?.[0].start??cue.end);
+    if(chunkEnd<=chunkStart)return;
+    const boundaries=perWord?chunk.flatMap(word=>[word.start,word.end]).filter(time=>time>chunkStart&&time<chunkEnd):[];
+    const marks=[...new Set([chunkStart,...boundaries,chunkEnd])].sort((a,b)=>a-b);
+    for(let k=0;k<marks.length-1;k++){
+      const start=marks[k],end=marks[k+1];
+      const spokenAt=(start+end)/2;
+      const active=perWord?chunk.findLastIndex(word=>word.start<=spokenAt&&spokenAt<word.end):-1;
+      segments.push({start,end,enter:k===0?style.enter:'none',last:end===cue.end,
+        words:chunk.map((word,i)=>({text:word.text,...(word.br?{br:true}:{}),
+          state:!perWord?'normal':i===active?'active':word.start<=spokenAt?'past':'future',
+          keyword:Boolean(kw)&&timingToken(word.text)===timingToken(kw)}))});
+    }
   });
   return segments;
 }
