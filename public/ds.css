@@ -757,30 +757,22 @@ input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color])
 .title-card-status {margin:0;color:var(--warning);font-size:12.5px}
 @media (max-width:600px) {.title-card-fields {grid-template-columns:1fr}.title-card-actions .cd-btn {flex:1}}
 
-/* Chapters (chapters.js): a strip of stills, each a jump into the source recording */
+/* Chapter timecodes jump into the source recording. */
 .chapters-panel {margin:var(--space-6) 0;padding:var(--space-4) var(--space-4) var(--space-6);border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--surface)}
 .chapters-head {display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:var(--space-3);margin-bottom:var(--space-4)}
 .chapters-head h2 {margin:0;font:900 32px/.95 var(--font-display);letter-spacing:-.03em}
 .chapters-head p {margin:var(--space-2) 0 0;color:var(--muted);font-size:13px;max-width:62ch}
 .chapters-status:empty {display:none}
 .chapters-status {margin:0 0 var(--space-3);color:var(--cue);font-size:13px}
-.chapters-list {list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:var(--space-4)}
-.chapter button {display:grid;gap:var(--space-2);width:100%;padding:0;border:0;background:none;color:inherit;text-align:start;cursor:pointer;border-radius:var(--radius-md)}
-.chapter-thumb {position:relative;display:block;aspect-ratio:16/9;overflow:hidden;border-radius:var(--radius-md);background:var(--surface-3);outline:2px solid transparent;outline-offset:2px;transition:outline-color var(--dur-fast) var(--ease-out)}
-.chapter-thumb img {width:100%;height:100%;object-fit:cover;transition:transform var(--dur-base) var(--ease-out)}
-.chapter-thumb .cd-dur {position:absolute;left:var(--space-2);bottom:var(--space-2)}
-.chapter button:hover .chapter-thumb img {transform:scale(1.03)}
-.chapter.is-current .chapter-thumb {outline-color:var(--cue)}
+.chapters-list {list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--space-2)}
+.chapter button {display:grid;grid-template-columns:minmax(4.5rem,auto) minmax(0,1fr);align-items:start;width:100%;padding:var(--space-3);gap:var(--space-3);border:1px solid var(--line);background:none;color:inherit;text-align:start;cursor:pointer;border-radius:var(--radius-md)}
+.chapter button:hover,.chapter.is-current button{background:var(--surface-raised);border-color:var(--line-strong)}
+.chapter.is-current .chapter-time{color:var(--text)}
 .chapter.is-current .cd-dur {background:var(--cue);color:var(--cue-ink)}
 .chapter-body {display:grid;gap:var(--space-1)}
 .chapter-body b {font:800 16px/1.2 var(--font-display);letter-spacing:-.01em}
 .chapter-body span {color:var(--muted);font-size:13px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .chapter-body small {font:500 11px/14px var(--font-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
-.chapter.is-loading .chapter-thumb {animation:cd-chapter-pulse 1.4s ease-in-out infinite}
-.chapter.is-loading b, .chapter.is-loading i {display:block;height:14px;border-radius:var(--radius-xs);background:var(--surface-3)}
-.chapter.is-loading i {width:70%}
-@keyframes cd-chapter-pulse {50% {opacity:.55}}
-@media (prefers-reduced-motion:reduce) {.chapter-thumb img, .chapter-thumb {transition:none}.chapter.is-loading .chapter-thumb {animation:none}.chapter button:hover .chapter-thumb img {transform:none}}
 
 /* Ask the episode (ask.js): question, answer, then the moments that show it */
 .ask-panel {margin:var(--space-6) 0;padding:var(--space-6);border:1px solid var(--line);border-radius:var(--radius-lg);background:linear-gradient(180deg,var(--surface-raised),var(--surface) 140px)}
@@ -1053,3 +1045,7 @@ body[data-workspace=brand] :is(.setup-check,.desk,.project-bar,.source-summary,.
 }
 
 .home-panel .home-scroll-cue{position:static;transform:none;margin-block:var(--space-3);max-width:100%}
+
+body:not([data-workspace=clips]) :is(.chapters-panel,.ask-panel,.trailer-panel){display:none!important}
+.chapter-time{font-variant-numeric:tabular-nums;color:var(--cue);font-weight:700}
+.chapters-panel .chapter-body{padding:0;overflow-wrap:anywhere}

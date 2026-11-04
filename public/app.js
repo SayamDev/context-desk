@@ -73,7 +73,7 @@ function renderActivity(){renderBusy();renderStrip();const current=[...activitie
 setInterval(()=>{if(activities.size)renderActivity()},1000);
 let renderHookLab=()=>{},syncAccents=()=>{},syncCaptionVariant=()=>{},syncLinkDrop=()=>{};const clipSelection=new Set(),shownScores=new Set();let bulkBar=null,visibleClipIds=[],lastSelected=null,inspectedId=null;
 let titleCards=null,chaptersView=null,askView=null,clipFromRange=null,cultureView=null,trailerView=null,postKitView=null,writePostFor=null,dubView=null;
-let layout=null,homeView=null,discoveryTools=null,liveControls=null,liveBuffer=null,connectionsView=null,libraryView='list',startupNavigation=true;const entryWorkspace=workspaceFromHash(location.hash);let requestedWorkspace=entryWorkspace;
+let jobsView=null,layout=null,homeView=null,discoveryTools=null,liveControls=null,liveBuffer=null,connectionsView=null,libraryView='list',startupNavigation=true;const entryWorkspace=workspaceFromHash(location.hash);let requestedWorkspace=entryWorkspace;
 function showWorkspace(view){
   if(startupNavigation&&projectSession?.restoring)view=requestedWorkspace;
   if(view==='edit'&&!state.selected)view='home';
@@ -82,7 +82,7 @@ function showWorkspace(view){
   document.querySelectorAll('.workspace-nav button').forEach(button=>{if(button.dataset.workspace===view)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current')});
   const content={home:['Home','Start a recording or pick up a saved story.'],library:['Library','Your recordings, moments and edits.'],jobs:['Exports & activity','Processing progress and finished files.'],brand:['Brand Kit','Save a caption look once and use it across projects.'],source:['Start a new story.','Paste a link or upload a recording. Clips appear as processing finishes.'],clips:['Clips','Find a story worth sharing. Every suggestion links back to the source.'],edit:['Studio','Your footage. Your words. Your final cut.']}[view];
   $('workspaceTitle').textContent=content[0];$('workspaceDescription').textContent=content[1];
-  if(view!=='edit')clipVideo.pause();if(!['clips','source'].includes(view)&&state.sourceType==='file')program.pause();
+  if(view!=='edit')clipVideo.pause();if(view!=='jobs')jobsView?.closePreview();if(!['clips','source'].includes(view)&&state.sourceType==='file')program.pause();
   $('brandKitPage').hidden=view!=='brand';if(view==='library')void renderLibrary();projectSession?.changed();
 }
 function navigateWorkspace(view){requestedWorkspace=view;if(startupNavigation){showWorkspace(view);return}if(view==='edit'&&state.selected){if(document.body.dataset.workspace==='edit')return;return selectMoment(state.selected)}showWorkspace(view)}
@@ -1653,7 +1653,7 @@ function renderJobDock(job){
   const steps=el('ol','cd-steps');for(const [label,state] of [['Queued',queued?'active':'done'],[total?`${name[1]} ${done}/${total}`:name[1],queued?'':finishing?'done':'active'],[name[2],finishing?'active':'']])steps.append(el('li',state,label));
   box.replaceChildren(head,el('span','cd-label ds-job-pct',`${pct}%`),bar,steps);
 }
-const jobsView=createJobsView({panel:$('jobRows'),counts:$('jobCounts'),status:$('jobsStatus'),onPlay:video=>claimPlayback(video),onOpen:async id=>{await projectSession.open(id);showWorkspace('clips')},onJobs:async jobs=>{
+jobsView=createJobsView({panel:$('jobRows'),counts:$('jobCounts'),status:$('jobsStatus'),onPlay:video=>claimPlayback(video),onOpen:async id=>{await projectSession.open(id);showWorkspace('clips')},onJobs:async jobs=>{
   const runningCount=jobs.filter(j=>['queued','running'].includes(j.status)).length;$('navJobCount').textContent=runningCount;$('navJobCount').hidden=!runningCount;renderJobDock(jobs.find(j=>['running','queued'].includes(j.status)));
   const active=jobs.filter(j=>j.kind==='discovery'&&j.projectId===projectSession?.current?.id),running=active.find(j=>['queued','running'].includes(j.status));
   state.batchRunning=Boolean(running);if(!running)finishActivity('batch');$('batchButton').textContent=running?'View processing job ':`Find ${$('clipTarget').value} clips across video `;

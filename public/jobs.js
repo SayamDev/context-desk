@@ -13,7 +13,7 @@ function jobMarkup(j){
   else if(bundle&&j.output)open=`<a href="${escape(j.output.url)}" download="${escape(j.output.name||title+'.zip')}">Download ZIP (${j.exportCount} ${j.exportCount===1?'export':'exports'})</a>`;
   else if(creative&&j.output)open=`<a href="${escape(j.output.url)}" download="context-desk-${j.mode}.${j.output.type.split('/').at(-1)}">Download image</a>`;
   else if(discovery)open=`<button data-open="${j.projectId}">Open clips</button>${deep&&j.speechSectionsDone?`<a href="/api/discovery/${j.id}/transcript" download="context-desk-transcript.json">Download ${j.fullSourceTranscribed?'full':'partial'} transcript</a>`:''}`;
-  else if(j.cueCount)open=`<a href="/api/subtitles/${j.id}/srt">Download draft SRT</a>`;
+  else if(j.cueCount)open=`<a href="/api/subtitles/${j.id}/srt">Download draft SRT</a>${j.chapterCount?`<a href="/api/chapters/${j.id}/text" download="chapters.txt">Download chapters (.txt)</a>`:''}`;
   const target=exporting&&j.output?socialHandoff(j.destination):null;
   const handoff=target?`<details class="social-handoff-details"><summary>Upload to ${escape(target.label)}</summary><div class="social-handoff"><p>${escape(target.label)} export · ${j.captionLanguages?.length?'Subtitles: '+escape(j.captionLanguages.join(', ')):'Subtitles omitted'}. Download the video, then choose it in ${escape(target.label)}. Nothing has been posted.</p><a href="${target.upload}" target="_blank" rel="noopener noreferrer">Open ${escape(target.label)}</a><button data-share-file="${j.id}" ${typeof navigator!=='undefined'&&navigator.canShare&&navigator.share?'':'hidden'}>Share video file…</button><span data-share-status role="status"></span></div></details>`:'';
   const details=creative?`${j.requests||0} image request${j.requests===1?'':'s'} · ${escape(j.label||'AI-generated image · review before use')}`:deep?`${j.speechSectionsDone}/${j.speechSectionsTotal} source-audio sections · ${Math.round(j.coverageSeconds)}s transcribed · ${Math.round(j.unreviewedSeconds)}s not transcribed · ${j.checksDone}/${j.checksTotal} story checks · ${j.suggested} suggestions`:bundle?`${j.sectionsDone}/${j.sectionsTotal} files packaged · ${j.sectionsRemaining} remaining`:`${j.sectionsDone}/${j.sectionsTotal} ${exporting?'rendered clips':discovery?'picture samples':'sections'} · ${j.sectionsRemaining} remaining${discovery?' · '+j.checksDone+'/'+j.checksTotal+' story checks · '+j.suggested+' supported moments':''}`;
@@ -38,12 +38,19 @@ export function createJobsView({panel,counts,status,onJobs,onOpen,onPlay=()=>{}}
   bundleButton.onclick=async()=>{if(!selectedExports.size)return;bundleButton.disabled=true;try{await requestJson('/api/bundles',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({projectId:selectedExports.values().next().value,exportIds:[...selectedExports.keys()],includeSubtitles:true,name:'Context Desk clips'})});await refresh()}catch(error){status.textContent=error.message}finally{bundleButton.disabled=!selectedExports.size}};
   function render(data){
     jobs=data.jobs;counts.innerHTML=Object.entries(data.counts).map(([key,n])=>`<div><strong>${n}</strong><span>${escape(key)}</span></div>`).join('');
+    const ids=new Set(jobs.map(job=>job.id));
+    for(const row of panel.querySelectorAll('[data-job-row]')){
+      const id=row.dataset.jobRow;
+      if(ids.has(id))continue;
+      if(activePreview&&row.contains(activePreview))closePreview();
+      row.remove();rendered.delete(id);selectedExports.delete(id);
+    }
     // Keep completed rows mounted while another job reports progress. A poll
     // must never stop an export preview, close its controls or reset playback.
     for(const j of jobs.slice().reverse()){
       const signature=JSON.stringify(j);if(rendered.get(j.id)===signature)continue;
       const template=document.createElement('template');template.innerHTML=jobMarkup(j);const row=template.content.firstElementChild,current=panel.querySelector(`[data-job-row="${j.id}"]`);
-      const target=groups[jobGroup(j)].rows;if(current)current.replaceWith(row);if(row.parentElement!==target){
+      const target=groups[jobGroup(j)].rows;if(current){if(activePreview&&current.contains(activePreview))closePreview();current.replaceWith(row)}if(row.parentElement!==target){
         const following=jobs.filter(other=>other.createdAt<j.createdAt).sort((a,b)=>b.createdAt-a.createdAt).map(other=>target.querySelector(`[data-job-row="${other.id}"]`)).find(Boolean);
         target.insertBefore(row,following||null);
       }rendered.set(j.id,signature);const selected=panel.querySelector(`[data-bundle-export="${j.id}"]`);if(selected)selected.checked=selectedExports.has(j.id);
