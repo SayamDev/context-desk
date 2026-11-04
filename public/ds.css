@@ -1216,3 +1216,14 @@ body[data-workspace=clips]:not(.has-live-source) .monitor-panel > :is(.panel-hea
 body[data-workspace=clips]:not(.has-live-source) .monitor-panel:not(:has(#batchPanel:not([hidden]),#clipInspector:not([hidden]),#momentMap:not([hidden]))){display:none}
 body[data-workspace=full] :is(#clipInspector,#momentMap){display:none}
 .clip-play-action{align-self:flex-start}
+
+.clip-card-preview{width:min(700px,calc(100% - 28px));max-height:calc(100dvh - 28px);padding:16px;background:var(--surface);color:var(--text);border:1px solid var(--line-strong);border-radius:12px}
+.clip-card-preview::backdrop{background:var(--scrim)}
+.clip-card-preview header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:12px}
+.clip-card-preview h2{margin:0;overflow-wrap:anywhere}
+.clip-card-preview header p{margin:4px 0 0;color:var(--muted)}
+.clip-card-preview video{display:block;width:100%;aspect-ratio:16/9;max-height:52dvh;object-fit:contain;background:var(--canvas);border-radius:var(--control-radius)}
+.clip-card-controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px}
+.clip-card-controls input{flex:1;min-width:90px}
+.clip-card-controls output{font-variant-numeric:tabular-nums}
+.clip-card-preview [role=status]:empty{display:none}

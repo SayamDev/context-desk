@@ -357,7 +357,7 @@ const sourceUrls=new Set();
 const batchExportUrls=new Set();
 const deskTabId=crypto.randomUUID();
 const playbackChannel=typeof BroadcastChannel==='function'?new BroadcastChannel('context-desk-playback'):null;
-function claimPlayback(active=program){for(const player of [program,clipVideo,$('wholePreview')])if(player&&player!==active&&!player.paused)player.pause();playbackChannel?.postMessage({type:'active',tabId:deskTabId})}
+function claimPlayback(active=program){for(const player of [program,clipVideo,$('wholePreview'),$('clipCardVideo')])if(player&&player!==active&&!player.paused)player.pause();playbackChannel?.postMessage({type:'active',tabId:deskTabId})}
 playbackChannel?.addEventListener('message',event=>{if(event.data?.type!=='active'||event.data.tabId===deskTabId)return;if(state.scanning)stopScan('Another Context Desk tab started scanning, so this one paused.');if(state.sourceType==='file'&&!program.paused)program.pause();clipVideo.pause();$('wholePreview')?.pause()});
 const WINDOW_MS=24000;
 const formatTime=seconds=>{const s=Math.max(0,Math.floor(seconds||0));return (s>=3600?String(Math.floor(s/3600))+':':'')+`${String(Math.floor(s/60)%(s>=3600?60:3600)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`};
@@ -897,6 +897,81 @@ async function audioAsWav(blob){
   finally{if(ctx)await ctx.close();}
 }
 
+// One lightweight player serves every card, including clips backed by the same recording.
+function cardPreview(){
+  let dialog=$('clipCardPreview');
+  if(dialog)return dialog;
+  dialog=document.createElement('dialog');
+  dialog.id='clipCardPreview';
+  dialog.className='clip-card-preview';
+  dialog.setAttribute('aria-labelledby','clipCardPreviewTitle');
+  dialog.innerHTML=`<header><div><h2 id="clipCardPreviewTitle"></h2><p id="clipCardRange"></p></div><button type="button" id="clipCardClose">Close</button></header>
+    <video id="clipCardVideo" playsinline preload="metadata" aria-label="Clip preview"></video>
+    <div class="clip-card-controls"><button type="button" id="clipCardPlay">Play</button><button type="button" id="clipCardRestart">Restart</button><input id="clipCardSeek" type="range" min="0" step="0.1" value="0" aria-label="Seek within clip"><output id="clipCardTime"></output><button type="button" id="clipCardEdit">Edit in Studio</button></div>
+    <p id="clipCardStatus" role="status"></p>`;
+  document.body.append(dialog);
+  return dialog;
+}
+
+let cardPreviewRequest=0;
+async function openCardPreview(id,trigger){
+  const moment=state.moments.find(item=>item.id===id);
+  if(!moment?.url)return;
+  const dialog=cardPreview(),video=$('clipCardVideo');
+  const play=$('clipCardPlay'),restart=$('clipCardRestart'),seek=$('clipCardSeek'),status=$('clipCardStatus');
+  const start=mediaTime(moment,moment.trimIn||0);
+  let end=mediaTime(moment,moment.trimOut??moment.end-moment.start);
+  const request=++cardPreviewRequest;
+  const current=()=>request===cardPreviewRequest&&dialog.open;
+  const update=()=>{
+    const elapsed=Math.max(0,Math.min(video.currentTime-start,end-start));
+    seek.value=String(elapsed);
+    $('clipCardTime').textContent=formatTime(elapsed)+' / '+formatTime(end-start);
+  };
+  const tryPlay=async()=>{
+    try{await video.play();status.textContent=''}
+    catch{if(current())status.textContent='Press Play to start the clip.'}
+  };
+  $('clipCardPreviewTitle').textContent=moment.hook||'Clip at '+formatTime(moment.start);
+  $('clipCardRange').textContent='Source '+formatTime(moment.start+(moment.trimIn||0))+' to '+formatTime(moment.start+(moment.trimOut??moment.end-moment.start));
+  status.textContent='Loading clip…';
+  for(const control of [play,restart,seek])control.disabled=true;
+  play.textContent='Play';
+  seek.value='0';
+  $('clipCardTime').textContent='';
+  $('clipCardClose').onclick=()=>dialog.close();
+  $('clipCardEdit').onclick=()=>{dialog.close();void selectMoment(id)};
+  dialog.onclose=()=>{
+    if(request!==cardPreviewRequest)return;
+    cardPreviewRequest++;
+    video.pause();video.removeAttribute('src');video.load();
+    if(trigger.isConnected)trigger.focus();
+  };
+  video.ontimeupdate=()=>{
+    if(!current())return;
+    if(video.currentTime>=end){video.pause();if(video.currentTime>end+.05)video.currentTime=end}
+    update();
+  };
+  video.onplay=()=>{claimPlayback(video);play.textContent='Pause'};
+  video.onpause=()=>{play.textContent='Play'};
+  play.onclick=()=>{if(!video.paused)video.pause();else{if(video.currentTime>=end-.05)video.currentTime=start;void tryPlay()}};
+  restart.onclick=()=>{video.currentTime=start;void tryPlay()};
+  seek.oninput=()=>{video.currentTime=Math.min(end,start+Number(seek.value));update()};
+  if(!dialog.open)dialog.showModal();
+  video.src=moment.url;
+  try{
+    await mediaReady(video);
+    if(!current())return;
+    end=Math.min(end,video.duration||end);
+    if(end<=start)throw Error('This clip is outside the available recording.');
+    seek.max=String(end-start);
+    video.currentTime=start;
+    update();
+    for(const control of [play,restart,seek])control.disabled=false;
+    await tryPlay();
+  }catch(error){if(current())status.textContent=error.message}
+}
+
 function renderQueue(markDirty=true){
   renderMomentMap();if(markDirty)projectSession?.changed();$('navClipCount').textContent=usableMoments(state.moments).length;
   document.querySelector('.workspace-nav [data-workspace="edit"]').disabled=!state.selected;
@@ -918,7 +993,7 @@ function renderQueue(markDirty=true){
     <div class="cd-card-meta"><span class="cd-tc">${formatTime(m.start+(m.trimIn||0))} → ${formatTime(m.start+(m.trimOut??m.end-m.start))}</span><span>${escapeHtml((m.sourceName||state.sourceName||$('projectTitle')?.value||'').slice(0,24))}</span></div></div></article>`}).join(''):
     '<div class="queue-empty"><h3>'+(state.moments.length?'No matching windows':state.source?'Ready to find a story':'Add your first video')+'</h3><p>'+(state.moments.length?'Try another search or show all windows.':state.source?'Choose Find clips. You can play each result as soon as it appears.':'Choose Add video to load a recording or connect a live tab.')+'</p></div>';
   for(const m of moments){const slot=$('queue').querySelector(`[data-card-status="${m.id}"]`);if(!slot)continue;const [tone,text,dot]=clipStatus(m);slot.append(badge(tone,text,dot));const score=m.analysis?.rankingScore;if(Number.isFinite(score))slot.append(scoreMeter(score,{size:'sm',animate:!shownScores.has(m.id)}));shownScores.add(m.id);}
-  $('queue').querySelectorAll('[data-play-moment]').forEach(button=>button.onclick=event=>{event.stopPropagation();void selectMoment(button.dataset.playMoment,{autoplay:true})});
+  $('queue').querySelectorAll('[data-play-moment]').forEach(button=>button.onclick=event=>{event.stopPropagation();void openCardPreview(button.dataset.playMoment,button)});
   $('queue').querySelectorAll('[data-export-moment]').forEach(b=>b.onclick=event=>{event.stopPropagation();exportClip(b.dataset.exportMoment)});
   $('queue').querySelectorAll('[data-discard-moment]').forEach(b=>b.onclick=event=>{event.stopPropagation();discardClips([b.dataset.discardMoment])});
   $('queue').querySelectorAll('[data-review-source]').forEach(b=>b.onclick=event=>{event.stopPropagation();reviewSource(b.dataset.reviewSource)});
@@ -1061,14 +1136,14 @@ async function reviewSource(id){
 }
 
 let editorLoadId=0;
-async function selectMoment(id,{scroll=true,autoplay=false}={}){
+async function selectMoment(id,{scroll=true}={}){
   const m=state.moments.find(x=>x.id===id);if(!m)return;
   inheritCaptionTarget(m,projectCaptionTarget());queueCaptionTarget(m);
   $('exportFeedback').textContent='';
   $('exportSubtitleMode').value='current';
   const loadId=++editorLoadId;if(state.sourceType==='file'){if(state.scanning)stopScan('Playback scan paused while editing.');program.pause()}stopCutPreview();clipVideo.pause();state.selected=id;
   layout?.holdFrames(true);showWorkspace('edit');renderQueue();renderEditor();setActivity('preview','Loading clip preview','Opening the selected source window…');
-  try{await mediaReady(clipVideo);if(loadId!==editorLoadId)return;await seekPreview(mediaTime(m,m.trimIn));if(loadId!==editorLoadId)return;setPreviewSize();updatePreviewTime();if(autoplay){claimPlayback(clipVideo);await clipVideo.play()}}
+  try{await mediaReady(clipVideo);if(loadId!==editorLoadId)return;await seekPreview(mediaTime(m,m.trimIn));if(loadId!==editorLoadId)return;setPreviewSize();updatePreviewTime();}
   catch(error){$('editorStatus').textContent=error.message||'Preview failed. Select the clip again.';}
   finally{if(loadId===editorLoadId){finishActivity('preview');layout?.holdFrames(false);productionTools.auto()}}
   // Workspace navigation already positions the page before loading media.
