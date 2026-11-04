@@ -149,7 +149,7 @@ test('Home > Subtitles for the whole video opens the whole-video track instead o
   }finally{await app.stop();await fs.rm(dir,{recursive:true,force:true})}
 });
 
-test('keyboard and screen readers: skip link, one main region, monitor before the clip list, Arabic titles keep their direction',async()=>{
+test('keyboard and screen readers: skip link, one main region, recorded video is separate from clips, Arabic titles keep their direction',async()=>{
   const app=await startApp({env:{FFMPEG_PATH:ffmpeg}});
   try{
     const {page,problems}=await watchedPage(browser,app.url);
@@ -160,7 +160,7 @@ test('keyboard and screen readers: skip link, one main region, monitor before th
     assert.equal(await page.evaluate(()=>document.activeElement.id),'main');assert.equal(await page.evaluate(()=>location.hash),hash);
     await page.goto(app.url+'/#/discover');
     await page.waitForFunction(()=>document.body.dataset.workspace==='clips');
-    assert.equal(await page.evaluate(()=>Boolean(document.querySelector('.monitor-panel').compareDocumentPosition(document.querySelector('.queue-panel'))&Node.DOCUMENT_POSITION_FOLLOWING)),true);
+    assert.equal(await page.locator('#monitor').isVisible(),false);
     assert.equal(await page.evaluate(()=>getComputedStyle(document.getElementById('projectTitle')).unicodeBidi),'plaintext');
     assert.deepEqual(problems,[]);
   }finally{await app.stop()}

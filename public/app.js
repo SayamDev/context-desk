@@ -25,7 +25,7 @@ import {enhanceDestinations} from './destinations.js';
 import {mountLayout,icon,setButtonLabel} from './layout.js';
 import {clipState,visibleMoments,coverageSummary,sourcePosition,clampTrim,momentLanes} from './studio-ui.js';
 import {createHistory,splitEdits} from './history.js';
-import {languageBias,speechLanguages,dialectExamples} from './languages.js';
+import {languageBias,speechLanguages,dialectExamples,needsTranslation} from './languages.js';
 import {captionLanguages,captionVariants,romanizations,findVariant} from './locales.js';
 import {createMemoryView} from './story-memory.js';
 import {createJobsView} from './jobs.js';
@@ -59,7 +59,7 @@ function finishActivity(id){activities.delete(id);renderActivity()}
 // flash. It counts the seconds after 3 s so it never looks frozen, and offers Cancel where the work can
 // really stop. Long background work (link imports, finding clips, renders) never blocks: it shows in the
 // rail card and as a moving strip along the top of the app.
-const blockingActivities=new Set(['workspace','project-open','preview','source','connect','relink','share','frame','project-delete','export-save','whole-source']);let busyTimer=null;
+const blockingActivities=new Set(['workspace','project-open','source','connect','relink','share','frame','project-delete','export-save','whole-source']);let busyTimer=null;
 const uploadCancel=()=>state.sourceUploadAbort&&!state.sourceUploadAbort.signal.aborted?()=>state.sourceUploadAbort.abort():null;
 const activityCancel={source:uploadCancel,'whole-source':uploadCancel,frame:()=>()=>{state.autoFrameJob++;finishActivity('frame');updateButtons();message('Automatic framing stopped. Draw around the video, or choose Use full frame.')}};
 function busyOverlay(){let o=$('busyOverlay');if(!o){o=document.createElement('div');o.id='busyOverlay';o.className='busy-overlay';o.hidden=true;o.setAttribute('role','status');o.setAttribute('aria-live','polite');o.innerHTML='<div class="busy-card"><div class="busy-loader" aria-hidden="true"></div><strong></strong><p></p><span class="busy-elapsed cd-tc"></span><button type="button" class="cd-btn cd-btn-sm cd-btn-ghost busy-cancel" hidden>Cancel</button></div>';document.body.append(o)}return o}
@@ -127,7 +127,7 @@ function showWorkspace(view){
   document.querySelectorAll('.workspace-nav button').forEach(button=>{if(button.dataset.workspace===view)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current')});
   const content={home:['Home','Start a recording or pick up a saved story.'],library:['Library','Your recordings, moments and edits.'],jobs:['Activity','Processing and finished work across projects.'],exports:['Exports','Watch, download or publish finished videos. Find subtitle files and chapter timestamps here too.'],full:['Full video','Watch the recording, review subtitles and jump to chapters.'],brand:['Brand Kit','Save a caption look once and use it across projects.'],source:['Start a new story.','Paste a link or upload a recording. Clips appear as processing finishes.'],clips:['Clips','Find a story worth sharing. Every suggestion links back to the source.'],edit:['Studio','Your footage. Your words. Your final cut.']}[view];
   $('workspaceTitle').textContent=content[0];$('workspaceDescription').textContent=content[1];
-  if(view!=='edit')clipVideo.pause();if(!['jobs','exports'].includes(view))jobsView?.closePreview();if(view!=='full')$('wholePreview').pause();if(!['clips','full','source'].includes(view)&&state.sourceType==='file')program.pause();
+  if(view!=='edit')clipVideo.pause();if(!['jobs','exports'].includes(view))jobsView?.closePreview();if(view!=='full')$('wholePreview').pause();if(!['full','source'].includes(view)&&state.sourceType==='file'&&!state.scanning)program.pause();
   $('brandKitPage').hidden=view!=='brand';if(view==='brand')brandControls.open();if(view==='library')void renderLibrary();syncProjectNavigation(view);workspaceHelp?.syncGuide();if(view==='full'){ $('wholeSubtitleDetails').open=true;renderWholeSubtitles();if(wholeJob)void pollWholeJob();}projectSession?.changed();
 }
 function navigateWorkspace(view){requestedWorkspace=view;if(startupNavigation){showWorkspace(view);return}if(view==='edit'&&state.selected){if(document.body.dataset.workspace==='edit')return;return selectMoment(state.selected)}showWorkspace(view)}
@@ -380,7 +380,7 @@ function updateSourceQuality(){
   $('sourceQuality').textContent=`Source ${width} × ${height}${fps?' · '+Math.round(fps)+' FPS':''} · ${audio}${height<1080?' · 1080p export will upscale this picture':''}`;
   $('sourceQuality').hidden=false;
 }
-function updateButtons(){ renderWholeSubtitles();program.hidden=!state.source;if(!state.source){$('emptySource').querySelector('strong').textContent=state.moments.length?'Your recorded windows are saved.':'One source. All the possibilities.';$('emptySource').querySelector('p').textContent=state.moments.length?'Open a window below to review and edit its saved video and audio.':'Paste a video link above. We’ll prepare it and start looking for clips.';} $('sourceSummary').hidden=!state.source;$('sourceSummary').textContent=state.source?'Source · '+state.sourceName:''; $('fullFrame').disabled=state.sourceType!=='screen'; document.body.classList.toggle('is-scanning',state.scanning);document.body.classList.toggle('has-source',Boolean(state.source));$('scanButton').disabled=!state.source||(state.sourceType==='screen'&&!state.stageCrop); $('disconnectButton').disabled=!state.source; $('markButton').disabled=!state.scanning; $('autoCrop').disabled=state.sourceType!=='screen'; $('pickCrop').disabled=state.sourceType!=='screen'; $('applyCrop').disabled=!state.cropDraft; $('resetCrop').disabled=state.sourceType!=='screen'; $('scanButton').innerHTML=state.scanning?'Stop scan <b></b>':state.sourceType==='file'?'Scan as it plays <b></b>':'Start scan <b></b>'; $('liveIndicator').textContent=state.scanning?'Monitoring':state.sourceType==='screen'?'Live feed':state.source?'Recording':'No source'; $('liveIndicator').classList.toggle('on',state.scanning); }
+function updateButtons(){ renderWholeSubtitles();program.hidden=!state.source;if(!state.source){$('emptySource').querySelector('strong').textContent=state.moments.length?'Your recorded windows are saved.':'One source. All the possibilities.';$('emptySource').querySelector('p').textContent=state.moments.length?'Open a window below to review and edit its saved video and audio.':'Paste a video link above. We’ll prepare it and start looking for clips.';} $('sourceSummary').hidden=!state.source;$('sourceSummary').textContent=state.source?'Source · '+state.sourceName:''; $('fullFrame').disabled=state.sourceType!=='screen'; document.body.classList.toggle('is-scanning',state.scanning);document.body.classList.toggle('has-source',Boolean(state.source));document.body.classList.toggle('has-live-source',state.sourceType==='screen');$('scanButton').disabled=!state.source||(state.sourceType==='screen'&&!state.stageCrop); $('disconnectButton').disabled=!state.source; $('markButton').disabled=!state.scanning; $('autoCrop').disabled=state.sourceType!=='screen'; $('pickCrop').disabled=state.sourceType!=='screen'; $('applyCrop').disabled=!state.cropDraft; $('resetCrop').disabled=state.sourceType!=='screen'; $('scanButton').innerHTML=state.scanning?'Stop scan <b></b>':state.sourceType==='file'?'Scan as it plays <b></b>':'Start scan <b></b>'; $('liveIndicator').textContent=state.scanning?'Monitoring':state.sourceType==='screen'?'Live feed':state.source?'Recording':'No source'; $('liveIndicator').classList.toggle('on',state.scanning); }
 // Shown when the server runs older code than the files on disk (or is too old to say): newer
 // app files would call endpoints it lacks, so saves are refused and kept as a recovery copy.
 function showServerStale(stale){let banner=$('serverStale');if(!stale){banner?.remove();return}if(banner)return;banner=Object.assign(document.createElement('div'),{id:'serverStale',className:'server-stale',role:'alert'});banner.append(Object.assign(document.createElement('strong'),{textContent:'Restart Context Desk to finish updating. '}),document.createTextNode('The local server is running older code. Stop it in its terminal (Ctrl+C) and start it again with npm run dev (or npm start). Until then, saving is paused and your edits are kept as a recovery copy in the Library.'));document.body.prepend(banner)}
@@ -825,9 +825,17 @@ async function reuseWholeTrack(m,language){
   catch{return false}
 }
 async function translateMoment(m,language,{force=false,confirmed=false}={}){
-  if(language!=='Original'&&!force&&await reuseWholeTrack(m,language))return;
-  if(language==='Original'||!m.captionCues.Original.length)return;
+  if(language==='Original'||!m.captionCues?.Original?.length)return;
   if(m.captionCues[language]?.length&&!force){m.showCaptions=true;if(state.selected===m.id&&m.captionLanguage===language)renderEditor();return}
+  if(!force&&!needsTranslation(language,m.detectedLanguage)){
+    m.captionCues[language]=structuredClone(m.captionCues.Original);
+    m.translationSource='Original speech';
+    if(m.captionLanguage===language)m.showCaptions=true;
+    projectSession?.changed();
+    if(state.selected===m.id)renderEditor();
+    return;
+  }
+  if(!force&&await reuseWholeTrack(m,language))return;
   const lines=m.captionCues.Original.length;if(lines>300&&!confirmed&&!confirm(`Translating ${lines} lines takes about ${Math.ceil(lines/25)} translation requests.${m.captionCues[language]?.length?' Your current subtitles stay until it finishes.':''} Continue?`)){if(state.selected===m.id)renderEditor();return}
   if(m.translationPending?.has(language)&&!force)return;
   const owner=projectSession?.current?.id,original=JSON.stringify(m.captionCues.Original),previous=JSON.stringify(m.captionCues[language]);
@@ -899,16 +907,18 @@ function renderQueue(markDirty=true){
   $('momentResultCount').textContent=moments.length+' of '+state.moments.length+' windows';
   const selectable=new Set(state.moments.map(m=>m.id));for(const id of clipSelection)if(!selectable.has(id))clipSelection.delete(id);
   $('queue').classList.add('cd-grid');$('queue').style.setProperty('--thumb-ratio',{portrait:'9 / 16',square:'1 / 1',fourfive:'4 / 5',landscape:'16 / 9'}[state.aspect]||'9 / 16');renderClipChips();$('queue').classList.toggle('has-selection',clipSelection.size>0);
-  $('queue').innerHTML=moments.length?moments.map(m=>{const chosen=clipSelection.has(m.id),reading=m.status==='analysing',canWatch=state.sourceType==='file'&&m.blob?.importId===state.source?.importId;return `<article class="cd-card moment ${m.id===state.selected?'active':''} ${chosen?'is-selected':''} ${reading?'is-scanning':''}" data-card="${m.id}" tabindex="0" aria-label="${escapeHtml(m.hook||'Source window at '+formatTime(m.start))}">
+  $('queue').innerHTML=moments.length?moments.map(m=>{const chosen=clipSelection.has(m.id),reading=m.status==='analysing';return `<article class="cd-card moment ${m.id===state.selected?'active':''} ${chosen?'is-selected':''} ${reading?'is-scanning':''}" data-card="${m.id}" tabindex="0" aria-label="${escapeHtml(m.hook||'Source window at '+formatTime(m.start))}">
     <div class="cd-thumb">${clipThumb(m)?`<img src="${escapeHtml(clipThumb(m))}" alt="Source frame at ${formatTime(m.start)}" loading="lazy">`:'<div class="cd-thumb-fill"></div>'}
     <div class="cd-thumb-top"><button type="button" class="cd-check" data-select-moment="${m.id}" role="checkbox" aria-checked="${chosen}" aria-label="Select this clip"></button><span class="cd-dur">${formatTime((m.trimOut??m.end-m.start)-(m.trimIn||0))}</span></div>
     ${reading?'':`<div class="cd-quick"><button type="button" class="cd-btn cd-btn-sm cd-btn-primary" data-export-moment="${m.id}">Export<kbd class="cd-kbd">E</kbd></button><button type="button" class="cd-btn cd-btn-sm cd-btn-secondary" data-discard-moment="${m.id}" aria-label="Discard clip">✕</button></div>`}</div>
     <div class="cd-card-body"><div class="cd-card-meta" data-card-status="${m.id}"></div>
     <h3 class="cd-card-title">${escapeHtml(m.hook||({'analysing':'Reading this moment…','interrupted':'Analysis interrupted','not-selected':'No strong beat found',error:'Analysis needs attention'}[m.status]||'Review this window'))}</h3>
+    ${!reading&&m.url?`<button type="button" class="cd-btn cd-btn-sm cd-btn-secondary clip-play-action" data-play-moment="${m.id}">Play clip</button>`:''}
     <p class="cd-card-why">${escapeHtml(m.analysis?.rankingReason||m.analysis?.reason||m.error||'Watch the original window and decide whether it deserves a clip.')}</p>
     <div class="cd-card-meta"><span class="cd-tc">${formatTime(m.start+(m.trimIn||0))} → ${formatTime(m.start+(m.trimOut??m.end-m.start))}</span><span>${escapeHtml((m.sourceName||state.sourceName||$('projectTitle')?.value||'').slice(0,24))}</span></div></div></article>`}).join(''):
-    '<div class="queue-empty"><h3>'+(state.moments.length?'No matching windows':state.source?'Ready to find a story':'Add your first video')+'</h3><p>'+(state.moments.length?'Try another search or show all windows.':state.source?'Choose Find clips below the video. Source-linked results will appear here.':'Choose Add video to load a recording or connect a live tab.')+'</p></div>';
+    '<div class="queue-empty"><h3>'+(state.moments.length?'No matching windows':state.source?'Ready to find a story':'Add your first video')+'</h3><p>'+(state.moments.length?'Try another search or show all windows.':state.source?'Choose Find clips. You can play each result as soon as it appears.':'Choose Add video to load a recording or connect a live tab.')+'</p></div>';
   for(const m of moments){const slot=$('queue').querySelector(`[data-card-status="${m.id}"]`);if(!slot)continue;const [tone,text,dot]=clipStatus(m);slot.append(badge(tone,text,dot));const score=m.analysis?.rankingScore;if(Number.isFinite(score))slot.append(scoreMeter(score,{size:'sm',animate:!shownScores.has(m.id)}));shownScores.add(m.id);}
+  $('queue').querySelectorAll('[data-play-moment]').forEach(button=>button.onclick=event=>{event.stopPropagation();void selectMoment(button.dataset.playMoment,{autoplay:true})});
   $('queue').querySelectorAll('[data-export-moment]').forEach(b=>b.onclick=event=>{event.stopPropagation();exportClip(b.dataset.exportMoment)});
   $('queue').querySelectorAll('[data-discard-moment]').forEach(b=>b.onclick=event=>{event.stopPropagation();discardClips([b.dataset.discardMoment])});
   $('queue').querySelectorAll('[data-review-source]').forEach(b=>b.onclick=event=>{event.stopPropagation();reviewSource(b.dataset.reviewSource)});
@@ -1047,18 +1057,18 @@ document.addEventListener('keydown',event=>{if(event.key.toLowerCase()==='a'&&!c
 async function reviewSource(id){
   const m=state.moments.find(m=>m.id===id),position=sourcePosition(m,program.duration);
   if(position===null||state.sourceType!=='file'||m.blob.importId!==state.source?.importId){message('This live window has its own recording. Open Edit clip to review it.');return;}
-  showWorkspace('clips');clipVideo.pause();claimPlayback(program);program.muted=false;program.currentTime=position;program.focus();try{await program.play();$('mapReadout').textContent='Playing original context at '+formatTime(position)}catch{$('mapReadout').textContent='Source at '+formatTime(position)+' · press Play in the player'};
+  showWorkspace('full');clipVideo.pause();claimPlayback(program);program.muted=false;program.currentTime=position;program.focus();try{await program.play();$('mapReadout').textContent='Playing original context at '+formatTime(position)}catch{$('mapReadout').textContent='Source at '+formatTime(position)+' · press Play in the player'};
 }
 
 let editorLoadId=0;
-async function selectMoment(id,{scroll=true}={}){
+async function selectMoment(id,{scroll=true,autoplay=false}={}){
   const m=state.moments.find(x=>x.id===id);if(!m)return;
   inheritCaptionTarget(m,projectCaptionTarget());queueCaptionTarget(m);
   $('exportFeedback').textContent='';
   $('exportSubtitleMode').value='current';
   const loadId=++editorLoadId;if(state.sourceType==='file'){if(state.scanning)stopScan('Playback scan paused while editing.');program.pause()}stopCutPreview();clipVideo.pause();state.selected=id;
   layout?.holdFrames(true);showWorkspace('edit');renderQueue();renderEditor();setActivity('preview','Loading clip preview','Opening the selected source window…');
-  try{await mediaReady(clipVideo);if(loadId!==editorLoadId)return;await seekPreview(mediaTime(m,m.trimIn));if(loadId!==editorLoadId)return;setPreviewSize();updatePreviewTime();}
+  try{await mediaReady(clipVideo);if(loadId!==editorLoadId)return;await seekPreview(mediaTime(m,m.trimIn));if(loadId!==editorLoadId)return;setPreviewSize();updatePreviewTime();if(autoplay){claimPlayback(clipVideo);await clipVideo.play()}}
   catch(error){$('editorStatus').textContent=error.message||'Preview failed. Select the clip again.';}
   finally{if(loadId===editorLoadId){finishActivity('preview');layout?.holdFrames(false);productionTools.auto()}}
   // Workspace navigation already positions the page before loading media.
@@ -1750,14 +1760,28 @@ workspaceHelp=mountWorkspaceHelp({navigate:view=>navigateWorkspace(view),openJob
   navigateWorkspace(view);
   if(view!=='clips'){const row=$('jobRows').querySelector('[data-job-row="'+CSS.escape(job.id)+'"]');if(row){row.tabIndex=-1;row.focus()}}
 }});
+let syncedDiscovery='';
 jobsView=createJobsView({panel:$('jobRows'),counts:$('jobCounts'),status:$('jobsStatus'),onPublish:async job=>{allExports=false;if(projectSession.current?.id!==job.projectId)await projectSession.open(job.projectId);showWorkspace('exports');await connectionsView.open(job)},onPlay:video=>claimPlayback(video),onOpen:async id=>{await projectSession.open(id);showWorkspace('clips')},onJobs:async jobs=>{
   workspaceHelp.update(jobs);
   const runningCount=jobs.filter(j=>['queued','running'].includes(j.status)).length;$('navJobCount').textContent=runningCount;$('navJobCount').hidden=!runningCount;renderJobDock(jobs.find(j=>['running','queued'].includes(j.status)));
   const active=jobs.filter(j=>j.kind==='discovery'&&j.projectId===projectSession?.current?.id),running=active.find(j=>['queued','running'].includes(j.status));
   state.batchRunning=Boolean(running);if(!running)finishActivity('batch');$('batchButton').textContent=running?'View processing job ':`Find ${$('clipTarget').value} clips across video `;
   if(!active.length||projectSession?.restoring)return;
-  const p=await requestJson('/api/projects/'+projectSession.current.id);if(p.id!==projectSession.current?.id)return;
-  const known=new Set(state.moments.map(m=>m.id)),fresh=p.state.moments.filter(m=>!known.has(m.id));if(fresh.length){for(const m of fresh)inheritCaptionTarget(m,projectCaptionTarget());state.moments.push(...fresh);for(const m of fresh)queueCaptionTarget(m);state.moments.sort((a,b)=>b.start-a.start);state.windowCount=state.moments.length;renderQueue();renderBatchResults();projectSession.changed()}
+  const signature=JSON.stringify(active.map(job=>[job.id,job.checksDone]));
+  if(signature!==syncedDiscovery&&active.some(job=>job.checksDone)){
+    const p=await requestJson('/api/projects/'+projectSession.current.id);
+    if(p.id!==projectSession.current?.id||projectSession.restoring)return;
+    syncedDiscovery=signature;
+    const known=new Set(state.moments.map(m=>m.id));
+    const fresh=p.state.moments.filter(m=>!known.has(m.id));
+    if(fresh.length){
+      for(const moment of fresh)inheritCaptionTarget(moment,projectCaptionTarget());
+      state.moments.push(...fresh);
+      state.moments.sort((a,b)=>b.start-a.start);
+      state.windowCount=state.moments.length;
+      renderQueue(false);renderBatchResults();
+    }
+  }
   const used=active.reduce((n,j)=>n+j.storyRequests,0);state.aiCalls=Math.max(state.aiCalls,used);updateBudgetUi();
   const last=active.at(-1);if(last)batchProgress(`${last.phase} · ${last.checksDone}/${last.checksTotal} story checks · ${last.suggested} supported moments. ${last.error||''}`);
 }});

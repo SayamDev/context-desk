@@ -1208,3 +1208,11 @@ body[data-workspace=exports] #jobsPanel .library-heading button.cd-btn-secondary
 .export-subtitle-options{display:grid;gap:6px;padding:12px 0;border-top:1px solid var(--line)}
 .export-subtitle-options label{display:grid;gap:6px}
 .export-subtitle-options p{margin:0;color:var(--muted);font-size:13px}
+
+/* Recordings have their own player in Full video. Clips keeps a live feed when connected. */
+.clips-full-video{display:none}
+body[data-workspace=clips].has-source:not(.has-live-source) .clips-full-video{display:inline-flex;margin:0 12px 12px}
+body[data-workspace=clips]:not(.has-live-source) .monitor-panel > :is(.panel-heading,.monitor){display:none}
+body[data-workspace=clips]:not(.has-live-source) .monitor-panel:not(:has(#batchPanel:not([hidden]),#clipInspector:not([hidden]),#momentMap:not([hidden]))){display:none}
+body[data-workspace=full] :is(#clipInspector,#momentMap){display:none}
+.clip-play-action{align-self:flex-start}

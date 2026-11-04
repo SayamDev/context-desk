@@ -56,7 +56,10 @@ export function mountLayout({navigate,onFilter,onView,onTrim,onSource}){
   const jumpClips=element('button','monitor-jump','Jump to clips');
   jumpClips.type='button';
   monitor.querySelector('.panel-heading').append(jumpClips);
-  jumpClips.onclick=()=>{queue.tabIndex=-1;queue.focus({preventScroll:true});queue.scrollIntoView({block:'start'})};queue.querySelector('.panel-heading>span').textContent='Story discovery';
+  jumpClips.onclick=()=>{queue.tabIndex=-1;queue.focus({preventScroll:true});queue.scrollIntoView({block:'start'})};
+  const fullVideo=element('button','clips-full-video','Open full video');
+  fullVideo.type='button';fullVideo.onclick=()=>navigate('full');
+  queue.insertBefore(fullVideo,$('queue'));queue.querySelector('.panel-heading>span').textContent='Story discovery';
   one('.queue-intro').replaceChildren();
   const filter=element('div','moment-filters','<label class="sr-only" for="momentSearch">Search retained moments</label><input id="momentSearch" type="search" placeholder="Search dialogue or evidence…"><label for="momentFilter">Show<select id="momentFilter"><option value="supported">Clip suggestions</option><option value="all">All saved windows</option><option value="attention">Needs attention</option></select></label><span id="momentResultCount" role="status"></span>');
   queue.insertBefore(filter,$('queue'));$('momentSearch').oninput=onFilter;$('momentFilter').onchange=onFilter;
@@ -115,10 +118,12 @@ export function mountLayout({navigate,onFilter,onView,onTrim,onSource}){
   return {
     holdFrames(held){framesHeld=held;if(!held)loadFrames()},
     syncWorkspace(view){setup.open=view==='source';
-      // On Clips the list sits left of the monitor; put it first in the page too, so keyboard and
-      // screen-reader order match what is seen. Only the list moves: moving the monitor's video would pause it.
-      const desk=one('.desk'),queue=one('.queue-panel'),monitor=one('.monitor-panel');
-      if(desk&&queue&&monitor&&queue.parentElement===desk&&monitor.parentElement===desk){if(view==='clips')desk.insertBefore(monitor,queue);else monitor.after(queue)}},
+      // Move the list only. Reparenting the active video can interrupt playback.
+      const desk=one('.desk');
+      if(desk&&queue.parentElement===desk&&monitor.parentElement===desk){
+        if(view==='clips'&&!document.body.classList.contains('has-live-source'))desk.insertBefore(queue,monitor);
+        else if(monitor.nextElementSibling!==queue)monitor.after(queue);
+      }},
     inspector,
     setLibraryView(view){$('libraryRows').dataset.view=view;for(const [id,value] of [['libraryGrid','grid'],['libraryList','list']])$(id).setAttribute('aria-pressed',String(value===view));},
     syncPlayhead(moment,time){if(!moment)return;const duration=Math.max(.1,moment.end-moment.start);$('timelinePlayhead').style.left=Math.max(0,Math.min(100,time/duration*100))+'%';},
