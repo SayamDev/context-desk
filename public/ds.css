@@ -1273,3 +1273,14 @@ body[data-workspace=brand] .pagehead{max-width:74rem}
 .home-project-copy .home-view-clips,.home-session-info .home-view-clips{min-height:44px;padding:6px 10px;white-space:normal}
 .home-project-image .home-project-duration,.home-session-image .home-project-duration{max-width:calc(100% - 12px);white-space:normal;text-align:end;font-size:12px}
 .home-session-image .home-project-duration{position:absolute;right:6px;bottom:6px}
+
+.live-player-help{position:fixed;inset:auto 12px 84px;margin-inline:auto;width:min(390px,calc(100% - 24px));padding:16px;background:var(--surface);color:var(--text);border:1px solid var(--line-strong);border-radius:12px}
+.live-player-help h2{margin:0 0 8px;font-size:18px}
+.live-player-help p{margin:0 0 12px}
+@media(max-width:720px){
+ .live-bar{width:max-content;max-width:calc(100% - 20px);flex-wrap:wrap;justify-content:center;gap:4px 8px;border-radius:12px;bottom:108px}
+ .live-bar-text{flex:1 1 calc(100% - 32px)}
+ .live-bar-text strong,.live-bar-text span{white-space:normal}
+ .live-player-help{bottom:205px}
+ body.has-live-bar .main{padding-bottom:220px}
+}

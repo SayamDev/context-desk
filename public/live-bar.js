@@ -7,11 +7,17 @@ const clockText=s=>{const t=Math.max(0,Math.floor(s)),h=Math.floor(t/3600),m=Str
 export function mountLiveBar({getState,start,stop,open,every,monitor,onClip}){
   const bar=document.createElement('div');bar.className='live-bar';bar.hidden=true;bar.setAttribute('role','region');bar.setAttribute('aria-label','Live clipping');
   bar.innerHTML=`<span class="live-bar-dot" aria-hidden="true"></span><div class="live-bar-text"><strong id="liveBarTitle"></strong><span id="liveBarDetail" class="cd-tc"></span></div>
-    <button type="button" class="cd-btn cd-btn-sm cd-btn-ghost" id="liveBarMonitor" aria-pressed="false">Watch</button><button type="button" class="cd-btn cd-btn-sm cd-btn-ghost" id="liveBarSound" hidden>Mute</button><button type="button" class="cd-btn cd-btn-sm cd-btn-ghost" id="liveBarOpen">Clips</button><button type="button" class="cd-btn cd-btn-sm" id="liveBarToggle"></button>`;
-  document.body.append(bar);
+    <button type="button" class="cd-btn cd-btn-sm cd-btn-ghost" id="liveBarMonitor" aria-pressed="false">Watch</button><button type="button" class="cd-btn cd-btn-sm cd-btn-ghost" id="liveBarSound" hidden>Mute</button><button type="button" class="cd-btn cd-btn-sm cd-btn-ghost" id="liveBarOpen">Clips</button><button type="button" class="cd-btn cd-btn-sm cd-btn-ghost" popovertarget="livePlayerHelp">Skip button help</button><button type="button" class="cd-btn cd-btn-sm" id="liveBarToggle"></button>`;
+  const help=document.createElement('section');
+  help.id='livePlayerHelp';
+  help.className='live-player-help';
+  help.setAttribute('popover','auto');
+  help.setAttribute('aria-labelledby','livePlayerHelpTitle');
+  help.innerHTML=`<h2 id="livePlayerHelpTitle">Use the original player</h2><p>Switch to the browser tab or window you shared. If YouTube, Kick or Twitch shows a Skip button, click it there, then return here. Keep tab sharing connected.</p><button type="button" class="cd-btn cd-btn-secondary" popovertarget="livePlayerHelp" popovertargetaction="hide">Got it</button>`;
+  document.body.append(bar,help);
   const $=id=>bar.querySelector('#'+id);let shown='',seen=null;
   function render(){
-    const s=getState();bar.hidden=!s.connected;document.body.classList.toggle('has-live-bar',s.connected);if(!s.connected){if(monitor?.isOpen())monitor.close();seen=null;return}
+    const s=getState();bar.hidden=!s.connected;document.body.classList.toggle('has-live-bar',s.connected);if(!s.connected){if(help.matches(':popover-open'))help.hidePopover();if(monitor?.isOpen())monitor.close();seen=null;return}
     bar.dataset.state=s.scanning?'on':s.framing?'framing':'off';
     $('liveBarTitle').textContent=s.scanning?'Live clipping':s.framing?'Check the framing, then start':'Live tab connected · not clipping';
     $('liveBarDetail').textContent=`${clockText(s.elapsed)} · ${s.windows} ${s.windows===1?'window':'windows'} · ${s.clips} ${s.clips===1?'clip':'clips'}`;
