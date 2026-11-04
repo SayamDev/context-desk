@@ -1268,3 +1268,8 @@ body[data-workspace=brand] .pagehead{max-width:74rem}
 .studio-frame-summary #trackClip{margin-inline-start:auto}
 .studio-frame-summary #trackingStatus{flex-basis:100%;margin:0;color:var(--muted);font-size:13px}
 .studio-frame-summary #trackingStatus:empty{display:none}
+
+.home-project-copy h3{font-size:16px;line-height:1.35;margin:8px 0;overflow-wrap:anywhere}
+.home-project-copy .home-view-clips,.home-session-info .home-view-clips{min-height:44px;padding:6px 10px;white-space:normal}
+.home-project-image .home-project-duration,.home-session-image .home-project-duration{max-width:calc(100% - 12px);white-space:normal;text-align:end;font-size:12px}
+.home-session-image .home-project-duration{position:absolute;right:6px;bottom:6px}
