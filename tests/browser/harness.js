@@ -29,8 +29,10 @@ export async function openBrowser(){
 }
 
 // A page that records everything that would mean the app is broken for a user.
-export async function watchedPage(browser,url,{viewport={width:1440,height:900}}={}){
+// The first-visit intro is marked as seen unless a test asks for a new visitor (intro: true).
+export async function watchedPage(browser,url,{viewport={width:1440,height:900},intro=false}={}){
   const page=await browser.newPage({viewport}),problems=[];
+  if(!intro)await page.addInitScript(()=>{try{localStorage.setItem('context-desk-welcomed','1')}catch{/* Storage blocked: the intro shows. */}});
   page.on('pageerror',e=>problems.push('page error: '+e.message));
   page.on('console',m=>{if(m.type()==='error')problems.push('console error: '+m.text())});
   page.on('response',r=>{if(r.url().startsWith(url)&&r.status()>=400)problems.push(`HTTP ${r.status()} ${r.url().slice(url.length)}`)});

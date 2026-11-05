@@ -6,6 +6,7 @@ test('tab sharing can be cancelled and reconnected without losing captured windo
   const app=await startApp(),browser=await openBrowser();
   try{
     const page=await browser.newPage();
+    await page.addInitScript(()=>{try{localStorage.setItem('context-desk-welcomed','1')}catch{}});
     const errors=[];
     page.on('pageerror',error=>errors.push(error.message));
     await page.addInitScript(()=>{
@@ -73,6 +74,7 @@ test('opening a live link gives the player its own tab before asking to share',a
   try{
     const context=await browser.newContext();
     const page=await context.newPage();
+    await page.addInitScript(()=>{try{localStorage.setItem('context-desk-welcomed','1')}catch{}});
     const source='https://example.com/live';
     await context.route(source,route=>route.fulfill({contentType:'text/html',body:'<button onclick="this.textContent=\'Playing\'">Play</button>'}));
     await page.route('**/api/import',route=>route.fulfill({json:{id:'live-test',status:'needs-capture',title:'Live test',message:'Live source ready'}}));

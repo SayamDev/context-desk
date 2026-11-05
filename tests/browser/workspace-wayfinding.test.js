@@ -31,3 +31,20 @@ test('Home guide, global Exports and background notifications remain reachable o
     assert.deepEqual(problems,[]);
   }finally{await browser.close();await app.stop()}
 });
+
+test('A new visitor gets the intro once; Take the tour opens it again',async()=>{
+  const app=await startApp(),browser=await openBrowser();
+  try{
+    const {page,problems}=await watchedPage(browser,app.url,{intro:true});
+    await page.locator('dialog.welcome[open]').waitFor();
+    for(let i=0;i<2;i++)await page.locator('dialog.welcome [data-welcome=next]').click();
+    assert.equal(await page.locator('dialog.welcome [data-start]').count(),3);
+    await page.locator('dialog.welcome [data-welcome=next]').click();
+    assert.equal(await page.locator('dialog.welcome').evaluate(d=>d.open),false);
+    await page.reload({waitUntil:'networkidle'});await page.waitForTimeout(800);
+    assert.equal(await page.locator('dialog.welcome').evaluate(d=>d.open),false,'closed once, not shown again');
+    assert.equal(await page.locator('.home-features-band .cd-feature').count(),6);
+    await page.locator('[data-open-tour]').click();await page.locator('dialog.welcome[open]').waitFor();
+    assert.deepEqual(problems,[]);
+  }finally{await browser.close();await app.stop()}
+});
