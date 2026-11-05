@@ -491,7 +491,7 @@ $('linkForm').onsubmit=async event=>{
     while(!importCancelled){
       linkStatus(job.message);setActivity('import',job.status==='downloading'?'Preparing the recording':'Checking your video',job.message);
       if(job.status==='ready'){
-        finishActivity('import');linkStatus('Video ready. Your clip scan is starting.');await loadImportedVideo(job,url.href);break;
+        finishActivity('import');linkStatus(pendingIntent==='translate'?'Video ready. Subtitling the whole video now.':'Video ready. Your clip scan is starting.');await loadImportedVideo(job,url.href);break;
       }
       if(job.status==='needs-capture'){liveSource={channel:job.channel||'',title:String(job.title||'').replace(/\s+\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}$/,'')};linkStatus(job.message);$('captureFallback').hidden=false;break;}
       if(job.status==='error'||job.status==='cancelled')throw Error(job.message);
