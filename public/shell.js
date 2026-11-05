@@ -2,7 +2,9 @@
 // top bar (compact link drop, command search) and the Discover grid header.
 // Moves existing controls once; their handlers stay in app.js and layout.js.
 import {el,kbd,enhanceSegmented} from './ds.js';
-const mark='<svg class="brand-symbol" viewBox="0 0 28 28" aria-hidden="true" focusable="false"><path d="M3 3h9v7H3zM16 3h9v7h-9zM3 14h9v11H3zM16 14h9v11h-9z" fill="#ff5a1f"/><path d="m9 8 12 6-12 6z" fill="#0b0b0d"/></svg>';
+// The four frames in the brand colours (as in the animated loader) and a play mark that is light on the
+// dark theme and dark on daylight (--logo-play), so the logo reads on both backgrounds.
+const mark='<svg class="brand-symbol" viewBox="0 0 28 28" aria-hidden="true" focusable="false"><rect x="3" y="3" width="9" height="7" rx="1.5" fill="#ff5a1f"/><rect x="16" y="3" width="9" height="7" rx="1.5" fill="#c9f23b"/><rect x="16" y="14" width="9" height="11" rx="1.5" fill="#59d0f5"/><rect x="3" y="14" width="9" height="11" rx="1.5" fill="#ff7a47"/><path d="m9.5 8.5 11 5.5-11 5.5z" fill="var(--logo-play,#f3f1ec)" stroke="var(--canvas,#0b0b0d)" stroke-width="1.6" stroke-linejoin="round"/></svg>';
 
 export function mountShell({openPalette}){
   const $=id=>document.getElementById(id),one=s=>document.querySelector(s);
