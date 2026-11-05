@@ -45,6 +45,7 @@ import {mountLoader} from './loader.js';
 import {clock as bgClock} from './clock.js';
 import {mountLiveBar} from './live-bar.js';
 import {createLiveMonitor} from './live-monitor.js';
+import {createWelcome} from './welcome.js';
 import {mountCultureNotes,activeNote,drawCultureNote} from './culture-notes.js';
 import {captionTarget,inheritCaptionTarget,commitCaptionTranslation,translationQueue,outputLanguages,projectTrack} from './caption-policy.js';
 import {socialPresets,socialExportIssue,lengthAdvice,crossPostTargets,hashtagCount,hashtagLimit,draftPostCaption,composePostCaption} from './social.js';
@@ -2081,5 +2082,11 @@ async function restoreWorkspace(){
   }
 }
 
-void restoreWorkspace();
+// First-visit intro (welcome.js); "Take the tour" on Home opens it again.
+const welcome=createWelcome({
+  onLink:()=>{showWorkspace('home');$('streamUrl')?.focus()},
+  onUpload:()=>$('fileInput').click(),
+  onLive:()=>{showWorkspace('home');$('streamUrl')?.focus();toast('Paste the live stream link and choose Make clips. Context Desk opens its player and asks you to share that tab.',{timeout:9000})}});
+document.addEventListener('click',event=>{if(event.target.closest('[data-open-tour]'))welcome.open()});
+void restoreWorkspace().then(async()=>{try{const {projects}=await requestJson('/api/projects');welcome.maybeShow(projects.length>0)}catch{/* The intro is optional. */}});
 const connectionReady=status();updateButtons();updateBudgetUi();updateSpeechSummary();renderCut();setPreviewSize();drawPreview();

@@ -1294,3 +1294,68 @@ body[data-workspace=brand] .pagehead{max-width:74rem}
 
 /* Keep the initial workspace markup off screen until the requested view is restored. */
 body[data-restoring] > :not(#busyOverlay) {visibility:hidden}
+/* Form controls, one look everywhere: no browser-default fill or arrow, one border, and focus shown as
+   the brand glow on the field itself instead of a second dark ring around it. */
+select:not([multiple]) {-webkit-appearance:none;appearance:none;background-color:var(--surface-raised);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%238b8893' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;background-size:11px 8px;padding:0 36px 0 12px;border:1px solid var(--line-strong);border-radius:var(--radius-sm);color:var(--text);font:500 14px/1.2 var(--font-body);cursor:pointer;transition:border-color var(--dur-fast) var(--ease-out),box-shadow var(--dur-fast) var(--ease-out)}
+:where(select:not([multiple])):not([size]) {min-height:40px}
+:where(select, input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]), textarea):hover:not(:disabled):not(:focus) {border-color:var(--muted)}
+:is(select, textarea, input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file])):focus-visible {outline:none;border-color:var(--accent);box-shadow:var(--shadow-signal)}
+select:disabled {opacity:.55;cursor:not-allowed}
+select option {background:var(--surface);color:var(--text)}
+:where(input[type=checkbox], input[type=radio]) {accent-color:var(--accent);width:18px;height:18px;cursor:pointer}
+:is(input[type=checkbox], input[type=radio]):focus-visible {outline:2px solid var(--accent);outline-offset:2px}
+:where(input[type=range]) {accent-color:var(--accent)}
+/* Small selects inside caption lines keep their compact size. */
+.caption-line-meta select {min-height:0;padding:0 22px 0 6px;background-position:right 6px center;background-size:9px 6px}
+/* The top link box is styled on its frame, so the field itself shows no glow. */
+.ds-topdrop .cd-input:focus-visible, .cd-drop-compact .cd-input:focus-visible {box-shadow:none}
+.cd-drop-compact:focus-within {border-color:var(--accent);box-shadow:var(--shadow-signal)}
+.destinations-label select {min-height:0;padding:0}
+/* Feature tiles: Home's band and the intro share them (welcome.js) */
+.cd-features {list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-3)}
+.cd-feature {display:grid;gap:6px;align-content:start;padding:var(--space-4);border:1px solid var(--line);border-radius:var(--radius-md);background:var(--surface);transition:border-color var(--dur-fast) var(--ease-out),transform var(--dur-fast) var(--ease-out)}
+.cd-feature:hover {border-color:var(--line-strong);transform:translateY(-2px)}
+.cd-feature strong {font:800 16px/1.25 var(--font-display);letter-spacing:-.01em;color:var(--text)}
+.cd-feature > span:last-child {font-size:13px;line-height:1.5;color:var(--muted)}
+.cd-feature-icon {display:grid;place-items:center;width:36px;height:36px;margin-bottom:6px;border-radius:10px;background:rgba(255,90,31,.12);color:var(--accent-text)}
+.cd-feature:nth-child(3n+2) .cd-feature-icon {background:rgba(89,208,245,.12);color:var(--cue-text)}
+.cd-feature:nth-child(3n+3) .cd-feature-icon {background:rgba(201,242,59,.12);color:var(--success-text)}
+.cd-feature-icon svg {width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.home-features-band {margin:var(--space-8) 0 var(--space-6)}
+.home-features-band h2 {margin:0 0 var(--space-4);font:800 28px/1.1 var(--font-display);letter-spacing:-.02em}
+.home-guide-links {display:flex;flex-wrap:wrap;gap:var(--space-2) var(--space-6)}
+/* First-visit intro */
+.welcome {width:min(720px,calc(100vw - 32px));max-height:calc(100dvh - 32px);padding:0;border:1px solid var(--line-strong);border-radius:20px;background:var(--surface);color:var(--text);box-shadow:var(--shadow-pop);overflow:auto}
+.welcome::backdrop {background:var(--scrim);backdrop-filter:blur(6px)}
+.welcome[open] {animation:cd-pop var(--dur-base) var(--ease-out) both}
+.welcome-close {position:absolute;top:14px;right:14px;display:grid;place-items:center;width:36px;height:36px;padding:0;border:1px solid var(--line);border-radius:var(--radius-pill);background:var(--surface-raised);color:var(--text);cursor:pointer}
+.welcome-close svg {width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+.welcome-step {display:grid;gap:var(--space-3);padding:40px 40px 8px}
+.welcome-mark {width:72px;height:72px}
+.welcome-kicker {margin:0;font:600 12px/1 var(--font-mono,ui-monospace,monospace);letter-spacing:.08em;text-transform:uppercase;color:var(--accent-text)}
+.welcome h2 {margin:0;font:900 clamp(28px,4.6vw,40px)/1.04 var(--font-display);letter-spacing:-.03em;outline:none}
+.welcome-lead {margin:0;max-width:56ch;font-size:16px;line-height:1.55;color:var(--muted)}
+.welcome-flow {list-style:none;margin:var(--space-3) 0 0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-3)}
+.welcome-flow li {display:grid;gap:8px;padding:var(--space-4);border-radius:var(--radius-md);background:var(--surface-raised);font-size:14px;font-weight:600;line-height:1.35}
+.welcome-flow b {display:grid;place-items:center;width:28px;height:28px;border-radius:var(--radius-pill);background:var(--accent);color:var(--accent-ink);font:800 13px/1 var(--font-body)}
+.welcome-features {grid-template-columns:repeat(2,minmax(0,1fr))}
+.welcome-features .cd-feature {padding:var(--space-3) var(--space-4);background:var(--surface-raised)}
+.welcome-start {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-3)}
+.welcome-choice {display:grid;gap:6px;justify-items:start;text-align:start;padding:var(--space-4);border:1px solid var(--line-strong);border-radius:var(--radius-md);background:var(--surface-raised);color:var(--text);cursor:pointer;transition:border-color var(--dur-fast) var(--ease-out),box-shadow var(--dur-fast) var(--ease-out)}
+.welcome-choice:hover {border-color:var(--accent);box-shadow:var(--shadow-signal)}
+.welcome-choice svg {width:24px;height:24px;margin-bottom:6px;fill:none;stroke:var(--accent-text);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.welcome-choice strong {font:800 16px/1.2 var(--font-display)}
+.welcome-choice span {font-size:13px;line-height:1.4;color:var(--muted)}
+.welcome-note {margin:var(--space-2) 0 0;font-size:12px;color:var(--muted)}
+.welcome-nav {display:flex;align-items:center;gap:var(--space-2);padding:var(--space-6) 40px 32px}
+.welcome-dots {display:flex;gap:6px;margin-right:auto}
+.welcome-dots i {width:8px;height:8px;border-radius:var(--radius-pill);background:var(--line-strong);transition:width var(--dur-base) var(--ease-out),background var(--dur-base)}
+.welcome-dots i.is-on {width:24px;background:var(--accent)}
+.welcome-nav .cd-btn[hidden] {display:none}
+@media (max-width:900px) {.cd-features {grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:600px) {
+  .cd-features, .welcome-features, .welcome-flow, .welcome-start {grid-template-columns:1fr}
+  .welcome-step {padding:28px 20px 4px}.welcome-nav {padding:var(--space-4) 20px 20px}
+  .home-features-band h2 {font-size:24px}
+}
+@media (prefers-reduced-motion:reduce) {.welcome[open], .cd-feature {animation:none;transition:none}.cd-feature:hover {transform:none}}
